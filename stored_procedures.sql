@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION InsertStop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee integer, _datasource integer)
+CREATE OR REPLACE FUNCTION InsertStop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer)
     RETURNS void AS $$
     DECLARE
         _stop_id integer;

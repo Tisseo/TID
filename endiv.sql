@@ -668,8 +668,8 @@ ALTER SEQUENCE grid_link_calendar_mask_type_id_seq OWNED BY grid_link_calendar_m
 
 CREATE TABLE grid_mask_type (
     id integer NOT NULL,
-    calendar_type character varying(25),
-    calendar_period character varying(25)
+    calendar_type character varying(50),
+    calendar_period character varying(100)
 );
 
 
