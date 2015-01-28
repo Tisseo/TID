@@ -23,10 +23,6 @@ COMMENT ON EXTENSION plpgsql IS 'PL/pgSQL procedural language';
 CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
 
 
--- Users
-CREATE USER endiv_owner WITH PASSWORD 'endiv_owner';
-CREATE USER endiv_reader WITH PASSWORD 'endiv_reader';
-
 --
 -- TOC entry 3517 (class 0 OID 0)
 -- Dependencies: 275
