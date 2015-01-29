@@ -126,14 +126,30 @@ CREATE OR REPLACE FUNCTION InsertRouteStopAndStopTime(_rcode character varying, 
     END;
     $$ LANGUAGE 'plpgsql';
 
-CREATE OR REPLACE FUNCTION InsertPoi(_name  character varying, _city_id integer, _adress character varying, _x character varying, _y character varying, _type character varying, _datasource integer, _is_velo boolean)
+CREATE OR REPLACE FUNCTION CreateAdressType() 
+    RETURNS VOID AS $$
+    DECLARE
+        _type_exists INTEGER;
+    BEGIN
+        SELECT INTO _type_exists (SELECT 1 FROM pg_type WHERE typname = 'adress');
+        IF _type_exists IS NULL THEN
+            CREATE TYPE adress AS (
+                adress character varying,
+                the_geom character varying,
+                is_entrance boolean
+            );
+        END IF;
+    END;
+    $$ LANGUAGE 'plpgsql';
+
+CREATE OR REPLACE FUNCTION InsertPoi(_name varchar, _city_id integer, _type varchar, _priority integer, _datasource integer, _is_velo boolean, adresses adress[])
     RETURNS VOID AS $$
     DECLARE
         _type_id integer;
         _poi_id integer;
         _real_geom geometry(Point, 3943);
+        _adress adress;
     BEGIN
-        _real_geom := ST_Transform(ST_GeomFromText(_the_geom, 4326), 3943);
         IF _is_velo THEN
             _type_id := _type::integer;
         ELSE
@@ -142,9 +158,13 @@ CREATE OR REPLACE FUNCTION InsertPoi(_name  character varying, _city_id integer,
                 INSERT INTO poi_type(name) VALUES(_type) RETURNING id INTO _type_id;
             END IF;
         END IF;
-        INSERT INTO poi(name, city_id, poi_type_id) VALUES (_name, _city_id, _type_id) RETURNING id INTO _poi_id;
+        INSERT INTO poi(name, city_id, poi_type_id, priority) VALUES (_name, _city_id, _type_id, _priority) RETURNING id INTO _poi_id;
         INSERT INTO poi_datasource(poi_id, code, datasource_id) VALUES (_poi_id, '', _datasource);
-        INSERT INTO poi_adress(poi_id, adress, is_entrance, the_geom) VALUES (_poi_id, _adress, False, _the_geom);
+        FOREACH _adress IN ARRAY adresses
+        LOOP
+            _real_geom := ST_GeomFromText(_adress.the_geom, 3943);
+            INSERT INTO poi_adress(poi_id, adress, is_entrance, the_geom) VALUES (_poi_id, _adress.adress, _adress.is_entrance, _real_geom);
+        END LOOP;
     END;
     $$ LANGUAGE 'plpgsql';
 
