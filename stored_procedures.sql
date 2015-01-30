@@ -142,6 +142,8 @@ CREATE OR REPLACE FUNCTION CreateAdressType()
     END;
     $$ LANGUAGE 'plpgsql';
 
+SELECT CreateAdressType();
+
 CREATE OR REPLACE FUNCTION InsertPoi(_name varchar, _city_id integer, _type varchar, _priority integer, _datasource integer, _is_velo boolean, adresses adress[])
     RETURNS VOID AS $$
     DECLARE

@@ -123,19 +123,68 @@ INSERT INTO datasource (id, name, agency_id) VALUES (4, 'TIGRE', 1);
 -- Dependencies: 204
 -- Data for Name: grid_mask_type; Type: TABLE DATA; Schema: public; Owner: postgres
 --
+INSERT INTO grid_mask_type (id, name, color, calendar_type, calendar_period) VALUES (1, 'Lundi au vendredi', 'BASE');
+INSERT INTO grid_mask_type (id, name, color, calendar_type, calendar_period) VALUES (2, 'Lundi au samedi', 'BASE');
+INSERT INTO grid_mask_type (id, name, color, calendar_type, calendar_period) VALUES (3, 'Samedi', 'BASE');
+INSERT INTO grid_mask_type (id, name, color, calendar_type, calendar_period) VALUES (4, 'Dimanche', 'BASE');
+INSERT INTO grid_mask_type (id, name, color, calendar_type, calendar_period) VALUES (5, 'Lundi au vendredi', 'Vacances');
+INSERT INTO grid_mask_type (id, name, color, calendar_type, calendar_period) VALUES (6, 'Lundi au dimanche', 'BASE');
+INSERT INTO grid_mask_type (id, name, color, calendar_type, calendar_period) VALUES (7, 'Lundi au dimanche', 'Vacances');
+INSERT INTO grid_mask_type (id, name, color, calendar_type, calendar_period) VALUES (8, 'Lundi au vendredi', 'Vacances Ligne 63');
+INSERT INTO grid_mask_type (id, name, color, calendar_type, calendar_period) VALUES (9, 'Dimanche', 'dimanche Renfort noel');
+INSERT INTO grid_mask_type (id, name, color, calendar_type, calendar_period) VALUES (10, 'Dimanche et jours fériés', 'Jours Fériés');
 
-INSERT INTO grid_mask_type (id, name, color, calendar_type, calendar_period) VALUES (3, 'Samedi', 'bleu', 'Samedi', 'BASE');
-INSERT INTO grid_mask_type (id, name, color, calendar_type, calendar_period) VALUES (1, 'Lundi au vendredi', 'jaune', 'Semaine', 'BASE');
-INSERT INTO grid_mask_type (id, name, color, calendar_type, calendar_period) VALUES (4, 'Dimanche', 'bleu', 'Dimanche', 'BASE');
-INSERT INTO grid_mask_type (id, name, color, calendar_type, calendar_period) VALUES (5, 'Lundi au vendredi', 'vert', 'Semaine', 'Vacances');
-INSERT INTO grid_mask_type (id, name, color, calendar_type, calendar_period) VALUES (2, 'Lundi au samedi', '', 'Lun-Sam', 'BASE');
-INSERT INTO grid_mask_type (id, name, color, calendar_type, calendar_period) VALUES (6, 'Lundi au dimanche', '', '7-jours', 'BASE');
-INSERT INTO grid_mask_type (id, name, color, calendar_type, calendar_period) VALUES (7, 'Lundi au dimanche', '', '7-jours', 'Vacances');
-INSERT INTO grid_mask_type (id, name, color, calendar_type, calendar_period) VALUES (8, 'Lundi au vendredi', '', 'Semaine', 'Vacances Ligne 63');
-INSERT INTO grid_mask_type (id, name, color, calendar_type, calendar_period) VALUES (9, 'Dimanche', '', 'Dimanche', 'dimanche Renfort noel');
-INSERT INTO grid_mask_type (id, name, color, calendar_type, calendar_period) VALUES (10, 'Dimanche et jours fériés', '', 'Dimanche', 'Jours Fériés');
+INSERT INTO grid_calendar(id, line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (1,97,'Lundi à vendredi','true','true','true','true','true','false','false');
+INSERT INTO grid_calendar(id, line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (2,97,'Samedi','false','false','false','false','false','true','false');
+INSERT INTO grid_calendar(id, line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (3,97,'Lundi à vendredi en vacances scolaires','true','true','true','true','true','false','false');
+INSERT INTO grid_calendar(id, line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (4,36,'Lundi à vendredi','true','true','true','true','true','false','false');
+INSERT INTO grid_calendar(id, line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (5,36,'Samedi','false','false','false','false','false','true','false');
+INSERT INTO grid_calendar(id, line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (6,36,'Lundi à vendredi en vacances scolaires','true','true','true','true','true','false','false');
+INSERT INTO grid_calendar(id, line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (7,36,'Dimanche et jours fériés','false','false','false','false','false','false','true');
+INSERT INTO grid_calendar(id, line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (8,86,'Lundi à vendredi','true','true','true','true','true','false','false');
+INSERT INTO grid_calendar(id, line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (9,86,'Samedi','false','false','false','false','false','true','false');
+INSERT INTO grid_calendar(id, line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (10,86,'Lundi à vendredi en vacances scolaires','true','true','true','true','true','false','false');
+INSERT INTO grid_calendar(id, line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (11,86,'Dimanche et jours fériés','false','false','false','false','false','false','true');
+INSERT INTO grid_calendar(id, line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (12,91,'Lundi à dimanche','true','true','true','true','true','true','true');
+INSERT INTO grid_calendar(id, line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (13,34,'Lundi à vendredi','true','true','true','true','true','false','false');
+INSERT INTO grid_calendar(id, line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (14,34,'Samedi','false','false','false','false','false','true','false');
+INSERT INTO grid_calendar(id, line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (15,34,'Dimanche et jours fériés','false','false','false','false','false','false','true');
+INSERT INTO grid_calendar(id, line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (16,34,'Lundi à vendredi en vacances scolaires','true','true','true','true','true','false','false');
 
-
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (1,2,3,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (2,5,3,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (3,9,3,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (4,1,1,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (5,4,1,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (6,8,1,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (7,1,8,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (8,4,8,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (9,8,8,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (10,3,5,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (11,6,5,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (12,10,5,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (13,12,6,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (14,12,7,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (15,7,4,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (16,11,4,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (17,7,9,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (18,11,9,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (19,7,10,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (20,11,10,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (21,12,1,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (22,12,2,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (23,12,3,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (24,12,4,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (25,12,5,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (26,12,8,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (27,12,9,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (28,12,10,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (29,13,1,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (30,14,3,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (31,15,4,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (32,15,9,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (33,15,10,'true');
+INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (34,16,5,'true');
 --
 -- TOC entry 3512 (class 0 OID 76954)
 -- Dependencies: 219
