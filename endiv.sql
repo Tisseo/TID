@@ -1,5 +1,20 @@
 --
--- TOC entry 274 (class 3079 OID 11691)
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 9.1.14
+-- Dumped by pg_dump version 9.3.1
+-- Started on 2015-02-02 09:45:10
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SET check_function_bodies = false;
+SET client_min_messages = warning;
+
+--
+-- TOC entry 273 (class 3079 OID 11691)
 -- Name: plpgsql; Type: EXTENSION; Schema: -; Owner: 
 --
 
@@ -7,8 +22,8 @@ CREATE EXTENSION IF NOT EXISTS plpgsql WITH SCHEMA pg_catalog;
 
 
 --
--- TOC entry 3516 (class 0 OID 0)
--- Dependencies: 274
+-- TOC entry 3546 (class 0 OID 0)
+-- Dependencies: 273
 -- Name: EXTENSION plpgsql; Type: COMMENT; Schema: -; Owner: 
 --
 
@@ -16,7 +31,7 @@ COMMENT ON EXTENSION plpgsql IS 'PL/pgSQL procedural language';
 
 
 --
--- TOC entry 275 (class 3079 OID 83269)
+-- TOC entry 274 (class 3079 OID 166869)
 -- Name: postgis; Type: EXTENSION; Schema: -; Owner: 
 --
 
@@ -24,8 +39,8 @@ CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
 
 
 --
--- TOC entry 3517 (class 0 OID 0)
--- Dependencies: 275
+-- TOC entry 3547 (class 0 OID 0)
+-- Dependencies: 274
 -- Name: EXTENSION postgis; Type: COMMENT; Schema: -; Owner: 
 --
 
@@ -34,13 +49,370 @@ COMMENT ON EXTENSION postgis IS 'PostGIS geometry, geography, and raster spatial
 
 SET search_path = public, pg_catalog;
 
+--
+-- TOC entry 1790 (class 1247 OID 168801)
+-- Name: adress; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE adress AS (
+	adress character varying,
+	the_geom character varying,
+	is_entrance boolean
+);
+
+
+ALTER TYPE public.adress OWNER TO postgres;
+
+--
+-- TOC entry 1188 (class 1255 OID 168788)
+-- Name: cleanimport(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION cleanimport() RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    BEGIN
+        DELETE FROM route_datasource;
+        DELETE FROM trip_datasource;
+        DELETE FROM stop_time;
+        DELETE FROM route_stop;
+        DELETE FROM calendar_datasource;
+        DELETE FROM calendar_link;
+        DELETE FROM calendar_element;
+        DELETE FROM calendar;
+        DELETE FROM trip;
+        DELETE FROM trip_calendar;
+        DELETE FROM route;
+        DELETE FROM stop_datasource;
+        DELETE FROM stop_history;
+        DELETE FROM route_section;
+        DELETE FROM stop;
+        DELETE FROM waypoint;
+        DELETE FROM stop_area_datasource;
+        DELETE FROM stop_area;
+        INSERT INTO calendar(name, calendar_type) VALUES('Dimanche', 0);
+    END;
+    $$;
+
+
+ALTER FUNCTION public.cleanimport() OWNER TO postgres;
+
+--
+-- TOC entry 1183 (class 1255 OID 168787)
+-- Name: cleanpoi(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION cleanpoi() RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    BEGIN
+        DELETE FROM poi_datasource;
+        DELETE FROM poi_adress;
+        DELETE FROM poi;
+        DELETE FROM poi_type;
+    END;
+    $$;
+
+
+ALTER FUNCTION public.cleanpoi() OWNER TO postgres;
+
+--
+-- TOC entry 1191 (class 1255 OID 168784)
+-- Name: createadresstype(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION createadresstype() RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        _type_exists INTEGER;
+    BEGIN
+        SELECT INTO _type_exists (SELECT 1 FROM pg_type WHERE typname = 'adress');
+        IF _type_exists IS NULL THEN
+            CREATE TYPE adress AS (
+                adress character varying,
+                the_geom character varying,
+                is_entrance boolean
+            );
+        END IF;
+    END;
+    $$;
+
+
+ALTER FUNCTION public.createadresstype() OWNER TO postgres;
+
+--
+-- TOC entry 1190 (class 1255 OID 168782)
+-- Name: insertcalendar(character varying, character varying, integer, character varying, date, integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        _route_id integer;
+        _trip_id integer;
+        _calendar_id integer;
+        _day_calendar_id integer;
+    BEGIN
+        SELECT R.id INTO _route_id FROM route R JOIN route_datasource RD ON RD.route_id = R.id WHERE R.line_version_id = _lvid AND RD.code = _rcode;
+        IF _route_id IS NULL THEN
+            RAISE EXCEPTION 'route not found with code %s and line_version_id %s', _rcode, _lvid;
+        ELSE
+            SELECT T.id INTO _trip_id FROM trip T JOIN trip_datasource TD ON TD.trip_id = T.id WHERE TD.code = _tcode AND T.route_id = _route_id;
+            IF _trip_id IS NULL THEN
+                RAISE EXCEPTION 'trip not found with code %s and route_id %s', _tcode, _route_id;
+            END IF;
+        END IF;
+        IF NOT EXISTS (SELECT CL.id FROM calendar_link CL WHERE CL.trip_id = _trip_id) THEN
+            SELECT id INTO _day_calendar_id FROM calendar WHERE name = 'Dimanche';
+            INSERT INTO calendar(name, calendar_type) VALUES (_name, 1);
+            INSERT INTO calendar_datasource(calendar_id, code, datasource_id) VALUES (currval('calendar_id_seq'), _tcode, _datasource);
+            INSERT INTO calendar_link(trip_id, period_calendar_id, day_calendar_id) VALUES(_trip_id, currval('calendar_id_seq'), _day_calendar_id);
+            INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(currval('calendar_id_seq'), _date, _date, 1);
+        ELSE
+            SELECT CL.period_calendar_id INTO _calendar_id FROM calendar_link CL WHERE CL.trip_id = _trip_id;
+            INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(_calendar_id, _date, _date, 1);
+        END IF;
+    END;
+    $$;
+
+
+ALTER FUNCTION public.insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer) OWNER TO postgres;
+
+--
+-- TOC entry 1192 (class 1255 OID 168802)
+-- Name: insertpoi(character varying, integer, character varying, integer, integer, boolean, adress[]); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, adresses adress[]) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        _type_id integer;
+        _poi_id integer;
+        _real_geom geometry(Point, 3943);
+        _adress adress;
+    BEGIN
+        IF _is_velo THEN
+            _type_id := _type::integer;
+        ELSE
+            SELECT id INTO _type_id FROM poi_type WHERE name = _type;
+            IF _type_id IS NULL THEN
+                INSERT INTO poi_type(name) VALUES(_type) RETURNING id INTO _type_id;
+            END IF;
+        END IF;
+        INSERT INTO poi(name, city_id, poi_type_id, priority) VALUES (_name, _city_id, _type_id, _priority) RETURNING id INTO _poi_id;
+        INSERT INTO poi_datasource(poi_id, code, datasource_id) VALUES (_poi_id, '', _datasource);
+        FOREACH _adress IN ARRAY adresses
+        LOOP
+            _real_geom := ST_GeomFromText(_adress.the_geom, 3943);
+            INSERT INTO poi_adress(poi_id, adress, is_entrance, the_geom) VALUES (_poi_id, _adress.adress, _adress.is_entrance, _real_geom);
+        END LOOP;
+    END;
+    $$;
+
+
+ALTER FUNCTION public.insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, adresses adress[]) OWNER TO postgres;
+
+--
+-- TOC entry 1182 (class 1255 OID 168780)
+-- Name: insertroute(integer, character varying, character varying, character varying, character varying, integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION insertroute(_lvid integer, _way character varying, _name character varying, _direction character varying, _code character varying, _datasource integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    BEGIN
+        INSERT INTO route(line_version_id, way, name, direction) VALUES (_lvid, _way, _name, _direction);
+        INSERT INTO route_datasource(route_id, datasource_id, code) VALUES (currval('route_id_seq'), _datasource, _code);
+    END;
+    $$;
+
+
+ALTER FUNCTION public.insertroute(_lvid integer, _way character varying, _name character varying, _direction character varying, _code character varying, _datasource integer) OWNER TO postgres;
+
+--
+-- TOC entry 1186 (class 1255 OID 168785)
+-- Name: insertroutesection(integer, integer, character varying, date); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION insertroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        _real_geom geometry(Linestring, 3943);
+    BEGIN
+        _real_geom := ST_GeomFromText(_the_geom, 3943);
+        INSERT INTO route_section(start_stop_id, end_stop_id, start_date, the_geom) VALUES (_start_stop_id, _end_stop_id, _start_date, _real_geom);
+    END;
+    $$;
+
+
+ALTER FUNCTION public.insertroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date) OWNER TO postgres;
+
+--
+-- TOC entry 1185 (class 1255 OID 168783)
+-- Name: insertroutestopandstoptime(character varying, character varying, character varying, character varying, integer, integer, boolean, integer, boolean, boolean); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode character varying, _scode character varying, _related_scode character varying, _lvid integer, _rank integer, _scheduled boolean, _hour integer, _is_first boolean, _is_last boolean) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        _route_stop_id integer;
+        _route_section_id integer;
+        _route_id integer;
+        _trip_id integer;
+        _stop_id integer;
+        _related_stop_id integer;
+    BEGIN
+        SELECT W.id INTO _stop_id FROM waypoint W JOIN stop S ON S.id = W.id JOIN stop_datasource SD ON SD.stop_id = S.id WHERE SD.code = _scode;
+        SELECT R.id INTO _route_id FROM route R JOIN route_datasource RD ON RD.route_id = R.id WHERE RD.code = _rcode AND R.line_version_id = _lvid;
+        SELECT RS.id INTO _route_stop_id FROM route_stop RS WHERE RS.route_id = _route_id AND RS.waypoint_id = _stop_id AND RS.rank = _rank;
+        IF _route_stop_id IS NULL THEN
+            SELECT W.id INTO _related_stop_id FROM waypoint W JOIN stop S ON S.id = W.id JOIN stop_datasource SD ON SD.stop_id = S.id WHERE SD.code = _related_scode;
+            IF _is_last IS FALSE THEN
+                SELECT RE.id INTO _route_section_id FROM route_section RE WHERE start_stop_id = _stop_id AND end_stop_id = _related_stop_id;
+                IF _is_first IS TRUE THEN
+                    INSERT INTO route_stop(route_id, waypoint_id, rank, scheduled_stop, route_section_id, pickup, drop_off, reservation_required) VALUES (_route_id, _stop_id, _rank, _scheduled, _route_section_id, True, False, False) RETURNING id INTO _route_stop_id;
+                ELSE
+                    INSERT INTO route_stop(route_id, waypoint_id, rank, scheduled_stop, route_section_id, pickup, drop_off, reservation_required) VALUES (_route_id, _stop_id, _rank, _scheduled, _route_section_id, True, True, False) RETURNING id INTO _route_stop_id;
+                END IF;
+            ELSE
+                SELECT RE.id INTO _route_section_id FROM route_section RE WHERE start_stop_id = _related_stop_id AND end_stop_id = _stop_id;
+                INSERT INTO route_stop(route_id, waypoint_id, rank, scheduled_stop, route_section_id, pickup, drop_off, reservation_required) VALUES (_route_id, _stop_id, _rank, _scheduled, _route_section_id, False, True, False) RETURNING id INTO _route_stop_id;
+            END IF;
+        END IF;
+        SELECT T.id INTO _trip_id FROM trip T JOIN trip_datasource TD ON TD.trip_id = T.id WHERE TD.code = _tcode AND T.route_id = _route_id; 
+        INSERT INTO stop_time(route_stop_id, trip_id, departure_time, arrival_time) VALUES (_route_stop_id, _trip_id, _hour, _hour);
+    END;
+    $$;
+
+
+ALTER FUNCTION public.insertroutestopandstoptime(_rcode character varying, _tcode character varying, _scode character varying, _related_scode character varying, _lvid integer, _rank integer, _scheduled boolean, _hour integer, _is_first boolean, _is_last boolean) OWNER TO postgres;
+
+--
+-- TOC entry 1189 (class 1255 OID 168777)
+-- Name: insertstop(date, character varying, character varying, character varying, boolean, character varying, character varying, integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        _stop_id integer;
+        _stop_area_id integer;
+        _the_geom geometry(Point, 3943);
+        _temp_geom character varying;
+    BEGIN
+        SELECT SA.id INTO _stop_area_id FROM stop_area SA JOIN city C ON C.id = SA.city_id WHERE SA.short_name = _name AND C.insee = _insee;
+        _temp_geom := 'POINT(' || _x || ' ' || _y || ')';
+        _the_geom := ST_Transform(ST_GeomFromText(_temp_geom, 27572), 3943);
+
+        IF _stop_area_id IS NULL THEN
+            RAISE EXCEPTION 'stop area not found with this short_name % and city %', _name, _insee;
+        ELSE
+            INSERT INTO waypoint(id) VALUES (nextval('waypoint_id_seq')) RETURNING waypoint.id INTO _stop_id;
+            INSERT INTO stop(id, stop_area_id) VALUES (_stop_id, _stop_area_id);
+            INSERT INTO stop_datasource(stop_id, datasource_id, code) VALUES (_stop_id, _datasource, _code);
+            INSERT INTO stop_history(stop_id, start_date, short_name, the_geom, accessibility) VALUES (_stop_id, _date, _name, _the_geom, _access);
+        END IF;
+    END;
+    $$;
+
+
+ALTER FUNCTION public.insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer) OWNER TO postgres;
+
+--
+-- TOC entry 1181 (class 1255 OID 168779)
+-- Name: insertstoparea(integer, character varying, integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION insertstoparea(_city_id integer, _name character varying, _datasource integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        _stop_area_id integer;
+    BEGIN
+        INSERT INTO stop_area(short_name, long_name, city_id, transfer_duration) VALUES(_name, _name, _city_id, 3) RETURNING stop_area.id INTO _stop_area_id;
+        INSERT INTO stop_area_datasource(stop_area_id, datasource_id, code) VALUES(_stop_area_id, _datasource, null);
+    END;
+    $$;
+
+
+ALTER FUNCTION public.insertstoparea(_city_id integer, _name character varying, _datasource integer) OWNER TO postgres;
+
+--
+-- TOC entry 1184 (class 1255 OID 168781)
+-- Name: inserttrip(character varying, character varying, character varying, integer, integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION inserttrip(_name character varying, _tcode character varying, _rcode character varying, _lvid integer, _datasource integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        _route_id integer;
+    BEGIN
+        SELECT R.id INTO _route_id FROM route R JOIN route_datasource RD ON R.id = RD.route_id WHERE RD.code = _rcode AND R.line_version_id = _lvid;
+        INSERT INTO trip(name, route_id) VALUES (_name, _route_id);
+        INSERT INTO trip_datasource(trip_id, datasource_id, code) VALUES (currval('trip_id_seq'), _datasource, _tcode);
+    END;
+    $$;
+
+
+ALTER FUNCTION public.inserttrip(_name character varying, _tcode character varying, _rcode character varying, _lvid integer, _datasource integer) OWNER TO postgres;
+
+--
+-- TOC entry 1187 (class 1255 OID 168786)
+-- Name: updateroutesection(integer, integer, character varying, date, integer, date); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date, _route_section_id integer, _end_date date) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        _real_geom geometry(Linestring, 3943);
+    BEGIN
+        _real_geom := ST_GeomFromText(_the_geom, 3943);
+        UPDATE route_section SET end_date = _end_date WHERE id = _route_section_id;
+        INSERT INTO route_section(start_stop_id, end_stop_id, start_date, the_geom) VALUES (_start_stop_id, _end_stop_id, _start_date, _real_geom);
+    END;
+    $$;
+
+
+ALTER FUNCTION public.updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date, _route_section_id integer, _end_date date) OWNER TO postgres;
+
+--
+-- TOC entry 1180 (class 1255 OID 168778)
+-- Name: updatestop(integer, date, character varying, character varying, character varying, boolean); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        _stop_id integer;
+        _temp_geom character varying;
+        _the_geom geometry(Point, 3943);
+    BEGIN
+        _temp_geom := 'POINT(' || _x || ' ' || _y || ')';
+        _the_geom := ST_Transform(ST_GeomFromText(_temp_geom, 27572), 3943);
+        UPDATE stop_history SET end_date = _date - interval '1 day' WHERE id = _stop_history_id RETURNING stop_id INTO _stop_id;
+        INSERT INTO stop_history(stop_id, start_date, short_name, the_geom, accessibility) VALUES (_stop_id, _date, _name, _the_geom, _access);
+    END;
+    $$;
+
+
+ALTER FUNCTION public.updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean) OWNER TO postgres;
+
 SET default_tablespace = '';
 
 SET default_with_oids = false;
 
 --
--- TOC entry 174 (class 1259 OID 84384)
--- Name: agency; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 174 (class 1259 OID 167984)
+-- Name: agency; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE agency (
@@ -56,7 +428,16 @@ CREATE TABLE agency (
 ALTER TABLE public.agency OWNER TO endiv_owner;
 
 --
--- TOC entry 175 (class 1259 OID 84387)
+-- TOC entry 3562 (class 0 OID 0)
+-- Dependencies: 174
+-- Name: TABLE agency; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE agency IS 'Reseau de transport en commun. Contient egalement le fuseau horaire et la langue.';
+
+
+--
+-- TOC entry 175 (class 1259 OID 167987)
 -- Name: agency_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -71,7 +452,7 @@ CREATE SEQUENCE agency_id_seq
 ALTER TABLE public.agency_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3519 (class 0 OID 0)
+-- TOC entry 3564 (class 0 OID 0)
 -- Dependencies: 175
 -- Name: agency_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
@@ -80,8 +461,8 @@ ALTER SEQUENCE agency_id_seq OWNED BY agency.id;
 
 
 --
--- TOC entry 176 (class 1259 OID 84389)
--- Name: alias; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 176 (class 1259 OID 167989)
+-- Name: alias; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE alias (
@@ -94,7 +475,16 @@ CREATE TABLE alias (
 ALTER TABLE public.alias OWNER TO endiv_owner;
 
 --
--- TOC entry 177 (class 1259 OID 84392)
+-- TOC entry 3566 (class 0 OID 0)
+-- Dependencies: 176
+-- Name: TABLE alias; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE alias IS 'Alias des zones d''arrets.';
+
+
+--
+-- TOC entry 177 (class 1259 OID 167992)
 -- Name: alias_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -109,7 +499,7 @@ CREATE SEQUENCE alias_id_seq
 ALTER TABLE public.alias_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3522 (class 0 OID 0)
+-- TOC entry 3568 (class 0 OID 0)
 -- Dependencies: 177
 -- Name: alias_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
@@ -118,8 +508,8 @@ ALTER SEQUENCE alias_id_seq OWNED BY alias.id;
 
 
 --
--- TOC entry 178 (class 1259 OID 84394)
--- Name: calendar; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 178 (class 1259 OID 167994)
+-- Name: calendar; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE calendar (
@@ -132,8 +522,17 @@ CREATE TABLE calendar (
 ALTER TABLE public.calendar OWNER TO endiv_owner;
 
 --
--- TOC entry 179 (class 1259 OID 84397)
--- Name: calendar_datasource; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3570 (class 0 OID 0)
+-- Dependencies: 178
+-- Name: TABLE calendar; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE calendar IS 'Le calendrier d''application des services en production. Il est lui-meme compose de calendar_element.';
+
+
+--
+-- TOC entry 179 (class 1259 OID 167997)
+-- Name: calendar_datasource; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE calendar_datasource (
@@ -147,7 +546,16 @@ CREATE TABLE calendar_datasource (
 ALTER TABLE public.calendar_datasource OWNER TO endiv_owner;
 
 --
--- TOC entry 180 (class 1259 OID 84400)
+-- TOC entry 3572 (class 0 OID 0)
+-- Dependencies: 179
+-- Name: TABLE calendar_datasource; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE calendar_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
+
+
+--
+-- TOC entry 180 (class 1259 OID 168000)
 -- Name: calendar_datasource_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -162,7 +570,7 @@ CREATE SEQUENCE calendar_datasource_id_seq
 ALTER TABLE public.calendar_datasource_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3526 (class 0 OID 0)
+-- TOC entry 3574 (class 0 OID 0)
 -- Dependencies: 180
 -- Name: calendar_datasource_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
@@ -171,8 +579,8 @@ ALTER SEQUENCE calendar_datasource_id_seq OWNED BY calendar_datasource.id;
 
 
 --
--- TOC entry 181 (class 1259 OID 84402)
--- Name: calendar_element; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 181 (class 1259 OID 168002)
+-- Name: calendar_element; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE calendar_element (
@@ -189,7 +597,16 @@ CREATE TABLE calendar_element (
 ALTER TABLE public.calendar_element OWNER TO endiv_owner;
 
 --
--- TOC entry 3528 (class 0 OID 0)
+-- TOC entry 3576 (class 0 OID 0)
+-- Dependencies: 181
+-- Name: TABLE calendar_element; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE calendar_element IS 'Element composant le calendrier. Il a comme champs les bornes, l''agencement avec d''autres calendar-element, un intervalle de repetition en cas de calendrier recurrent (lundi), et peut inclure un calendrier.';
+
+
+--
+-- TOC entry 3577 (class 0 OID 0)
 -- Dependencies: 181
 -- Name: COLUMN calendar_element.id; Type: COMMENT; Schema: public; Owner: endiv_owner
 --
@@ -199,7 +616,34 @@ COMMENT ON COLUMN calendar_element.id IS '
 
 
 --
--- TOC entry 182 (class 1259 OID 84405)
+-- TOC entry 3578 (class 0 OID 0)
+-- Dependencies: 181
+-- Name: COLUMN calendar_element.positive; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON COLUMN calendar_element.positive IS 'agencement des calendar_element d''un meme calendrier : ajout, soustraction, intersection avec les precedents';
+
+
+--
+-- TOC entry 3579 (class 0 OID 0)
+-- Dependencies: 181
+-- Name: COLUMN calendar_element."interval"; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON COLUMN calendar_element."interval" IS 'intervalle de repetition en cas de calendrier recurrent (lundi)';
+
+
+--
+-- TOC entry 3580 (class 0 OID 0)
+-- Dependencies: 181
+-- Name: COLUMN calendar_element.included_calendar_id; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON COLUMN calendar_element.included_calendar_id IS 'id du calendrier inclus';
+
+
+--
+-- TOC entry 182 (class 1259 OID 168005)
 -- Name: calendar_element_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -214,7 +658,7 @@ CREATE SEQUENCE calendar_element_id_seq
 ALTER TABLE public.calendar_element_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3530 (class 0 OID 0)
+-- TOC entry 3582 (class 0 OID 0)
 -- Dependencies: 182
 -- Name: calendar_element_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
@@ -223,7 +667,7 @@ ALTER SEQUENCE calendar_element_id_seq OWNED BY calendar_element.id;
 
 
 --
--- TOC entry 183 (class 1259 OID 84407)
+-- TOC entry 183 (class 1259 OID 168007)
 -- Name: calendar_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -238,7 +682,7 @@ CREATE SEQUENCE calendar_id_seq
 ALTER TABLE public.calendar_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3532 (class 0 OID 0)
+-- TOC entry 3584 (class 0 OID 0)
 -- Dependencies: 183
 -- Name: calendar_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
@@ -247,8 +691,8 @@ ALTER SEQUENCE calendar_id_seq OWNED BY calendar.id;
 
 
 --
--- TOC entry 184 (class 1259 OID 84409)
--- Name: calendar_link; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 184 (class 1259 OID 168009)
+-- Name: calendar_link; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE calendar_link (
@@ -262,7 +706,16 @@ CREATE TABLE calendar_link (
 ALTER TABLE public.calendar_link OWNER TO endiv_owner;
 
 --
--- TOC entry 185 (class 1259 OID 84412)
+-- TOC entry 3586 (class 0 OID 0)
+-- Dependencies: 184
+-- Name: TABLE calendar_link; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE calendar_link IS 'Lien entre les calendriers et les services (trip) de production auxquels il s''applique.';
+
+
+--
+-- TOC entry 185 (class 1259 OID 168012)
 -- Name: calendar_link_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -277,7 +730,7 @@ CREATE SEQUENCE calendar_link_id_seq
 ALTER TABLE public.calendar_link_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3535 (class 0 OID 0)
+-- TOC entry 3588 (class 0 OID 0)
 -- Dependencies: 185
 -- Name: calendar_link_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
@@ -286,8 +739,8 @@ ALTER SEQUENCE calendar_link_id_seq OWNED BY calendar_link.id;
 
 
 --
--- TOC entry 186 (class 1259 OID 84414)
--- Name: change_cause; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 186 (class 1259 OID 168014)
+-- Name: change_cause; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE change_cause (
@@ -299,7 +752,16 @@ CREATE TABLE change_cause (
 ALTER TABLE public.change_cause OWNER TO endiv_owner;
 
 --
--- TOC entry 187 (class 1259 OID 84417)
+-- TOC entry 3590 (class 0 OID 0)
+-- Dependencies: 186
+-- Name: TABLE change_cause; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE change_cause IS 'Motif de creation d''une nouvelle line_version.';
+
+
+--
+-- TOC entry 187 (class 1259 OID 168017)
 -- Name: change_cause_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -314,7 +776,7 @@ CREATE SEQUENCE change_cause_id_seq
 ALTER TABLE public.change_cause_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3538 (class 0 OID 0)
+-- TOC entry 3592 (class 0 OID 0)
 -- Dependencies: 187
 -- Name: change_cause_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
@@ -323,8 +785,8 @@ ALTER SEQUENCE change_cause_id_seq OWNED BY change_cause.id;
 
 
 --
--- TOC entry 188 (class 1259 OID 84419)
--- Name: change_cause_link; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 188 (class 1259 OID 168019)
+-- Name: change_cause_link; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE change_cause_link (
@@ -337,7 +799,16 @@ CREATE TABLE change_cause_link (
 ALTER TABLE public.change_cause_link OWNER TO endiv_owner;
 
 --
--- TOC entry 189 (class 1259 OID 84422)
+-- TOC entry 3594 (class 0 OID 0)
+-- Dependencies: 188
+-- Name: TABLE change_cause_link; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE change_cause_link IS 'Lien entre les motifs de nouvelle line_version et la line_version.';
+
+
+--
+-- TOC entry 189 (class 1259 OID 168022)
 -- Name: change_cause_link_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -352,7 +823,7 @@ CREATE SEQUENCE change_cause_link_id_seq
 ALTER TABLE public.change_cause_link_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3541 (class 0 OID 0)
+-- TOC entry 3596 (class 0 OID 0)
 -- Dependencies: 189
 -- Name: change_cause_link_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
@@ -361,8 +832,8 @@ ALTER SEQUENCE change_cause_link_id_seq OWNED BY change_cause_link.id;
 
 
 --
--- TOC entry 190 (class 1259 OID 84424)
--- Name: city; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 190 (class 1259 OID 168024)
+-- Name: city; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE city (
@@ -376,7 +847,16 @@ CREATE TABLE city (
 ALTER TABLE public.city OWNER TO endiv_owner;
 
 --
--- TOC entry 191 (class 1259 OID 84427)
+-- TOC entry 3598 (class 0 OID 0)
+-- Dependencies: 190
+-- Name: TABLE city; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE city IS 'Commune.';
+
+
+--
+-- TOC entry 191 (class 1259 OID 168027)
 -- Name: city_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -391,7 +871,7 @@ CREATE SEQUENCE city_id_seq
 ALTER TABLE public.city_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3544 (class 0 OID 0)
+-- TOC entry 3600 (class 0 OID 0)
 -- Dependencies: 191
 -- Name: city_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
@@ -400,8 +880,8 @@ ALTER SEQUENCE city_id_seq OWNED BY city.id;
 
 
 --
--- TOC entry 192 (class 1259 OID 84429)
--- Name: comment; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 192 (class 1259 OID 168029)
+-- Name: comment; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE comment (
@@ -414,7 +894,34 @@ CREATE TABLE comment (
 ALTER TABLE public.comment OWNER TO endiv_owner;
 
 --
--- TOC entry 193 (class 1259 OID 84432)
+-- TOC entry 3602 (class 0 OID 0)
+-- Dependencies: 192
+-- Name: TABLE comment; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE comment IS 'Note sur un itineraire (route) ou un service (trip). Signale une particularite sur les fiches horaire.';
+
+
+--
+-- TOC entry 3603 (class 0 OID 0)
+-- Dependencies: 192
+-- Name: COLUMN comment.label; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON COLUMN comment.label IS 'Lettre servant a signer le commentaire.';
+
+
+--
+-- TOC entry 3604 (class 0 OID 0)
+-- Dependencies: 192
+-- Name: COLUMN comment.comment_text; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON COLUMN comment.comment_text IS 'Description textuelle du commentaire.';
+
+
+--
+-- TOC entry 193 (class 1259 OID 168032)
 -- Name: comment_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -429,7 +936,7 @@ CREATE SEQUENCE comment_id_seq
 ALTER TABLE public.comment_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3546 (class 0 OID 0)
+-- TOC entry 3606 (class 0 OID 0)
 -- Dependencies: 193
 -- Name: comment_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
@@ -438,8 +945,8 @@ ALTER SEQUENCE comment_id_seq OWNED BY comment.id;
 
 
 --
--- TOC entry 194 (class 1259 OID 84434)
--- Name: datasource; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 194 (class 1259 OID 168034)
+-- Name: datasource; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE datasource (
@@ -452,7 +959,16 @@ CREATE TABLE datasource (
 ALTER TABLE public.datasource OWNER TO endiv_owner;
 
 --
--- TOC entry 195 (class 1259 OID 84437)
+-- TOC entry 3608 (class 0 OID 0)
+-- Dependencies: 194
+-- Name: TABLE datasource; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE datasource IS 'Referentiel fournisseur de donnees. Les lignes saisies manuellement ont pour referentiel le ''Service donnes''.';
+
+
+--
+-- TOC entry 195 (class 1259 OID 168037)
 -- Name: datasource_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -467,7 +983,7 @@ CREATE SEQUENCE datasource_id_seq
 ALTER TABLE public.datasource_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3548 (class 0 OID 0)
+-- TOC entry 3610 (class 0 OID 0)
 -- Dependencies: 195
 -- Name: datasource_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
@@ -476,8 +992,8 @@ ALTER SEQUENCE datasource_id_seq OWNED BY datasource.id;
 
 
 --
--- TOC entry 196 (class 1259 OID 84439)
--- Name: exception_type; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 196 (class 1259 OID 168039)
+-- Name: exception_type; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE exception_type (
@@ -492,7 +1008,52 @@ CREATE TABLE exception_type (
 ALTER TABLE public.exception_type OWNER TO endiv_owner;
 
 --
--- TOC entry 197 (class 1259 OID 84442)
+-- TOC entry 3612 (class 0 OID 0)
+-- Dependencies: 196
+-- Name: TABLE exception_type; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE exception_type IS 'Base de connaissance des type de commentaires.';
+
+
+--
+-- TOC entry 3613 (class 0 OID 0)
+-- Dependencies: 196
+-- Name: COLUMN exception_type.label; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON COLUMN exception_type.label IS 'Lettre servant a signer le commentaire.';
+
+
+--
+-- TOC entry 3614 (class 0 OID 0)
+-- Dependencies: 196
+-- Name: COLUMN exception_type.exception_text; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON COLUMN exception_type.exception_text IS 'Description textuelle du commentaire.';
+
+
+--
+-- TOC entry 3615 (class 0 OID 0)
+-- Dependencies: 196
+-- Name: COLUMN exception_type.grid_calendar_pattern; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON COLUMN exception_type.grid_calendar_pattern IS 'Circulation LMMJVSD de la grille horaire cible.';
+
+
+--
+-- TOC entry 3616 (class 0 OID 0)
+-- Dependencies: 196
+-- Name: COLUMN exception_type.trip_calendar_pattern; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON COLUMN exception_type.trip_calendar_pattern IS 'Circulation LMMJVSD du service cible.';
+
+
+--
+-- TOC entry 197 (class 1259 OID 168042)
 -- Name: exception_type_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -507,7 +1068,7 @@ CREATE SEQUENCE exception_type_id_seq
 ALTER TABLE public.exception_type_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3550 (class 0 OID 0)
+-- TOC entry 3618 (class 0 OID 0)
 -- Dependencies: 197
 -- Name: exception_type_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
@@ -516,8 +1077,8 @@ ALTER SEQUENCE exception_type_id_seq OWNED BY exception_type.id;
 
 
 --
--- TOC entry 267 (class 1259 OID 85115)
--- Name: export_destination; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 198 (class 1259 OID 168044)
+-- Name: export_destination; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE export_destination (
@@ -530,7 +1091,7 @@ CREATE TABLE export_destination (
 ALTER TABLE public.export_destination OWNER TO endiv_owner;
 
 --
--- TOC entry 266 (class 1259 OID 85113)
+-- TOC entry 199 (class 1259 OID 168050)
 -- Name: export_destination_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -545,8 +1106,8 @@ CREATE SEQUENCE export_destination_id_seq
 ALTER TABLE public.export_destination_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3551 (class 0 OID 0)
--- Dependencies: 266
+-- TOC entry 3621 (class 0 OID 0)
+-- Dependencies: 199
 -- Name: export_destination_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -554,8 +1115,8 @@ ALTER SEQUENCE export_destination_id_seq OWNED BY export_destination.id;
 
 
 --
--- TOC entry 198 (class 1259 OID 84444)
--- Name: export_perso; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 200 (class 1259 OID 168052)
+-- Name: export_perso; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE export_perso (
@@ -566,8 +1127,8 @@ CREATE TABLE export_perso (
 ALTER TABLE public.export_perso OWNER TO endiv_owner;
 
 --
--- TOC entry 199 (class 1259 OID 84447)
--- Name: export_prod; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 201 (class 1259 OID 168055)
+-- Name: export_prod; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE export_prod (
@@ -578,8 +1139,8 @@ CREATE TABLE export_prod (
 ALTER TABLE public.export_prod OWNER TO endiv_owner;
 
 --
--- TOC entry 200 (class 1259 OID 84450)
--- Name: grid_calendar; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 202 (class 1259 OID 168058)
+-- Name: grid_calendar; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE grid_calendar (
@@ -599,7 +1160,16 @@ CREATE TABLE grid_calendar (
 ALTER TABLE public.grid_calendar OWNER TO endiv_owner;
 
 --
--- TOC entry 201 (class 1259 OID 84453)
+-- TOC entry 3625 (class 0 OID 0)
+-- Dependencies: 202
+-- Name: TABLE grid_calendar; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE grid_calendar IS 'Grille horaire d''une fiche horaire. Table remplie par l''IV via interface dediee lors de la creation de la fiche horaire.';
+
+
+--
+-- TOC entry 203 (class 1259 OID 168061)
 -- Name: grid_calendar_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -614,8 +1184,8 @@ CREATE SEQUENCE grid_calendar_id_seq
 ALTER TABLE public.grid_calendar_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3555 (class 0 OID 0)
--- Dependencies: 201
+-- TOC entry 3627 (class 0 OID 0)
+-- Dependencies: 203
 -- Name: grid_calendar_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -623,8 +1193,8 @@ ALTER SEQUENCE grid_calendar_id_seq OWNED BY grid_calendar.id;
 
 
 --
--- TOC entry 202 (class 1259 OID 84455)
--- Name: grid_link_calendar_mask_type; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 204 (class 1259 OID 168063)
+-- Name: grid_link_calendar_mask_type; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE grid_link_calendar_mask_type (
@@ -638,7 +1208,16 @@ CREATE TABLE grid_link_calendar_mask_type (
 ALTER TABLE public.grid_link_calendar_mask_type OWNER TO endiv_owner;
 
 --
--- TOC entry 203 (class 1259 OID 84458)
+-- TOC entry 3629 (class 0 OID 0)
+-- Dependencies: 204
+-- Name: TABLE grid_link_calendar_mask_type; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE grid_link_calendar_mask_type IS 'Lien entre les calendriers Hastus fiche horaire et les grilles horaires de la fiche. Table remplie par l''IV via interface dediee lors de la creation de la fiche horaire.';
+
+
+--
+-- TOC entry 205 (class 1259 OID 168066)
 -- Name: grid_link_calendar_mask_type_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -653,8 +1232,8 @@ CREATE SEQUENCE grid_link_calendar_mask_type_id_seq
 ALTER TABLE public.grid_link_calendar_mask_type_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3557 (class 0 OID 0)
--- Dependencies: 203
+-- TOC entry 3631 (class 0 OID 0)
+-- Dependencies: 205
 -- Name: grid_link_calendar_mask_type_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -662,8 +1241,8 @@ ALTER SEQUENCE grid_link_calendar_mask_type_id_seq OWNED BY grid_link_calendar_m
 
 
 --
--- TOC entry 204 (class 1259 OID 84460)
--- Name: grid_mask_type; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 206 (class 1259 OID 168068)
+-- Name: grid_mask_type; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE grid_mask_type (
@@ -676,7 +1255,16 @@ CREATE TABLE grid_mask_type (
 ALTER TABLE public.grid_mask_type OWNER TO endiv_owner;
 
 --
--- TOC entry 205 (class 1259 OID 84463)
+-- TOC entry 3633 (class 0 OID 0)
+-- Dependencies: 206
+-- Name: TABLE grid_mask_type; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE grid_mask_type IS 'Type des calendriers envoyes par Hastus pour les fiches horaires.';
+
+
+--
+-- TOC entry 207 (class 1259 OID 168071)
 -- Name: grid_mask_type_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -691,8 +1279,8 @@ CREATE SEQUENCE grid_mask_type_id_seq
 ALTER TABLE public.grid_mask_type_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3559 (class 0 OID 0)
--- Dependencies: 205
+-- TOC entry 3635 (class 0 OID 0)
+-- Dependencies: 207
 -- Name: grid_mask_type_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -700,8 +1288,8 @@ ALTER SEQUENCE grid_mask_type_id_seq OWNED BY grid_mask_type.id;
 
 
 --
--- TOC entry 206 (class 1259 OID 84465)
--- Name: line; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 208 (class 1259 OID 168073)
+-- Name: line; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE line (
@@ -714,8 +1302,17 @@ CREATE TABLE line (
 ALTER TABLE public.line OWNER TO endiv_owner;
 
 --
--- TOC entry 207 (class 1259 OID 84468)
--- Name: line_datasource; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3637 (class 0 OID 0)
+-- Dependencies: 208
+-- Name: TABLE line; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE line IS 'Ligne commerciale de TC.';
+
+
+--
+-- TOC entry 209 (class 1259 OID 168076)
+-- Name: line_datasource; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE line_datasource (
@@ -729,7 +1326,16 @@ CREATE TABLE line_datasource (
 ALTER TABLE public.line_datasource OWNER TO endiv_owner;
 
 --
--- TOC entry 208 (class 1259 OID 84471)
+-- TOC entry 3639 (class 0 OID 0)
+-- Dependencies: 209
+-- Name: TABLE line_datasource; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE line_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
+
+
+--
+-- TOC entry 210 (class 1259 OID 168079)
 -- Name: line_datasource_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -744,8 +1350,8 @@ CREATE SEQUENCE line_datasource_id_seq
 ALTER TABLE public.line_datasource_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3563 (class 0 OID 0)
--- Dependencies: 208
+-- TOC entry 3641 (class 0 OID 0)
+-- Dependencies: 210
 -- Name: line_datasource_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -753,7 +1359,7 @@ ALTER SEQUENCE line_datasource_id_seq OWNED BY line_datasource.id;
 
 
 --
--- TOC entry 209 (class 1259 OID 84473)
+-- TOC entry 211 (class 1259 OID 168081)
 -- Name: line_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -768,8 +1374,8 @@ CREATE SEQUENCE line_id_seq
 ALTER TABLE public.line_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3565 (class 0 OID 0)
--- Dependencies: 209
+-- TOC entry 3643 (class 0 OID 0)
+-- Dependencies: 211
 -- Name: line_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -777,8 +1383,8 @@ ALTER SEQUENCE line_id_seq OWNED BY line.id;
 
 
 --
--- TOC entry 210 (class 1259 OID 84475)
--- Name: line_version; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 212 (class 1259 OID 168083)
+-- Name: line_version; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE line_version (
@@ -799,7 +1405,7 @@ CREATE TABLE line_version (
     carto_file text,
     accessibility boolean NOT NULL,
     air_conditioned boolean NOT NULL,
-    certified boolean NOT NULL default false,
+    certified boolean DEFAULT false NOT NULL,
     comment text,
     depot character varying(50)
 );
@@ -808,8 +1414,44 @@ CREATE TABLE line_version (
 ALTER TABLE public.line_version OWNER TO endiv_owner;
 
 --
--- TOC entry 211 (class 1259 OID 84481)
--- Name: line_version_datasource; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3645 (class 0 OID 0)
+-- Dependencies: 212
+-- Name: COLUMN line_version.start_date; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON COLUMN line_version.start_date IS 'Date de debut d''offre.';
+
+
+--
+-- TOC entry 3646 (class 0 OID 0)
+-- Dependencies: 212
+-- Name: COLUMN line_version.end_date; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON COLUMN line_version.end_date IS 'Date effective de fin d''offre, non reneignee a la creation.';
+
+
+--
+-- TOC entry 3647 (class 0 OID 0)
+-- Dependencies: 212
+-- Name: COLUMN line_version.planned_end_date; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON COLUMN line_version.planned_end_date IS 'Date de fin previsionnelle d''offre.';
+
+
+--
+-- TOC entry 3648 (class 0 OID 0)
+-- Dependencies: 212
+-- Name: COLUMN line_version.child_line_id; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON COLUMN line_version.child_line_id IS 'Ligne rattachee (ligne de soiree)';
+
+
+--
+-- TOC entry 213 (class 1259 OID 168090)
+-- Name: line_version_datasource; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE line_version_datasource (
@@ -823,7 +1465,16 @@ CREATE TABLE line_version_datasource (
 ALTER TABLE public.line_version_datasource OWNER TO endiv_owner;
 
 --
--- TOC entry 212 (class 1259 OID 84484)
+-- TOC entry 3650 (class 0 OID 0)
+-- Dependencies: 213
+-- Name: TABLE line_version_datasource; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE line_version_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
+
+
+--
+-- TOC entry 214 (class 1259 OID 168093)
 -- Name: line_version_datasource_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -838,8 +1489,8 @@ CREATE SEQUENCE line_version_datasource_id_seq
 ALTER TABLE public.line_version_datasource_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3569 (class 0 OID 0)
--- Dependencies: 212
+-- TOC entry 3652 (class 0 OID 0)
+-- Dependencies: 214
 -- Name: line_version_datasource_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -847,7 +1498,7 @@ ALTER SEQUENCE line_version_datasource_id_seq OWNED BY line_version_datasource.i
 
 
 --
--- TOC entry 213 (class 1259 OID 84486)
+-- TOC entry 215 (class 1259 OID 168095)
 -- Name: line_version_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -862,8 +1513,8 @@ CREATE SEQUENCE line_version_id_seq
 ALTER TABLE public.line_version_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3571 (class 0 OID 0)
--- Dependencies: 213
+-- TOC entry 3654 (class 0 OID 0)
+-- Dependencies: 215
 -- Name: line_version_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -871,8 +1522,8 @@ ALTER SEQUENCE line_version_id_seq OWNED BY line_version.id;
 
 
 --
--- TOC entry 269 (class 1259 OID 85126)
--- Name: line_version_not_exported; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 216 (class 1259 OID 168097)
+-- Name: line_version_not_exported; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE line_version_not_exported (
@@ -885,7 +1536,7 @@ CREATE TABLE line_version_not_exported (
 ALTER TABLE public.line_version_not_exported OWNER TO endiv_owner;
 
 --
--- TOC entry 268 (class 1259 OID 85124)
+-- TOC entry 217 (class 1259 OID 168100)
 -- Name: line_version_not_exported_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -900,8 +1551,8 @@ CREATE SEQUENCE line_version_not_exported_id_seq
 ALTER TABLE public.line_version_not_exported_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3573 (class 0 OID 0)
--- Dependencies: 268
+-- TOC entry 3657 (class 0 OID 0)
+-- Dependencies: 217
 -- Name: line_version_not_exported_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -909,8 +1560,8 @@ ALTER SEQUENCE line_version_not_exported_id_seq OWNED BY line_version_not_export
 
 
 --
--- TOC entry 214 (class 1259 OID 84488)
--- Name: log; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 218 (class 1259 OID 168102)
+-- Name: log; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE log (
@@ -927,7 +1578,7 @@ CREATE TABLE log (
 ALTER TABLE public.log OWNER TO endiv_owner;
 
 --
--- TOC entry 215 (class 1259 OID 84494)
+-- TOC entry 219 (class 1259 OID 168108)
 -- Name: log_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -942,8 +1593,8 @@ CREATE SEQUENCE log_id_seq
 ALTER TABLE public.log_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3575 (class 0 OID 0)
--- Dependencies: 215
+-- TOC entry 3660 (class 0 OID 0)
+-- Dependencies: 219
 -- Name: log_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -951,8 +1602,8 @@ ALTER SEQUENCE log_id_seq OWNED BY log.id;
 
 
 --
--- TOC entry 216 (class 1259 OID 84496)
--- Name: non_concurrency; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 220 (class 1259 OID 168110)
+-- Name: non_concurrency; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE non_concurrency (
@@ -965,8 +1616,8 @@ CREATE TABLE non_concurrency (
 ALTER TABLE public.non_concurrency OWNER TO endiv_owner;
 
 --
--- TOC entry 217 (class 1259 OID 84499)
--- Name: odt_area; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 221 (class 1259 OID 168113)
+-- Name: odt_area; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE odt_area (
@@ -979,8 +1630,8 @@ CREATE TABLE odt_area (
 ALTER TABLE public.odt_area OWNER TO endiv_owner;
 
 --
--- TOC entry 218 (class 1259 OID 84505)
--- Name: odt_stop; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 222 (class 1259 OID 168119)
+-- Name: odt_stop; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE odt_stop (
@@ -996,8 +1647,8 @@ CREATE TABLE odt_stop (
 ALTER TABLE public.odt_stop OWNER TO endiv_owner;
 
 --
--- TOC entry 219 (class 1259 OID 84508)
--- Name: physical_mode; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 223 (class 1259 OID 168122)
+-- Name: physical_mode; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE physical_mode (
@@ -1010,7 +1661,7 @@ CREATE TABLE physical_mode (
 ALTER TABLE public.physical_mode OWNER TO endiv_owner;
 
 --
--- TOC entry 220 (class 1259 OID 84511)
+-- TOC entry 224 (class 1259 OID 168125)
 -- Name: physical_mode_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -1025,8 +1676,8 @@ CREATE SEQUENCE physical_mode_id_seq
 ALTER TABLE public.physical_mode_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3581 (class 0 OID 0)
--- Dependencies: 220
+-- TOC entry 3666 (class 0 OID 0)
+-- Dependencies: 224
 -- Name: physical_mode_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -1034,8 +1685,8 @@ ALTER SEQUENCE physical_mode_id_seq OWNED BY physical_mode.id;
 
 
 --
--- TOC entry 221 (class 1259 OID 84513)
--- Name: poi; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 225 (class 1259 OID 168127)
+-- Name: poi; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE poi (
@@ -1050,47 +1701,8 @@ CREATE TABLE poi (
 ALTER TABLE public.poi OWNER TO endiv_owner;
 
 --
--- TOC entry 222 (class 1259 OID 84516)
--- Name: poi_datasource; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
---
-
-CREATE TABLE poi_datasource (
-    id integer NOT NULL,
-    poi_id integer NOT NULL,
-    datasource_id integer NOT NULL,
-    code character varying(20)
-);
-
-
-ALTER TABLE public.poi_datasource OWNER TO endiv_owner;
-
---
--- TOC entry 223 (class 1259 OID 84519)
--- Name: poi_datasource_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
---
-
-CREATE SEQUENCE poi_datasource_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE public.poi_datasource_id_seq OWNER TO endiv_owner;
-
---
--- TOC entry 3585 (class 0 OID 0)
--- Dependencies: 223
--- Name: poi_datasource_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
---
-
-ALTER SEQUENCE poi_datasource_id_seq OWNED BY poi_datasource.id;
-
-
---
--- TOC entry 224 (class 1259 OID 84521)
--- Name: poi_adress; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 228 (class 1259 OID 168135)
+-- Name: poi_adress; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE poi_adress (
@@ -1105,8 +1717,8 @@ CREATE TABLE poi_adress (
 ALTER TABLE public.poi_adress OWNER TO endiv_owner;
 
 --
--- TOC entry 3587 (class 0 OID 0)
--- Dependencies: 224
+-- TOC entry 3669 (class 0 OID 0)
+-- Dependencies: 228
 -- Name: COLUMN poi_adress.id; Type: COMMENT; Schema: public; Owner: endiv_owner
 --
 
@@ -1115,8 +1727,8 @@ COMMENT ON COLUMN poi_adress.id IS '
 
 
 --
--- TOC entry 3588 (class 0 OID 0)
--- Dependencies: 224
+-- TOC entry 3670 (class 0 OID 0)
+-- Dependencies: 228
 -- Name: COLUMN poi_adress.adress; Type: COMMENT; Schema: public; Owner: endiv_owner
 --
 
@@ -1125,8 +1737,8 @@ COMMENT ON COLUMN poi_adress.adress IS '
 
 
 --
--- TOC entry 225 (class 1259 OID 84527)
--- Name: poi_adress_datasource; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 229 (class 1259 OID 168141)
+-- Name: poi_adress_datasource; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE poi_adress_datasource (
@@ -1140,7 +1752,16 @@ CREATE TABLE poi_adress_datasource (
 ALTER TABLE public.poi_adress_datasource OWNER TO endiv_owner;
 
 --
--- TOC entry 226 (class 1259 OID 84530)
+-- TOC entry 3672 (class 0 OID 0)
+-- Dependencies: 229
+-- Name: TABLE poi_adress_datasource; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE poi_adress_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
+
+
+--
+-- TOC entry 230 (class 1259 OID 168144)
 -- Name: poi_adress_datasource_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -1155,8 +1776,8 @@ CREATE SEQUENCE poi_adress_datasource_id_seq
 ALTER TABLE public.poi_adress_datasource_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3591 (class 0 OID 0)
--- Dependencies: 226
+-- TOC entry 3674 (class 0 OID 0)
+-- Dependencies: 230
 -- Name: poi_adress_datasource_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -1164,7 +1785,7 @@ ALTER SEQUENCE poi_adress_datasource_id_seq OWNED BY poi_adress_datasource.id;
 
 
 --
--- TOC entry 227 (class 1259 OID 84532)
+-- TOC entry 231 (class 1259 OID 168146)
 -- Name: poi_adress_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -1179,8 +1800,8 @@ CREATE SEQUENCE poi_adress_id_seq
 ALTER TABLE public.poi_adress_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3593 (class 0 OID 0)
--- Dependencies: 227
+-- TOC entry 3676 (class 0 OID 0)
+-- Dependencies: 231
 -- Name: poi_adress_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -1188,7 +1809,55 @@ ALTER SEQUENCE poi_adress_id_seq OWNED BY poi_adress.id;
 
 
 --
--- TOC entry 228 (class 1259 OID 84534)
+-- TOC entry 226 (class 1259 OID 168130)
+-- Name: poi_datasource; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
+--
+
+CREATE TABLE poi_datasource (
+    id integer NOT NULL,
+    poi_id integer NOT NULL,
+    datasource_id integer NOT NULL,
+    code character varying(20)
+);
+
+
+ALTER TABLE public.poi_datasource OWNER TO endiv_owner;
+
+--
+-- TOC entry 3678 (class 0 OID 0)
+-- Dependencies: 226
+-- Name: TABLE poi_datasource; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE poi_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
+
+
+--
+-- TOC entry 227 (class 1259 OID 168133)
+-- Name: poi_datasource_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
+--
+
+CREATE SEQUENCE poi_datasource_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.poi_datasource_id_seq OWNER TO endiv_owner;
+
+--
+-- TOC entry 3680 (class 0 OID 0)
+-- Dependencies: 227
+-- Name: poi_datasource_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
+--
+
+ALTER SEQUENCE poi_datasource_id_seq OWNED BY poi_datasource.id;
+
+
+--
+-- TOC entry 232 (class 1259 OID 168148)
 -- Name: poi_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -1203,8 +1872,8 @@ CREATE SEQUENCE poi_id_seq
 ALTER TABLE public.poi_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3595 (class 0 OID 0)
--- Dependencies: 228
+-- TOC entry 3682 (class 0 OID 0)
+-- Dependencies: 232
 -- Name: poi_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -1212,8 +1881,8 @@ ALTER SEQUENCE poi_id_seq OWNED BY poi.id;
 
 
 --
--- TOC entry 229 (class 1259 OID 84536)
--- Name: poi_type; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 233 (class 1259 OID 168150)
+-- Name: poi_type; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE poi_type (
@@ -1225,7 +1894,7 @@ CREATE TABLE poi_type (
 ALTER TABLE public.poi_type OWNER TO endiv_owner;
 
 --
--- TOC entry 230 (class 1259 OID 84539)
+-- TOC entry 234 (class 1259 OID 168153)
 -- Name: poi_type_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -1240,8 +1909,8 @@ CREATE SEQUENCE poi_type_id_seq
 ALTER TABLE public.poi_type_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3598 (class 0 OID 0)
--- Dependencies: 230
+-- TOC entry 3685 (class 0 OID 0)
+-- Dependencies: 234
 -- Name: poi_type_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -1249,8 +1918,8 @@ ALTER SEQUENCE poi_type_id_seq OWNED BY poi_type.id;
 
 
 --
--- TOC entry 231 (class 1259 OID 84541)
--- Name: printing; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 235 (class 1259 OID 168155)
+-- Name: printing; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE printing (
@@ -1265,7 +1934,7 @@ CREATE TABLE printing (
 ALTER TABLE public.printing OWNER TO endiv_owner;
 
 --
--- TOC entry 232 (class 1259 OID 84547)
+-- TOC entry 236 (class 1259 OID 168161)
 -- Name: printing_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -1280,8 +1949,8 @@ CREATE SEQUENCE printing_id_seq
 ALTER TABLE public.printing_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3601 (class 0 OID 0)
--- Dependencies: 232
+-- TOC entry 3688 (class 0 OID 0)
+-- Dependencies: 236
 -- Name: printing_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -1289,8 +1958,8 @@ ALTER SEQUENCE printing_id_seq OWNED BY printing.id;
 
 
 --
--- TOC entry 233 (class 1259 OID 84549)
--- Name: route; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 237 (class 1259 OID 168163)
+-- Name: route; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE route (
@@ -1306,8 +1975,8 @@ CREATE TABLE route (
 ALTER TABLE public.route OWNER TO endiv_owner;
 
 --
--- TOC entry 234 (class 1259 OID 84552)
--- Name: route_datasource; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 238 (class 1259 OID 168166)
+-- Name: route_datasource; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE route_datasource (
@@ -1321,7 +1990,16 @@ CREATE TABLE route_datasource (
 ALTER TABLE public.route_datasource OWNER TO endiv_owner;
 
 --
--- TOC entry 235 (class 1259 OID 84555)
+-- TOC entry 3691 (class 0 OID 0)
+-- Dependencies: 238
+-- Name: TABLE route_datasource; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE route_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
+
+
+--
+-- TOC entry 239 (class 1259 OID 168169)
 -- Name: route_datasource_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -1336,8 +2014,8 @@ CREATE SEQUENCE route_datasource_id_seq
 ALTER TABLE public.route_datasource_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3605 (class 0 OID 0)
--- Dependencies: 235
+-- TOC entry 3693 (class 0 OID 0)
+-- Dependencies: 239
 -- Name: route_datasource_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -1345,7 +2023,7 @@ ALTER SEQUENCE route_datasource_id_seq OWNED BY route_datasource.id;
 
 
 --
--- TOC entry 236 (class 1259 OID 84557)
+-- TOC entry 240 (class 1259 OID 168171)
 -- Name: route_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -1360,8 +2038,8 @@ CREATE SEQUENCE route_id_seq
 ALTER TABLE public.route_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3607 (class 0 OID 0)
--- Dependencies: 236
+-- TOC entry 3695 (class 0 OID 0)
+-- Dependencies: 240
 -- Name: route_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -1369,8 +2047,8 @@ ALTER SEQUENCE route_id_seq OWNED BY route.id;
 
 
 --
--- TOC entry 271 (class 1259 OID 85144)
--- Name: route_not_exported; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 241 (class 1259 OID 168173)
+-- Name: route_not_exported; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE route_not_exported (
@@ -1383,7 +2061,7 @@ CREATE TABLE route_not_exported (
 ALTER TABLE public.route_not_exported OWNER TO endiv_owner;
 
 --
--- TOC entry 270 (class 1259 OID 85142)
+-- TOC entry 242 (class 1259 OID 168176)
 -- Name: route_not_exported_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -1398,8 +2076,8 @@ CREATE SEQUENCE route_not_exported_id_seq
 ALTER TABLE public.route_not_exported_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3609 (class 0 OID 0)
--- Dependencies: 270
+-- TOC entry 3698 (class 0 OID 0)
+-- Dependencies: 242
 -- Name: route_not_exported_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -1407,8 +2085,8 @@ ALTER SEQUENCE route_not_exported_id_seq OWNED BY route_not_exported.id;
 
 
 --
--- TOC entry 237 (class 1259 OID 84559)
--- Name: route_section; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 243 (class 1259 OID 168178)
+-- Name: route_section; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE route_section (
@@ -1424,7 +2102,7 @@ CREATE TABLE route_section (
 ALTER TABLE public.route_section OWNER TO endiv_owner;
 
 --
--- TOC entry 238 (class 1259 OID 84565)
+-- TOC entry 244 (class 1259 OID 168184)
 -- Name: route_section_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -1439,8 +2117,8 @@ CREATE SEQUENCE route_section_id_seq
 ALTER TABLE public.route_section_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3611 (class 0 OID 0)
--- Dependencies: 238
+-- TOC entry 3701 (class 0 OID 0)
+-- Dependencies: 244
 -- Name: route_section_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -1448,8 +2126,8 @@ ALTER SEQUENCE route_section_id_seq OWNED BY route_section.id;
 
 
 --
--- TOC entry 239 (class 1259 OID 84567)
--- Name: route_stop; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 245 (class 1259 OID 168186)
+-- Name: route_stop; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE route_stop (
@@ -1469,7 +2147,7 @@ CREATE TABLE route_stop (
 ALTER TABLE public.route_stop OWNER TO endiv_owner;
 
 --
--- TOC entry 240 (class 1259 OID 84570)
+-- TOC entry 246 (class 1259 OID 168189)
 -- Name: route_stop_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -1484,8 +2162,8 @@ CREATE SEQUENCE route_stop_id_seq
 ALTER TABLE public.route_stop_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3614 (class 0 OID 0)
--- Dependencies: 240
+-- TOC entry 3704 (class 0 OID 0)
+-- Dependencies: 246
 -- Name: route_stop_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -1493,8 +2171,8 @@ ALTER SEQUENCE route_stop_id_seq OWNED BY route_stop.id;
 
 
 --
--- TOC entry 243 (class 1259 OID 84577)
--- Name: stop; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 247 (class 1259 OID 168191)
+-- Name: stop; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE stop (
@@ -1507,8 +2185,8 @@ CREATE TABLE stop (
 ALTER TABLE public.stop OWNER TO endiv_owner;
 
 --
--- TOC entry 244 (class 1259 OID 84580)
--- Name: stop_area; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 248 (class 1259 OID 168194)
+-- Name: stop_area; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE stop_area (
@@ -1524,8 +2202,8 @@ CREATE TABLE stop_area (
 ALTER TABLE public.stop_area OWNER TO endiv_owner;
 
 --
--- TOC entry 245 (class 1259 OID 84586)
--- Name: stop_area_datasource; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 249 (class 1259 OID 168200)
+-- Name: stop_area_datasource; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE stop_area_datasource (
@@ -1539,7 +2217,16 @@ CREATE TABLE stop_area_datasource (
 ALTER TABLE public.stop_area_datasource OWNER TO endiv_owner;
 
 --
--- TOC entry 246 (class 1259 OID 84589)
+-- TOC entry 3708 (class 0 OID 0)
+-- Dependencies: 249
+-- Name: TABLE stop_area_datasource; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE stop_area_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
+
+
+--
+-- TOC entry 250 (class 1259 OID 168203)
 -- Name: stop_area_datasource_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -1554,8 +2241,8 @@ CREATE SEQUENCE stop_area_datasource_id_seq
 ALTER TABLE public.stop_area_datasource_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3619 (class 0 OID 0)
--- Dependencies: 246
+-- TOC entry 3710 (class 0 OID 0)
+-- Dependencies: 250
 -- Name: stop_area_datasource_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -1563,7 +2250,7 @@ ALTER SEQUENCE stop_area_datasource_id_seq OWNED BY stop_area_datasource.id;
 
 
 --
--- TOC entry 247 (class 1259 OID 84591)
+-- TOC entry 251 (class 1259 OID 168205)
 -- Name: stop_area_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -1578,8 +2265,8 @@ CREATE SEQUENCE stop_area_id_seq
 ALTER TABLE public.stop_area_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3621 (class 0 OID 0)
--- Dependencies: 247
+-- TOC entry 3712 (class 0 OID 0)
+-- Dependencies: 251
 -- Name: stop_area_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -1587,8 +2274,8 @@ ALTER SEQUENCE stop_area_id_seq OWNED BY stop_area.id;
 
 
 --
--- TOC entry 248 (class 1259 OID 84593)
--- Name: stop_datasource; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 252 (class 1259 OID 168207)
+-- Name: stop_datasource; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE stop_datasource (
@@ -1602,7 +2289,16 @@ CREATE TABLE stop_datasource (
 ALTER TABLE public.stop_datasource OWNER TO endiv_owner;
 
 --
--- TOC entry 249 (class 1259 OID 84596)
+-- TOC entry 3714 (class 0 OID 0)
+-- Dependencies: 252
+-- Name: TABLE stop_datasource; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE stop_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
+
+
+--
+-- TOC entry 253 (class 1259 OID 168210)
 -- Name: stop_datasource_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -1617,8 +2313,8 @@ CREATE SEQUENCE stop_datasource_id_seq
 ALTER TABLE public.stop_datasource_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3624 (class 0 OID 0)
--- Dependencies: 249
+-- TOC entry 3716 (class 0 OID 0)
+-- Dependencies: 253
 -- Name: stop_datasource_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -1626,8 +2322,8 @@ ALTER SEQUENCE stop_datasource_id_seq OWNED BY stop_datasource.id;
 
 
 --
--- TOC entry 250 (class 1259 OID 84598)
--- Name: stop_history; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 254 (class 1259 OID 168212)
+-- Name: stop_history; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE stop_history (
@@ -1645,7 +2341,7 @@ CREATE TABLE stop_history (
 ALTER TABLE public.stop_history OWNER TO endiv_owner;
 
 --
--- TOC entry 251 (class 1259 OID 84604)
+-- TOC entry 255 (class 1259 OID 168218)
 -- Name: stop_history_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -1660,8 +2356,8 @@ CREATE SEQUENCE stop_history_id_seq
 ALTER TABLE public.stop_history_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3627 (class 0 OID 0)
--- Dependencies: 251
+-- TOC entry 3719 (class 0 OID 0)
+-- Dependencies: 255
 -- Name: stop_history_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -1669,8 +2365,8 @@ ALTER SEQUENCE stop_history_id_seq OWNED BY stop_history.id;
 
 
 --
--- TOC entry 252 (class 1259 OID 84606)
--- Name: stop_time; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 256 (class 1259 OID 168220)
+-- Name: stop_time; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE stop_time (
@@ -1685,7 +2381,7 @@ CREATE TABLE stop_time (
 ALTER TABLE public.stop_time OWNER TO endiv_owner;
 
 --
--- TOC entry 253 (class 1259 OID 84609)
+-- TOC entry 257 (class 1259 OID 168223)
 -- Name: stop_time_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -1700,8 +2396,8 @@ CREATE SEQUENCE stop_time_id_seq
 ALTER TABLE public.stop_time_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3630 (class 0 OID 0)
--- Dependencies: 253
+-- TOC entry 3722 (class 0 OID 0)
+-- Dependencies: 257
 -- Name: stop_time_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -1709,8 +2405,8 @@ ALTER SEQUENCE stop_time_id_seq OWNED BY stop_time.id;
 
 
 --
--- TOC entry 254 (class 1259 OID 84611)
--- Name: transfer; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 258 (class 1259 OID 168225)
+-- Name: transfer; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE transfer (
@@ -1728,8 +2424,8 @@ CREATE TABLE transfer (
 ALTER TABLE public.transfer OWNER TO endiv_owner;
 
 --
--- TOC entry 255 (class 1259 OID 84617)
--- Name: transfer_datasource; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 259 (class 1259 OID 168231)
+-- Name: transfer_datasource; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE transfer_datasource (
@@ -1743,7 +2439,16 @@ CREATE TABLE transfer_datasource (
 ALTER TABLE public.transfer_datasource OWNER TO endiv_owner;
 
 --
--- TOC entry 256 (class 1259 OID 84620)
+-- TOC entry 3725 (class 0 OID 0)
+-- Dependencies: 259
+-- Name: TABLE transfer_datasource; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE transfer_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
+
+
+--
+-- TOC entry 260 (class 1259 OID 168234)
 -- Name: transfer_datasource_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -1758,8 +2463,8 @@ CREATE SEQUENCE transfer_datasource_id_seq
 ALTER TABLE public.transfer_datasource_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3634 (class 0 OID 0)
--- Dependencies: 256
+-- TOC entry 3727 (class 0 OID 0)
+-- Dependencies: 260
 -- Name: transfer_datasource_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -1767,7 +2472,7 @@ ALTER SEQUENCE transfer_datasource_id_seq OWNED BY transfer_datasource.id;
 
 
 --
--- TOC entry 257 (class 1259 OID 84622)
+-- TOC entry 261 (class 1259 OID 168236)
 -- Name: transfer_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -1782,8 +2487,8 @@ CREATE SEQUENCE transfer_id_seq
 ALTER TABLE public.transfer_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3636 (class 0 OID 0)
--- Dependencies: 257
+-- TOC entry 3729 (class 0 OID 0)
+-- Dependencies: 261
 -- Name: transfer_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -1791,8 +2496,8 @@ ALTER SEQUENCE transfer_id_seq OWNED BY transfer.id;
 
 
 --
--- TOC entry 273 (class 1259 OID 85162)
--- Name: transfer_not_exported; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 262 (class 1259 OID 168238)
+-- Name: transfer_not_exported; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE transfer_not_exported (
@@ -1805,7 +2510,7 @@ CREATE TABLE transfer_not_exported (
 ALTER TABLE public.transfer_not_exported OWNER TO endiv_owner;
 
 --
--- TOC entry 272 (class 1259 OID 85160)
+-- TOC entry 263 (class 1259 OID 168241)
 -- Name: transfer_not_exported_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -1820,8 +2525,8 @@ CREATE SEQUENCE transfer_not_exported_id_seq
 ALTER TABLE public.transfer_not_exported_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3638 (class 0 OID 0)
--- Dependencies: 272
+-- TOC entry 3732 (class 0 OID 0)
+-- Dependencies: 263
 -- Name: transfer_not_exported_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -1829,8 +2534,8 @@ ALTER SEQUENCE transfer_not_exported_id_seq OWNED BY transfer_not_exported.id;
 
 
 --
--- TOC entry 258 (class 1259 OID 84624)
--- Name: trip; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 264 (class 1259 OID 168243)
+-- Name: trip; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE trip (
@@ -1845,8 +2550,8 @@ CREATE TABLE trip (
 ALTER TABLE public.trip OWNER TO endiv_owner;
 
 --
--- TOC entry 259 (class 1259 OID 84627)
--- Name: trip_calendar; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 265 (class 1259 OID 168246)
+-- Name: trip_calendar; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE trip_calendar (
@@ -1864,10 +2569,8 @@ CREATE TABLE trip_calendar (
 
 ALTER TABLE public.trip_calendar OWNER TO endiv_owner;
 
-
-
 --
--- TOC entry 262 (class 1259 OID 84638)
+-- TOC entry 266 (class 1259 OID 168249)
 -- Name: trip_calendar_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -1882,8 +2585,8 @@ CREATE SEQUENCE trip_calendar_id_seq
 ALTER TABLE public.trip_calendar_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3642 (class 0 OID 0)
--- Dependencies: 262
+-- TOC entry 3736 (class 0 OID 0)
+-- Dependencies: 266
 -- Name: trip_calendar_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -1891,8 +2594,8 @@ ALTER SEQUENCE trip_calendar_id_seq OWNED BY trip_calendar.id;
 
 
 --
--- TOC entry 263 (class 1259 OID 84640)
--- Name: trip_datasource; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 267 (class 1259 OID 168251)
+-- Name: trip_datasource; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE trip_datasource (
@@ -1906,7 +2609,16 @@ CREATE TABLE trip_datasource (
 ALTER TABLE public.trip_datasource OWNER TO endiv_owner;
 
 --
--- TOC entry 264 (class 1259 OID 84643)
+-- TOC entry 3738 (class 0 OID 0)
+-- Dependencies: 267
+-- Name: TABLE trip_datasource; Type: COMMENT; Schema: public; Owner: endiv_owner
+--
+
+COMMENT ON TABLE trip_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
+
+
+--
+-- TOC entry 268 (class 1259 OID 168254)
 -- Name: trip_datasource_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -1921,8 +2633,8 @@ CREATE SEQUENCE trip_datasource_id_seq
 ALTER TABLE public.trip_datasource_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3645 (class 0 OID 0)
--- Dependencies: 264
+-- TOC entry 3740 (class 0 OID 0)
+-- Dependencies: 268
 -- Name: trip_datasource_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -1930,7 +2642,7 @@ ALTER SEQUENCE trip_datasource_id_seq OWNED BY trip_datasource.id;
 
 
 --
--- TOC entry 265 (class 1259 OID 84645)
+-- TOC entry 269 (class 1259 OID 168256)
 -- Name: trip_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -1945,8 +2657,8 @@ CREATE SEQUENCE trip_id_seq
 ALTER TABLE public.trip_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3647 (class 0 OID 0)
--- Dependencies: 265
+-- TOC entry 3742 (class 0 OID 0)
+-- Dependencies: 269
 -- Name: trip_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -1954,8 +2666,8 @@ ALTER SEQUENCE trip_id_seq OWNED BY trip.id;
 
 
 --
--- TOC entry 241 (class 1259 OID 84572)
--- Name: waypoint; Type: TABLE; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 270 (class 1259 OID 168258)
+-- Name: waypoint; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 CREATE TABLE waypoint (
@@ -1966,7 +2678,7 @@ CREATE TABLE waypoint (
 ALTER TABLE public.waypoint OWNER TO endiv_owner;
 
 --
--- TOC entry 242 (class 1259 OID 84575)
+-- TOC entry 271 (class 1259 OID 168261)
 -- Name: waypoint_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
@@ -1981,8 +2693,8 @@ CREATE SEQUENCE waypoint_id_seq
 ALTER TABLE public.waypoint_id_seq OWNER TO endiv_owner;
 
 --
--- TOC entry 3649 (class 0 OID 0)
--- Dependencies: 242
+-- TOC entry 3745 (class 0 OID 0)
+-- Dependencies: 271
 -- Name: waypoint_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
@@ -1990,7 +2702,7 @@ ALTER SEQUENCE waypoint_id_seq OWNED BY waypoint.id;
 
 
 --
--- TOC entry 3182 (class 2604 OID 84647)
+-- TOC entry 3193 (class 2604 OID 168263)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -1998,7 +2710,7 @@ ALTER TABLE ONLY agency ALTER COLUMN id SET DEFAULT nextval('agency_id_seq'::reg
 
 
 --
--- TOC entry 3183 (class 2604 OID 84648)
+-- TOC entry 3194 (class 2604 OID 168264)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2006,7 +2718,7 @@ ALTER TABLE ONLY alias ALTER COLUMN id SET DEFAULT nextval('alias_id_seq'::regcl
 
 
 --
--- TOC entry 3184 (class 2604 OID 84649)
+-- TOC entry 3195 (class 2604 OID 168265)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2014,7 +2726,7 @@ ALTER TABLE ONLY calendar ALTER COLUMN id SET DEFAULT nextval('calendar_id_seq':
 
 
 --
--- TOC entry 3185 (class 2604 OID 84650)
+-- TOC entry 3196 (class 2604 OID 168266)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2022,7 +2734,7 @@ ALTER TABLE ONLY calendar_datasource ALTER COLUMN id SET DEFAULT nextval('calend
 
 
 --
--- TOC entry 3186 (class 2604 OID 84651)
+-- TOC entry 3197 (class 2604 OID 168267)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2030,7 +2742,7 @@ ALTER TABLE ONLY calendar_element ALTER COLUMN id SET DEFAULT nextval('calendar_
 
 
 --
--- TOC entry 3187 (class 2604 OID 84652)
+-- TOC entry 3198 (class 2604 OID 168268)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2038,7 +2750,7 @@ ALTER TABLE ONLY calendar_link ALTER COLUMN id SET DEFAULT nextval('calendar_lin
 
 
 --
--- TOC entry 3188 (class 2604 OID 84653)
+-- TOC entry 3199 (class 2604 OID 168269)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2046,7 +2758,7 @@ ALTER TABLE ONLY change_cause ALTER COLUMN id SET DEFAULT nextval('change_cause_
 
 
 --
--- TOC entry 3189 (class 2604 OID 84654)
+-- TOC entry 3200 (class 2604 OID 168270)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2054,7 +2766,7 @@ ALTER TABLE ONLY change_cause_link ALTER COLUMN id SET DEFAULT nextval('change_c
 
 
 --
--- TOC entry 3190 (class 2604 OID 84655)
+-- TOC entry 3201 (class 2604 OID 168271)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2062,7 +2774,7 @@ ALTER TABLE ONLY city ALTER COLUMN id SET DEFAULT nextval('city_id_seq'::regclas
 
 
 --
--- TOC entry 3191 (class 2604 OID 84656)
+-- TOC entry 3202 (class 2604 OID 168272)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2070,7 +2782,7 @@ ALTER TABLE ONLY comment ALTER COLUMN id SET DEFAULT nextval('comment_id_seq'::r
 
 
 --
--- TOC entry 3192 (class 2604 OID 84657)
+-- TOC entry 3203 (class 2604 OID 168273)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2078,7 +2790,7 @@ ALTER TABLE ONLY datasource ALTER COLUMN id SET DEFAULT nextval('datasource_id_s
 
 
 --
--- TOC entry 3193 (class 2604 OID 84658)
+-- TOC entry 3204 (class 2604 OID 168274)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2086,7 +2798,7 @@ ALTER TABLE ONLY exception_type ALTER COLUMN id SET DEFAULT nextval('exception_t
 
 
 --
--- TOC entry 3225 (class 2604 OID 85118)
+-- TOC entry 3205 (class 2604 OID 168275)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2094,7 +2806,7 @@ ALTER TABLE ONLY export_destination ALTER COLUMN id SET DEFAULT nextval('export_
 
 
 --
--- TOC entry 3194 (class 2604 OID 84659)
+-- TOC entry 3206 (class 2604 OID 168276)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2102,7 +2814,7 @@ ALTER TABLE ONLY grid_calendar ALTER COLUMN id SET DEFAULT nextval('grid_calenda
 
 
 --
--- TOC entry 3195 (class 2604 OID 84660)
+-- TOC entry 3207 (class 2604 OID 168277)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2110,7 +2822,7 @@ ALTER TABLE ONLY grid_link_calendar_mask_type ALTER COLUMN id SET DEFAULT nextva
 
 
 --
--- TOC entry 3196 (class 2604 OID 84661)
+-- TOC entry 3208 (class 2604 OID 168278)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2118,7 +2830,7 @@ ALTER TABLE ONLY grid_mask_type ALTER COLUMN id SET DEFAULT nextval('grid_mask_t
 
 
 --
--- TOC entry 3197 (class 2604 OID 84662)
+-- TOC entry 3209 (class 2604 OID 168279)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2126,7 +2838,7 @@ ALTER TABLE ONLY line ALTER COLUMN id SET DEFAULT nextval('line_id_seq'::regclas
 
 
 --
--- TOC entry 3198 (class 2604 OID 84663)
+-- TOC entry 3210 (class 2604 OID 168280)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2134,7 +2846,7 @@ ALTER TABLE ONLY line_datasource ALTER COLUMN id SET DEFAULT nextval('line_datas
 
 
 --
--- TOC entry 3199 (class 2604 OID 84664)
+-- TOC entry 3212 (class 2604 OID 168281)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2142,7 +2854,7 @@ ALTER TABLE ONLY line_version ALTER COLUMN id SET DEFAULT nextval('line_version_
 
 
 --
--- TOC entry 3200 (class 2604 OID 84665)
+-- TOC entry 3213 (class 2604 OID 168282)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2150,7 +2862,7 @@ ALTER TABLE ONLY line_version_datasource ALTER COLUMN id SET DEFAULT nextval('li
 
 
 --
--- TOC entry 3226 (class 2604 OID 85129)
+-- TOC entry 3214 (class 2604 OID 168283)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2158,7 +2870,7 @@ ALTER TABLE ONLY line_version_not_exported ALTER COLUMN id SET DEFAULT nextval('
 
 
 --
--- TOC entry 3201 (class 2604 OID 84666)
+-- TOC entry 3215 (class 2604 OID 168284)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2166,7 +2878,7 @@ ALTER TABLE ONLY log ALTER COLUMN id SET DEFAULT nextval('log_id_seq'::regclass)
 
 
 --
--- TOC entry 3202 (class 2604 OID 84667)
+-- TOC entry 3216 (class 2604 OID 168285)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2174,7 +2886,7 @@ ALTER TABLE ONLY physical_mode ALTER COLUMN id SET DEFAULT nextval('physical_mod
 
 
 --
--- TOC entry 3203 (class 2604 OID 84668)
+-- TOC entry 3217 (class 2604 OID 168286)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2182,15 +2894,7 @@ ALTER TABLE ONLY poi ALTER COLUMN id SET DEFAULT nextval('poi_id_seq'::regclass)
 
 
 --
--- TOC entry 3204 (class 2604 OID 84669)
--- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
---
-
-ALTER TABLE ONLY poi_datasource ALTER COLUMN id SET DEFAULT nextval('poi_datasource_id_seq'::regclass);
-
-
---
--- TOC entry 3205 (class 2604 OID 84670)
+-- TOC entry 3219 (class 2604 OID 168288)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2198,7 +2902,7 @@ ALTER TABLE ONLY poi_adress ALTER COLUMN id SET DEFAULT nextval('poi_adress_id_s
 
 
 --
--- TOC entry 3206 (class 2604 OID 84671)
+-- TOC entry 3220 (class 2604 OID 168289)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2206,7 +2910,15 @@ ALTER TABLE ONLY poi_adress_datasource ALTER COLUMN id SET DEFAULT nextval('poi_
 
 
 --
--- TOC entry 3207 (class 2604 OID 84672)
+-- TOC entry 3218 (class 2604 OID 168287)
+-- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
+--
+
+ALTER TABLE ONLY poi_datasource ALTER COLUMN id SET DEFAULT nextval('poi_datasource_id_seq'::regclass);
+
+
+--
+-- TOC entry 3221 (class 2604 OID 168290)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2214,7 +2926,7 @@ ALTER TABLE ONLY poi_type ALTER COLUMN id SET DEFAULT nextval('poi_type_id_seq':
 
 
 --
--- TOC entry 3208 (class 2604 OID 84673)
+-- TOC entry 3222 (class 2604 OID 168291)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2222,7 +2934,7 @@ ALTER TABLE ONLY printing ALTER COLUMN id SET DEFAULT nextval('printing_id_seq':
 
 
 --
--- TOC entry 3209 (class 2604 OID 84674)
+-- TOC entry 3223 (class 2604 OID 168292)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2230,7 +2942,7 @@ ALTER TABLE ONLY route ALTER COLUMN id SET DEFAULT nextval('route_id_seq'::regcl
 
 
 --
--- TOC entry 3210 (class 2604 OID 84675)
+-- TOC entry 3224 (class 2604 OID 168293)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2238,7 +2950,7 @@ ALTER TABLE ONLY route_datasource ALTER COLUMN id SET DEFAULT nextval('route_dat
 
 
 --
--- TOC entry 3227 (class 2604 OID 85147)
+-- TOC entry 3225 (class 2604 OID 168294)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2246,7 +2958,7 @@ ALTER TABLE ONLY route_not_exported ALTER COLUMN id SET DEFAULT nextval('route_n
 
 
 --
--- TOC entry 3211 (class 2604 OID 84676)
+-- TOC entry 3226 (class 2604 OID 168295)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2254,7 +2966,7 @@ ALTER TABLE ONLY route_section ALTER COLUMN id SET DEFAULT nextval('route_sectio
 
 
 --
--- TOC entry 3212 (class 2604 OID 84677)
+-- TOC entry 3227 (class 2604 OID 168296)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2262,7 +2974,7 @@ ALTER TABLE ONLY route_stop ALTER COLUMN id SET DEFAULT nextval('route_stop_id_s
 
 
 --
--- TOC entry 3214 (class 2604 OID 84679)
+-- TOC entry 3228 (class 2604 OID 168297)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2270,7 +2982,7 @@ ALTER TABLE ONLY stop_area ALTER COLUMN id SET DEFAULT nextval('stop_area_id_seq
 
 
 --
--- TOC entry 3215 (class 2604 OID 84680)
+-- TOC entry 3229 (class 2604 OID 168298)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2278,7 +2990,7 @@ ALTER TABLE ONLY stop_area_datasource ALTER COLUMN id SET DEFAULT nextval('stop_
 
 
 --
--- TOC entry 3216 (class 2604 OID 84681)
+-- TOC entry 3230 (class 2604 OID 168299)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2286,7 +2998,7 @@ ALTER TABLE ONLY stop_datasource ALTER COLUMN id SET DEFAULT nextval('stop_datas
 
 
 --
--- TOC entry 3217 (class 2604 OID 84682)
+-- TOC entry 3231 (class 2604 OID 168300)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2294,7 +3006,7 @@ ALTER TABLE ONLY stop_history ALTER COLUMN id SET DEFAULT nextval('stop_history_
 
 
 --
--- TOC entry 3218 (class 2604 OID 84683)
+-- TOC entry 3232 (class 2604 OID 168301)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2302,7 +3014,7 @@ ALTER TABLE ONLY stop_time ALTER COLUMN id SET DEFAULT nextval('stop_time_id_seq
 
 
 --
--- TOC entry 3219 (class 2604 OID 84684)
+-- TOC entry 3233 (class 2604 OID 168302)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2310,7 +3022,7 @@ ALTER TABLE ONLY transfer ALTER COLUMN id SET DEFAULT nextval('transfer_id_seq':
 
 
 --
--- TOC entry 3220 (class 2604 OID 84685)
+-- TOC entry 3234 (class 2604 OID 168303)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2318,7 +3030,7 @@ ALTER TABLE ONLY transfer_datasource ALTER COLUMN id SET DEFAULT nextval('transf
 
 
 --
--- TOC entry 3228 (class 2604 OID 85165)
+-- TOC entry 3235 (class 2604 OID 168304)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2326,7 +3038,7 @@ ALTER TABLE ONLY transfer_not_exported ALTER COLUMN id SET DEFAULT nextval('tran
 
 
 --
--- TOC entry 3221 (class 2604 OID 84686)
+-- TOC entry 3236 (class 2604 OID 168305)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2334,17 +3046,15 @@ ALTER TABLE ONLY trip ALTER COLUMN id SET DEFAULT nextval('trip_id_seq'::regclas
 
 
 --
--- TOC entry 3222 (class 2604 OID 84687)
+-- TOC entry 3237 (class 2604 OID 168306)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
 ALTER TABLE ONLY trip_calendar ALTER COLUMN id SET DEFAULT nextval('trip_calendar_id_seq'::regclass);
 
 
-
-
 --
--- TOC entry 3224 (class 2604 OID 84689)
+-- TOC entry 3238 (class 2604 OID 168307)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2352,7 +3062,7 @@ ALTER TABLE ONLY trip_datasource ALTER COLUMN id SET DEFAULT nextval('trip_datas
 
 
 --
--- TOC entry 3213 (class 2604 OID 84678)
+-- TOC entry 3239 (class 2604 OID 168308)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
@@ -2360,8 +3070,8 @@ ALTER TABLE ONLY waypoint ALTER COLUMN id SET DEFAULT nextval('waypoint_id_seq':
 
 
 --
--- TOC entry 3230 (class 2606 OID 84691)
--- Name: agency_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3241 (class 2606 OID 168310)
+-- Name: agency_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY agency
@@ -2369,8 +3079,8 @@ ALTER TABLE ONLY agency
 
 
 --
--- TOC entry 3232 (class 2606 OID 84693)
--- Name: alias_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3243 (class 2606 OID 168312)
+-- Name: alias_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY alias
@@ -2378,8 +3088,8 @@ ALTER TABLE ONLY alias
 
 
 --
--- TOC entry 3236 (class 2606 OID 84695)
--- Name: calendar_datasource_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3247 (class 2606 OID 168314)
+-- Name: calendar_datasource_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY calendar_datasource
@@ -2387,8 +3097,8 @@ ALTER TABLE ONLY calendar_datasource
 
 
 --
--- TOC entry 3238 (class 2606 OID 84697)
--- Name: calendar_element_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3250 (class 2606 OID 168316)
+-- Name: calendar_element_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY calendar_element
@@ -2396,8 +3106,8 @@ ALTER TABLE ONLY calendar_element
 
 
 --
--- TOC entry 3240 (class 2606 OID 84699)
--- Name: calendar_link_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3254 (class 2606 OID 168318)
+-- Name: calendar_link_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY calendar_link
@@ -2405,8 +3115,8 @@ ALTER TABLE ONLY calendar_link
 
 
 --
--- TOC entry 3234 (class 2606 OID 84701)
--- Name: calendar_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3245 (class 2606 OID 168320)
+-- Name: calendar_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY calendar
@@ -2414,8 +3124,8 @@ ALTER TABLE ONLY calendar
 
 
 --
--- TOC entry 3244 (class 2606 OID 84703)
--- Name: change_cause_link_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3259 (class 2606 OID 168322)
+-- Name: change_cause_link_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY change_cause_link
@@ -2423,8 +3133,8 @@ ALTER TABLE ONLY change_cause_link
 
 
 --
--- TOC entry 3242 (class 2606 OID 84705)
--- Name: change_cause_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3257 (class 2606 OID 168324)
+-- Name: change_cause_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY change_cause
@@ -2432,8 +3142,8 @@ ALTER TABLE ONLY change_cause
 
 
 --
--- TOC entry 3246 (class 2606 OID 84707)
--- Name: city_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3261 (class 2606 OID 168326)
+-- Name: city_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY city
@@ -2441,8 +3151,8 @@ ALTER TABLE ONLY city
 
 
 --
--- TOC entry 3248 (class 2606 OID 84709)
--- Name: comment_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3263 (class 2606 OID 168328)
+-- Name: comment_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY comment
@@ -2450,15 +3160,17 @@ ALTER TABLE ONLY comment
 
 
 --
--- TOC entry 3250 (class 2606 OID 84711)
--- Name: datasource_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3265 (class 2606 OID 168330)
+-- Name: datasource_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY datasource
     ADD CONSTRAINT datasource_pk PRIMARY KEY (id);
 
 
--- Name: exception_type_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+--
+-- TOC entry 3267 (class 2606 OID 168332)
+-- Name: exception_type_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY exception_type
@@ -2466,8 +3178,8 @@ ALTER TABLE ONLY exception_type
 
 
 --
--- TOC entry 3324 (class 2606 OID 85123)
--- Name: export_destination_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3269 (class 2606 OID 168334)
+-- Name: export_destination_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY export_destination
@@ -2475,8 +3187,8 @@ ALTER TABLE ONLY export_destination
 
 
 --
--- TOC entry 3252 (class 2606 OID 84713)
--- Name: export_perso_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3271 (class 2606 OID 168336)
+-- Name: export_perso_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY export_perso
@@ -2484,8 +3196,8 @@ ALTER TABLE ONLY export_perso
 
 
 --
--- TOC entry 3254 (class 2606 OID 84715)
--- Name: export_prod_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3273 (class 2606 OID 168338)
+-- Name: export_prod_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY export_prod
@@ -2493,8 +3205,8 @@ ALTER TABLE ONLY export_prod
 
 
 --
--- TOC entry 3256 (class 2606 OID 84717)
--- Name: grid_calendar_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3275 (class 2606 OID 168340)
+-- Name: grid_calendar_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY grid_calendar
@@ -2502,8 +3214,8 @@ ALTER TABLE ONLY grid_calendar
 
 
 --
--- TOC entry 3258 (class 2606 OID 84719)
--- Name: grid_link_calendar_mask_type_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3277 (class 2606 OID 168342)
+-- Name: grid_link_calendar_mask_type_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY grid_link_calendar_mask_type
@@ -2511,8 +3223,8 @@ ALTER TABLE ONLY grid_link_calendar_mask_type
 
 
 --
--- TOC entry 3260 (class 2606 OID 84721)
--- Name: grid_mask_type_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3279 (class 2606 OID 168344)
+-- Name: grid_mask_type_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY grid_mask_type
@@ -2520,8 +3232,8 @@ ALTER TABLE ONLY grid_mask_type
 
 
 --
--- TOC entry 3264 (class 2606 OID 84723)
--- Name: line_datasource_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3283 (class 2606 OID 168346)
+-- Name: line_datasource_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY line_datasource
@@ -2529,8 +3241,8 @@ ALTER TABLE ONLY line_datasource
 
 
 --
--- TOC entry 3262 (class 2606 OID 84725)
--- Name: line_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3281 (class 2606 OID 168348)
+-- Name: line_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY line
@@ -2538,8 +3250,8 @@ ALTER TABLE ONLY line
 
 
 --
--- TOC entry 3268 (class 2606 OID 84727)
--- Name: line_version_datasource_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3287 (class 2606 OID 168350)
+-- Name: line_version_datasource_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY line_version_datasource
@@ -2547,8 +3259,8 @@ ALTER TABLE ONLY line_version_datasource
 
 
 --
--- TOC entry 3326 (class 2606 OID 85131)
--- Name: line_version_not_exported_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3289 (class 2606 OID 168352)
+-- Name: line_version_not_exported_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY line_version_not_exported
@@ -2556,15 +3268,17 @@ ALTER TABLE ONLY line_version_not_exported
 
 
 --
--- TOC entry 3266 (class 2606 OID 84729)
--- Name: line_version_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3285 (class 2606 OID 168354)
+-- Name: line_version_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY line_version
     ADD CONSTRAINT line_version_pk PRIMARY KEY (id);
 
 
--- Name: log_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+--
+-- TOC entry 3291 (class 2606 OID 168356)
+-- Name: log_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY log
@@ -2572,8 +3286,8 @@ ALTER TABLE ONLY log
 
 
 --
--- TOC entry 3270 (class 2606 OID 84731)
--- Name: non_concurrency_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3293 (class 2606 OID 168358)
+-- Name: non_concurrency_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY non_concurrency
@@ -2581,8 +3295,8 @@ ALTER TABLE ONLY non_concurrency
 
 
 --
--- TOC entry 3272 (class 2606 OID 84733)
--- Name: odt_area_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3295 (class 2606 OID 168360)
+-- Name: odt_area_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY odt_area
@@ -2590,8 +3304,8 @@ ALTER TABLE ONLY odt_area
 
 
 --
--- TOC entry 3274 (class 2606 OID 84735)
--- Name: odt_stop_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3297 (class 2606 OID 168362)
+-- Name: odt_stop_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY odt_stop
@@ -2599,8 +3313,8 @@ ALTER TABLE ONLY odt_stop
 
 
 --
--- TOC entry 3276 (class 2606 OID 84737)
--- Name: physical_mode_fk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3299 (class 2606 OID 168364)
+-- Name: physical_mode_fk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY physical_mode
@@ -2608,17 +3322,8 @@ ALTER TABLE ONLY physical_mode
 
 
 --
--- TOC entry 3280 (class 2606 OID 84739)
--- Name: poi_datasource_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
---
-
-ALTER TABLE ONLY poi_datasource
-    ADD CONSTRAINT poi_datasource_pk PRIMARY KEY (id);
-
-
---
--- TOC entry 3284 (class 2606 OID 84741)
--- Name: poi_adress_datasource_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3309 (class 2606 OID 168368)
+-- Name: poi_adress_datasource_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY poi_adress_datasource
@@ -2626,8 +3331,8 @@ ALTER TABLE ONLY poi_adress_datasource
 
 
 --
--- TOC entry 3282 (class 2606 OID 84743)
--- Name: poi_adress_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3306 (class 2606 OID 168370)
+-- Name: poi_adress_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY poi_adress
@@ -2635,8 +3340,17 @@ ALTER TABLE ONLY poi_adress
 
 
 --
--- TOC entry 3278 (class 2606 OID 84745)
--- Name: poi_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3304 (class 2606 OID 168366)
+-- Name: poi_datasource_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
+--
+
+ALTER TABLE ONLY poi_datasource
+    ADD CONSTRAINT poi_datasource_pk PRIMARY KEY (id);
+
+
+--
+-- TOC entry 3301 (class 2606 OID 168372)
+-- Name: poi_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY poi
@@ -2644,8 +3358,8 @@ ALTER TABLE ONLY poi
 
 
 --
--- TOC entry 3286 (class 2606 OID 84747)
--- Name: poi_type_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3311 (class 2606 OID 168374)
+-- Name: poi_type_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY poi_type
@@ -2653,8 +3367,8 @@ ALTER TABLE ONLY poi_type
 
 
 --
--- TOC entry 3288 (class 2606 OID 84749)
--- Name: printing_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3313 (class 2606 OID 168376)
+-- Name: printing_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY printing
@@ -2662,8 +3376,8 @@ ALTER TABLE ONLY printing
 
 
 --
--- TOC entry 3292 (class 2606 OID 84751)
--- Name: route_datasource_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3319 (class 2606 OID 168378)
+-- Name: route_datasource_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY route_datasource
@@ -2671,8 +3385,8 @@ ALTER TABLE ONLY route_datasource
 
 
 --
--- TOC entry 3290 (class 2606 OID 84753)
--- Name: route_id_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3315 (class 2606 OID 168380)
+-- Name: route_id_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY route
@@ -2680,8 +3394,8 @@ ALTER TABLE ONLY route
 
 
 --
--- TOC entry 3328 (class 2606 OID 85149)
--- Name: route_not_exported_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3322 (class 2606 OID 168382)
+-- Name: route_not_exported_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY route_not_exported
@@ -2689,8 +3403,8 @@ ALTER TABLE ONLY route_not_exported
 
 
 --
--- TOC entry 3294 (class 2606 OID 84755)
--- Name: route_section_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3324 (class 2606 OID 168384)
+-- Name: route_section_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY route_section
@@ -2698,8 +3412,8 @@ ALTER TABLE ONLY route_section
 
 
 --
--- TOC entry 3296 (class 2606 OID 84757)
--- Name: route_stop_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3326 (class 2606 OID 168386)
+-- Name: route_stop_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY route_stop
@@ -2707,8 +3421,8 @@ ALTER TABLE ONLY route_stop
 
 
 --
--- TOC entry 3304 (class 2606 OID 84761)
--- Name: stop_area_datasource_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3334 (class 2606 OID 168388)
+-- Name: stop_area_datasource_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY stop_area_datasource
@@ -2716,8 +3430,8 @@ ALTER TABLE ONLY stop_area_datasource
 
 
 --
--- TOC entry 3302 (class 2606 OID 84763)
--- Name: stop_area_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3332 (class 2606 OID 168390)
+-- Name: stop_area_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY stop_area
@@ -2725,8 +3439,8 @@ ALTER TABLE ONLY stop_area
 
 
 --
--- TOC entry 3306 (class 2606 OID 84765)
--- Name: stop_datasource_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3337 (class 2606 OID 168392)
+-- Name: stop_datasource_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY stop_datasource
@@ -2734,8 +3448,8 @@ ALTER TABLE ONLY stop_datasource
 
 
 --
--- TOC entry 3308 (class 2606 OID 84767)
--- Name: stop_history_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3340 (class 2606 OID 168394)
+-- Name: stop_history_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY stop_history
@@ -2743,8 +3457,8 @@ ALTER TABLE ONLY stop_history
 
 
 --
--- TOC entry 3300 (class 2606 OID 84769)
--- Name: stop_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3330 (class 2606 OID 168396)
+-- Name: stop_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY stop
@@ -2752,8 +3466,8 @@ ALTER TABLE ONLY stop
 
 
 --
--- TOC entry 3310 (class 2606 OID 84771)
--- Name: stop_time_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3342 (class 2606 OID 168398)
+-- Name: stop_time_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY stop_time
@@ -2761,8 +3475,8 @@ ALTER TABLE ONLY stop_time
 
 
 --
--- TOC entry 3314 (class 2606 OID 84773)
--- Name: transfer_datasource_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3348 (class 2606 OID 168400)
+-- Name: transfer_datasource_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY transfer_datasource
@@ -2770,8 +3484,8 @@ ALTER TABLE ONLY transfer_datasource
 
 
 --
--- TOC entry 3330 (class 2606 OID 85167)
--- Name: transfer_not_exported_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3350 (class 2606 OID 168402)
+-- Name: transfer_not_exported_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY transfer_not_exported
@@ -2779,19 +3493,17 @@ ALTER TABLE ONLY transfer_not_exported
 
 
 --
--- TOC entry 3312 (class 2606 OID 84775)
--- Name: transfer_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3346 (class 2606 OID 168404)
+-- Name: transfer_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY transfer
     ADD CONSTRAINT transfer_pk PRIMARY KEY (id);
 
 
-
-
 --
--- TOC entry 3318 (class 2606 OID 84779)
--- Name: trip_calendar_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3355 (class 2606 OID 168406)
+-- Name: trip_calendar_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY trip_calendar
@@ -2799,8 +3511,8 @@ ALTER TABLE ONLY trip_calendar
 
 
 --
--- TOC entry 3322 (class 2606 OID 84781)
--- Name: trip_datasource_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3358 (class 2606 OID 168408)
+-- Name: trip_datasource_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY trip_datasource
@@ -2808,8 +3520,8 @@ ALTER TABLE ONLY trip_datasource
 
 
 --
--- TOC entry 3316 (class 2606 OID 84783)
--- Name: trip_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3352 (class 2606 OID 168410)
+-- Name: trip_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY trip
@@ -2817,8 +3529,8 @@ ALTER TABLE ONLY trip
 
 
 --
--- TOC entry 3298 (class 2606 OID 84759)
--- Name: waypoint_pk; Type: CONSTRAINT; Schema: public; Owner: postgres; Tablespace: 
+-- TOC entry 3361 (class 2606 OID 168412)
+-- Name: waypoint_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
 ALTER TABLE ONLY waypoint
@@ -2826,7 +3538,151 @@ ALTER TABLE ONLY waypoint
 
 
 --
--- TOC entry 3331 (class 2606 OID 84784)
+-- TOC entry 3248 (class 1259 OID 168773)
+-- Name: calendar_element_calendar_id_idx; Type: INDEX; Schema: public; Owner: endiv_owner; Tablespace: 
+--
+
+CREATE INDEX calendar_element_calendar_id_idx ON calendar_element USING btree (calendar_id);
+
+
+--
+-- TOC entry 3251 (class 1259 OID 168772)
+-- Name: calendar_link_day_calendar_id_idx; Type: INDEX; Schema: public; Owner: endiv_owner; Tablespace: 
+--
+
+CREATE INDEX calendar_link_day_calendar_id_idx ON calendar_link USING btree (day_calendar_id);
+
+
+--
+-- TOC entry 3252 (class 1259 OID 168771)
+-- Name: calendar_link_period_calendar_id_idx; Type: INDEX; Schema: public; Owner: endiv_owner; Tablespace: 
+--
+
+CREATE INDEX calendar_link_period_calendar_id_idx ON calendar_link USING btree (period_calendar_id);
+
+
+--
+-- TOC entry 3255 (class 1259 OID 168770)
+-- Name: calendar_link_trip_id_idx; Type: INDEX; Schema: public; Owner: endiv_owner; Tablespace: 
+--
+
+CREATE INDEX calendar_link_trip_id_idx ON calendar_link USING btree (trip_id);
+
+
+--
+-- TOC entry 3307 (class 1259 OID 168775)
+-- Name: poi_adress_poi_id_idx; Type: INDEX; Schema: public; Owner: endiv_owner; Tablespace: 
+--
+
+CREATE INDEX poi_adress_poi_id_idx ON poi_adress USING btree (poi_id);
+
+
+--
+-- TOC entry 3302 (class 1259 OID 168774)
+-- Name: poi_poi_type_id_idx; Type: INDEX; Schema: public; Owner: endiv_owner; Tablespace: 
+--
+
+CREATE INDEX poi_poi_type_id_idx ON poi USING btree (poi_type_id);
+
+
+--
+-- TOC entry 3317 (class 1259 OID 168758)
+-- Name: route_datasource_code_idx; Type: INDEX; Schema: public; Owner: endiv_owner; Tablespace: 
+--
+
+CREATE INDEX route_datasource_code_idx ON route_datasource USING btree (code);
+
+
+--
+-- TOC entry 3320 (class 1259 OID 168759)
+-- Name: route_datasource_route_id_idx; Type: INDEX; Schema: public; Owner: endiv_owner; Tablespace: 
+--
+
+CREATE INDEX route_datasource_route_id_idx ON route_datasource USING btree (route_id);
+
+
+--
+-- TOC entry 3316 (class 1259 OID 168764)
+-- Name: route_line_version_id_idx; Type: INDEX; Schema: public; Owner: endiv_owner; Tablespace: 
+--
+
+CREATE INDEX route_line_version_id_idx ON route USING btree (line_version_id);
+
+
+--
+-- TOC entry 3327 (class 1259 OID 168766)
+-- Name: route_stop_route_id_idx; Type: INDEX; Schema: public; Owner: endiv_owner; Tablespace: 
+--
+
+CREATE INDEX route_stop_route_id_idx ON route_stop USING btree (route_id);
+
+
+--
+-- TOC entry 3328 (class 1259 OID 168767)
+-- Name: route_stop_waypoint_id_idx; Type: INDEX; Schema: public; Owner: endiv_owner; Tablespace: 
+--
+
+CREATE INDEX route_stop_waypoint_id_idx ON route_stop USING btree (waypoint_id);
+
+
+--
+-- TOC entry 3335 (class 1259 OID 168762)
+-- Name: stop_datasource_code_idx; Type: INDEX; Schema: public; Owner: endiv_owner; Tablespace: 
+--
+
+CREATE INDEX stop_datasource_code_idx ON stop_datasource USING btree (code);
+
+
+--
+-- TOC entry 3338 (class 1259 OID 168763)
+-- Name: stop_datasource_stop_id_idx; Type: INDEX; Schema: public; Owner: endiv_owner; Tablespace: 
+--
+
+CREATE INDEX stop_datasource_stop_id_idx ON stop_datasource USING btree (stop_id);
+
+
+--
+-- TOC entry 3343 (class 1259 OID 168768)
+-- Name: stop_time_route_stop_id_idx; Type: INDEX; Schema: public; Owner: endiv_owner; Tablespace: 
+--
+
+CREATE INDEX stop_time_route_stop_id_idx ON stop_time USING btree (route_stop_id);
+
+
+--
+-- TOC entry 3344 (class 1259 OID 168769)
+-- Name: stop_time_trip_id_idx; Type: INDEX; Schema: public; Owner: endiv_owner; Tablespace: 
+--
+
+CREATE INDEX stop_time_trip_id_idx ON stop_time USING btree (trip_id);
+
+
+--
+-- TOC entry 3356 (class 1259 OID 168760)
+-- Name: trip_datasource_code_idx; Type: INDEX; Schema: public; Owner: endiv_owner; Tablespace: 
+--
+
+CREATE INDEX trip_datasource_code_idx ON trip_datasource USING btree (code);
+
+
+--
+-- TOC entry 3359 (class 1259 OID 168761)
+-- Name: trip_datasource_trip_id_idx; Type: INDEX; Schema: public; Owner: endiv_owner; Tablespace: 
+--
+
+CREATE INDEX trip_datasource_trip_id_idx ON trip_datasource USING btree (trip_id);
+
+
+--
+-- TOC entry 3353 (class 1259 OID 168765)
+-- Name: trip_route_id_idx; Type: INDEX; Schema: public; Owner: endiv_owner; Tablespace: 
+--
+
+CREATE INDEX trip_route_id_idx ON trip USING btree (route_id);
+
+
+--
+-- TOC entry 3362 (class 2606 OID 168413)
 -- Name: alias_stop_area_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -2835,7 +3691,7 @@ ALTER TABLE ONLY alias
 
 
 --
--- TOC entry 3332 (class 2606 OID 84789)
+-- TOC entry 3363 (class 2606 OID 168418)
 -- Name: calendar_datasource_calendar_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -2844,7 +3700,7 @@ ALTER TABLE ONLY calendar_datasource
 
 
 --
--- TOC entry 3333 (class 2606 OID 84794)
+-- TOC entry 3364 (class 2606 OID 168423)
 -- Name: calendar_datasource_datasource_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -2853,7 +3709,7 @@ ALTER TABLE ONLY calendar_datasource
 
 
 --
--- TOC entry 3334 (class 2606 OID 84799)
+-- TOC entry 3365 (class 2606 OID 168428)
 -- Name: calendar_element_calendar_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -2862,7 +3718,7 @@ ALTER TABLE ONLY calendar_element
 
 
 --
--- TOC entry 3335 (class 2606 OID 84804)
+-- TOC entry 3366 (class 2606 OID 168433)
 -- Name: calendar_element_included_calendar_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -2871,7 +3727,7 @@ ALTER TABLE ONLY calendar_element
 
 
 --
--- TOC entry 3336 (class 2606 OID 84809)
+-- TOC entry 3367 (class 2606 OID 168438)
 -- Name: calendar_link_day_calendar_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -2880,7 +3736,7 @@ ALTER TABLE ONLY calendar_link
 
 
 --
--- TOC entry 3337 (class 2606 OID 84814)
+-- TOC entry 3368 (class 2606 OID 168443)
 -- Name: calendar_link_period_calendar_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -2889,7 +3745,7 @@ ALTER TABLE ONLY calendar_link
 
 
 --
--- TOC entry 3338 (class 2606 OID 84819)
+-- TOC entry 3369 (class 2606 OID 168448)
 -- Name: calendar_link_trip_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -2898,7 +3754,7 @@ ALTER TABLE ONLY calendar_link
 
 
 --
--- TOC entry 3339 (class 2606 OID 84824)
+-- TOC entry 3370 (class 2606 OID 168453)
 -- Name: change_cause_link_change_cause_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -2907,7 +3763,7 @@ ALTER TABLE ONLY change_cause_link
 
 
 --
--- TOC entry 3340 (class 2606 OID 84829)
+-- TOC entry 3371 (class 2606 OID 168458)
 -- Name: change_cause_link_line_version_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -2916,7 +3772,7 @@ ALTER TABLE ONLY change_cause_link
 
 
 --
--- TOC entry 3341 (class 2606 OID 84834)
+-- TOC entry 3372 (class 2606 OID 168463)
 -- Name: city_main_stop_area_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -2925,7 +3781,7 @@ ALTER TABLE ONLY city
 
 
 --
--- TOC entry 3342 (class 2606 OID 84839)
+-- TOC entry 3373 (class 2606 OID 168468)
 -- Name: datasource_id_agency_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -2934,7 +3790,7 @@ ALTER TABLE ONLY datasource
 
 
 --
--- TOC entry 3391 (class 2606 OID 84844)
+-- TOC entry 3428 (class 2606 OID 168473)
 -- Name: grid_calendar_grid_mask_type_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -2943,7 +3799,7 @@ ALTER TABLE ONLY trip_calendar
 
 
 --
--- TOC entry 3343 (class 2606 OID 84849)
+-- TOC entry 3374 (class 2606 OID 168478)
 -- Name: grid_calendar_line_version_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -2952,7 +3808,7 @@ ALTER TABLE ONLY grid_calendar
 
 
 --
--- TOC entry 3344 (class 2606 OID 84854)
+-- TOC entry 3375 (class 2606 OID 168483)
 -- Name: grid_link_calendar_mask_type_grid_calendar_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -2961,7 +3817,7 @@ ALTER TABLE ONLY grid_link_calendar_mask_type
 
 
 --
--- TOC entry 3345 (class 2606 OID 84859)
+-- TOC entry 3376 (class 2606 OID 168488)
 -- Name: grid_link_calendar_mask_type_grid_mask_type_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -2970,7 +3826,7 @@ ALTER TABLE ONLY grid_link_calendar_mask_type
 
 
 --
--- TOC entry 3347 (class 2606 OID 84864)
+-- TOC entry 3378 (class 2606 OID 168493)
 -- Name: line_datasource_datasource_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -2979,7 +3835,7 @@ ALTER TABLE ONLY line_datasource
 
 
 --
--- TOC entry 3348 (class 2606 OID 84869)
+-- TOC entry 3379 (class 2606 OID 168498)
 -- Name: line_datasource_line_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -2988,7 +3844,7 @@ ALTER TABLE ONLY line_datasource
 
 
 --
--- TOC entry 3346 (class 2606 OID 84874)
+-- TOC entry 3377 (class 2606 OID 168503)
 -- Name: line_physical_mode_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -2997,7 +3853,7 @@ ALTER TABLE ONLY line
 
 
 --
--- TOC entry 3350 (class 2606 OID 84879)
+-- TOC entry 3381 (class 2606 OID 168508)
 -- Name: line_version_datasource_datasource_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3006,7 +3862,7 @@ ALTER TABLE ONLY line_version_datasource
 
 
 --
--- TOC entry 3351 (class 2606 OID 84884)
+-- TOC entry 3382 (class 2606 OID 168513)
 -- Name: line_version_datasource_line_version_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3015,7 +3871,7 @@ ALTER TABLE ONLY line_version_datasource
 
 
 --
--- TOC entry 3349 (class 2606 OID 84889)
+-- TOC entry 3380 (class 2606 OID 168518)
 -- Name: line_version_line_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3024,7 +3880,7 @@ ALTER TABLE ONLY line_version
 
 
 --
--- TOC entry 3395 (class 2606 OID 85132)
+-- TOC entry 3383 (class 2606 OID 168523)
 -- Name: line_version_not_exported_export_destination_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3033,7 +3889,7 @@ ALTER TABLE ONLY line_version_not_exported
 
 
 --
--- TOC entry 3396 (class 2606 OID 85137)
+-- TOC entry 3384 (class 2606 OID 168528)
 -- Name: line_version_not_exported_line_version_id_pk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3042,7 +3898,7 @@ ALTER TABLE ONLY line_version_not_exported
 
 
 --
--- TOC entry 3352 (class 2606 OID 84894)
+-- TOC entry 3385 (class 2606 OID 168533)
 -- Name: non_concurrency_non_priority_line_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3051,7 +3907,7 @@ ALTER TABLE ONLY non_concurrency
 
 
 --
--- TOC entry 3353 (class 2606 OID 84899)
+-- TOC entry 3386 (class 2606 OID 168538)
 -- Name: non_concurrency_priority_line_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3060,7 +3916,7 @@ ALTER TABLE ONLY non_concurrency
 
 
 --
--- TOC entry 3354 (class 2606 OID 84904)
+-- TOC entry 3387 (class 2606 OID 168543)
 -- Name: odt_area_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3069,7 +3925,7 @@ ALTER TABLE ONLY odt_area
 
 
 --
--- TOC entry 3355 (class 2606 OID 84909)
+-- TOC entry 3388 (class 2606 OID 168548)
 -- Name: odt_stop_odt_area_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3078,7 +3934,7 @@ ALTER TABLE ONLY odt_stop
 
 
 --
--- TOC entry 3356 (class 2606 OID 84914)
+-- TOC entry 3389 (class 2606 OID 168553)
 -- Name: odt_stop_stop_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3087,25 +3943,7 @@ ALTER TABLE ONLY odt_stop
 
 
 --
--- TOC entry 3358 (class 2606 OID 84919)
--- Name: poi_datasource_datasource_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
---
-
-ALTER TABLE ONLY poi_datasource
-    ADD CONSTRAINT poi_datasource_datasource_id_fk FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
-
-
---
--- TOC entry 3359 (class 2606 OID 84924)
--- Name: poi_datasource_poi_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
---
-
-ALTER TABLE ONLY poi_datasource
-    ADD CONSTRAINT poi_datasource_poi_id_fk FOREIGN KEY (poi_id) REFERENCES poi(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
-
-
---
--- TOC entry 3361 (class 2606 OID 84929)
+-- TOC entry 3394 (class 2606 OID 168568)
 -- Name: poi_adress_datasource_datasource_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3114,7 +3952,7 @@ ALTER TABLE ONLY poi_adress_datasource
 
 
 --
--- TOC entry 3362 (class 2606 OID 84934)
+-- TOC entry 3395 (class 2606 OID 168573)
 -- Name: poi_adress_datasource_poi_adress_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3123,7 +3961,7 @@ ALTER TABLE ONLY poi_adress_datasource
 
 
 --
--- TOC entry 3360 (class 2606 OID 84939)
+-- TOC entry 3393 (class 2606 OID 168578)
 -- Name: poi_adress_poi_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3132,7 +3970,25 @@ ALTER TABLE ONLY poi_adress
 
 
 --
--- TOC entry 3357 (class 2606 OID 84944)
+-- TOC entry 3391 (class 2606 OID 168558)
+-- Name: poi_datasource_datasource_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
+--
+
+ALTER TABLE ONLY poi_datasource
+    ADD CONSTRAINT poi_datasource_datasource_id_fk FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+
+
+--
+-- TOC entry 3392 (class 2606 OID 168563)
+-- Name: poi_datasource_poi_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
+--
+
+ALTER TABLE ONLY poi_datasource
+    ADD CONSTRAINT poi_datasource_poi_id_fk FOREIGN KEY (poi_id) REFERENCES poi(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+
+
+--
+-- TOC entry 3390 (class 2606 OID 168583)
 -- Name: poi_poi_type_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3141,7 +3997,7 @@ ALTER TABLE ONLY poi
 
 
 --
--- TOC entry 3363 (class 2606 OID 84949)
+-- TOC entry 3396 (class 2606 OID 168588)
 -- Name: printing_line_version_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3150,7 +4006,7 @@ ALTER TABLE ONLY printing
 
 
 --
--- TOC entry 3364 (class 2606 OID 84954)
+-- TOC entry 3397 (class 2606 OID 168593)
 -- Name: route_comment_id; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3159,7 +4015,7 @@ ALTER TABLE ONLY route
 
 
 --
--- TOC entry 3366 (class 2606 OID 84959)
+-- TOC entry 3399 (class 2606 OID 168598)
 -- Name: route_datasource_datasource_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3168,7 +4024,7 @@ ALTER TABLE ONLY route_datasource
 
 
 --
--- TOC entry 3367 (class 2606 OID 84964)
+-- TOC entry 3400 (class 2606 OID 168603)
 -- Name: route_datasource_route_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3177,7 +4033,7 @@ ALTER TABLE ONLY route_datasource
 
 
 --
--- TOC entry 3365 (class 2606 OID 84969)
+-- TOC entry 3398 (class 2606 OID 168608)
 -- Name: route_line_version_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3186,7 +4042,7 @@ ALTER TABLE ONLY route
 
 
 --
--- TOC entry 3397 (class 2606 OID 85150)
+-- TOC entry 3401 (class 2606 OID 168613)
 -- Name: route_not_exported_export_destination_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3195,7 +4051,7 @@ ALTER TABLE ONLY route_not_exported
 
 
 --
--- TOC entry 3398 (class 2606 OID 85155)
+-- TOC entry 3402 (class 2606 OID 168618)
 -- Name: route_not_exported_route_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3204,7 +4060,7 @@ ALTER TABLE ONLY route_not_exported
 
 
 --
--- TOC entry 3368 (class 2606 OID 84974)
+-- TOC entry 3403 (class 2606 OID 168623)
 -- Name: route_section_end_stop_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3213,7 +4069,7 @@ ALTER TABLE ONLY route_section
 
 
 --
--- TOC entry 3369 (class 2606 OID 84979)
+-- TOC entry 3404 (class 2606 OID 168628)
 -- Name: route_section_start_stop_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3222,7 +4078,7 @@ ALTER TABLE ONLY route_section
 
 
 --
--- TOC entry 3370 (class 2606 OID 84984)
+-- TOC entry 3405 (class 2606 OID 168633)
 -- Name: route_stop_route_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3231,7 +4087,7 @@ ALTER TABLE ONLY route_stop
 
 
 --
--- TOC entry 3371 (class 2606 OID 84989)
+-- TOC entry 3406 (class 2606 OID 168638)
 -- Name: route_stop_route_section_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3240,7 +4096,7 @@ ALTER TABLE ONLY route_stop
 
 
 --
--- TOC entry 3372 (class 2606 OID 84994)
+-- TOC entry 3407 (class 2606 OID 168643)
 -- Name: route_stop_waypoint_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3249,7 +4105,7 @@ ALTER TABLE ONLY route_stop
 
 
 --
--- TOC entry 3376 (class 2606 OID 84999)
+-- TOC entry 3411 (class 2606 OID 168648)
 -- Name: stop_area_city_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3258,7 +4114,7 @@ ALTER TABLE ONLY stop_area
 
 
 --
--- TOC entry 3377 (class 2606 OID 85004)
+-- TOC entry 3412 (class 2606 OID 168653)
 -- Name: stop_area_datasource_datasource_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3267,7 +4123,7 @@ ALTER TABLE ONLY stop_area_datasource
 
 
 --
--- TOC entry 3378 (class 2606 OID 85009)
+-- TOC entry 3413 (class 2606 OID 168658)
 -- Name: stop_area_datasource_stop_area_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3276,7 +4132,7 @@ ALTER TABLE ONLY stop_area_datasource
 
 
 --
--- TOC entry 3379 (class 2606 OID 85014)
+-- TOC entry 3414 (class 2606 OID 168663)
 -- Name: stop_datasource_datasource_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3285,7 +4141,7 @@ ALTER TABLE ONLY stop_datasource
 
 
 --
--- TOC entry 3380 (class 2606 OID 85019)
+-- TOC entry 3415 (class 2606 OID 168668)
 -- Name: stop_datasource_stop_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3294,7 +4150,7 @@ ALTER TABLE ONLY stop_datasource
 
 
 --
--- TOC entry 3381 (class 2606 OID 85024)
+-- TOC entry 3416 (class 2606 OID 168673)
 -- Name: stop_history_stop_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3303,7 +4159,7 @@ ALTER TABLE ONLY stop_history
 
 
 --
--- TOC entry 3373 (class 2606 OID 85029)
+-- TOC entry 3408 (class 2606 OID 168678)
 -- Name: stop_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3312,7 +4168,7 @@ ALTER TABLE ONLY stop
 
 
 --
--- TOC entry 3374 (class 2606 OID 85034)
+-- TOC entry 3409 (class 2606 OID 168683)
 -- Name: stop_master_stop_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3321,7 +4177,7 @@ ALTER TABLE ONLY stop
 
 
 --
--- TOC entry 3375 (class 2606 OID 85039)
+-- TOC entry 3410 (class 2606 OID 168688)
 -- Name: stop_stop_area_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3330,7 +4186,7 @@ ALTER TABLE ONLY stop
 
 
 --
--- TOC entry 3382 (class 2606 OID 85044)
+-- TOC entry 3417 (class 2606 OID 168693)
 -- Name: stop_time_route_stop_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3339,7 +4195,7 @@ ALTER TABLE ONLY stop_time
 
 
 --
--- TOC entry 3383 (class 2606 OID 85049)
+-- TOC entry 3418 (class 2606 OID 168698)
 -- Name: stop_time_trip_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3348,7 +4204,7 @@ ALTER TABLE ONLY stop_time
 
 
 --
--- TOC entry 3386 (class 2606 OID 85054)
+-- TOC entry 3421 (class 2606 OID 168703)
 -- Name: transfer_datasource_datasource_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3357,7 +4213,7 @@ ALTER TABLE ONLY transfer_datasource
 
 
 --
--- TOC entry 3387 (class 2606 OID 85059)
+-- TOC entry 3422 (class 2606 OID 168708)
 -- Name: transfer_datasource_transfer_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3366,7 +4222,7 @@ ALTER TABLE ONLY transfer_datasource
 
 
 --
--- TOC entry 3384 (class 2606 OID 85064)
+-- TOC entry 3419 (class 2606 OID 168713)
 -- Name: transfer_end_stop_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3375,7 +4231,7 @@ ALTER TABLE ONLY transfer
 
 
 --
--- TOC entry 3400 (class 2606 OID 85173)
+-- TOC entry 3423 (class 2606 OID 168718)
 -- Name: transfer_not_exported_exporte_destination_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3384,7 +4240,7 @@ ALTER TABLE ONLY transfer_not_exported
 
 
 --
--- TOC entry 3399 (class 2606 OID 85168)
+-- TOC entry 3424 (class 2606 OID 168723)
 -- Name: transfer_not_exported_transfer_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3393,7 +4249,7 @@ ALTER TABLE ONLY transfer_not_exported
 
 
 --
--- TOC entry 3385 (class 2606 OID 85069)
+-- TOC entry 3420 (class 2606 OID 168728)
 -- Name: transfer_start_stop_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3401,10 +4257,8 @@ ALTER TABLE ONLY transfer
     ADD CONSTRAINT transfer_start_stop_id_fk FOREIGN KEY (start_stop_id) REFERENCES stop(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 
 
-
-
 --
--- TOC entry 3388 (class 2606 OID 85079)
+-- TOC entry 3425 (class 2606 OID 168733)
 -- Name: trip_comment_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3413,7 +4267,7 @@ ALTER TABLE ONLY trip
 
 
 --
--- TOC entry 3393 (class 2606 OID 85084)
+-- TOC entry 3429 (class 2606 OID 168738)
 -- Name: trip_datasource_datasource_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3422,7 +4276,7 @@ ALTER TABLE ONLY trip_datasource
 
 
 --
--- TOC entry 3394 (class 2606 OID 85089)
+-- TOC entry 3430 (class 2606 OID 168743)
 -- Name: trip_datasource_trip_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3431,7 +4285,7 @@ ALTER TABLE ONLY trip_datasource
 
 
 --
--- TOC entry 3389 (class 2606 OID 85094)
+-- TOC entry 3426 (class 2606 OID 168748)
 -- Name: trip_route_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3440,7 +4294,7 @@ ALTER TABLE ONLY trip
 
 
 --
--- TOC entry 3390 (class 2606 OID 85099)
+-- TOC entry 3427 (class 2606 OID 168753)
 -- Name: trip_trip_calendar_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
@@ -3449,56 +4303,1586 @@ ALTER TABLE ONLY trip
 
 
 -- Index creation
-CREATE INDEX ON route_datasource (code);
-CREATE INDEX ON route_datasource (route_id);
-CREATE INDEX ON trip_datasource (code);
-CREATE INDEX ON trip_datasource (trip_id);
-CREATE INDEX ON stop_datasource (code);
-CREATE INDEX ON stop_datasource (stop_id);
-CREATE INDEX ON route (line_version_id);
-CREATE INDEX ON trip (route_id);
-CREATE INDEX ON route_stop (route_id);
-CREATE INDEX ON route_stop (waypoint_id);
-CREATE INDEX ON stop_time (route_stop_id);
-CREATE INDEX ON stop_time (trip_id);
-CREATE INDEX ON calendar_link (trip_id);
-CREATE INDEX ON calendar_link (period_calendar_id);
-CREATE INDEX ON calendar_link (day_calendar_id);
-CREATE INDEX ON calendar_element (calendar_id);
-CREATE INDEX ON poi (poi_type_id);
-CREATE INDEX ON poi_adress (poi_id);
+-- TOC entry 3545 (class 0 OID 0)
+-- Dependencies: 6
+-- Name: public; Type: ACL; Schema: -; Owner: postgres
+--
 
-
--- Rights creation
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 REVOKE ALL ON SCHEMA public FROM postgres;
 GRANT ALL ON SCHEMA public TO postgres;
 GRANT ALL ON SCHEMA public TO PUBLIC;
-
-REVOKE ALL ON SCHEMA public FROM endiv_owner;
-REVOKE ALL ON SCHEMA public FROM endiv_reader;
 GRANT USAGE ON SCHEMA public TO endiv_reader;
 GRANT USAGE ON SCHEMA public TO endiv_owner;
 
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO PUBLIC;
-GRANT ALL ON ALL TABLES IN SCHEMA public TO PUBLIC;
 
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO postgres;
-GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres;
+--
+-- TOC entry 3548 (class 0 OID 0)
+-- Dependencies: 1790
+-- Name: adress; Type: ACL; Schema: public; Owner: postgres
+--
 
-GRANT ALL ON ALL TABLES IN SCHEMA public TO endiv_owner;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO endiv_owner;
+REVOKE ALL ON TYPE adress FROM PUBLIC;
+REVOKE ALL ON TYPE adress FROM postgres;
+GRANT ALL ON TYPE adress TO PUBLIC;
 
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO endiv_reader;
-GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO endiv_reader;
 
--- Doesn't work, TODO: find a way to deny SELECT function to user endiv_reader
--- (stored_procedures)
-ALTER DEFAULT PRIVILEGES REVOKE ALL ON FUNCTIONS FROM endiv_reader;
-ALTER DEFAULT PRIVILEGES GRANT ALL ON FUNCTIONS TO endiv_owner;
+--
+-- TOC entry 3549 (class 0 OID 0)
+-- Dependencies: 1188
+-- Name: cleanimport(); Type: ACL; Schema: public; Owner: postgres
+--
 
--- Completed on 2014-12-19 12:31:35
+REVOKE ALL ON FUNCTION cleanimport() FROM PUBLIC;
+REVOKE ALL ON FUNCTION cleanimport() FROM postgres;
+GRANT ALL ON FUNCTION cleanimport() TO postgres;
+GRANT ALL ON FUNCTION cleanimport() TO PUBLIC;
+GRANT ALL ON FUNCTION cleanimport() TO endiv_owner;
+
+
+--
+-- TOC entry 3550 (class 0 OID 0)
+-- Dependencies: 1183
+-- Name: cleanpoi(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION cleanpoi() FROM PUBLIC;
+REVOKE ALL ON FUNCTION cleanpoi() FROM postgres;
+GRANT ALL ON FUNCTION cleanpoi() TO postgres;
+GRANT ALL ON FUNCTION cleanpoi() TO PUBLIC;
+GRANT ALL ON FUNCTION cleanpoi() TO endiv_owner;
+
+
+--
+-- TOC entry 3551 (class 0 OID 0)
+-- Dependencies: 1191
+-- Name: createadresstype(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION createadresstype() FROM PUBLIC;
+REVOKE ALL ON FUNCTION createadresstype() FROM postgres;
+GRANT ALL ON FUNCTION createadresstype() TO postgres;
+GRANT ALL ON FUNCTION createadresstype() TO PUBLIC;
+GRANT ALL ON FUNCTION createadresstype() TO endiv_owner;
+
+
+--
+-- TOC entry 3552 (class 0 OID 0)
+-- Dependencies: 1190
+-- Name: insertcalendar(character varying, character varying, integer, character varying, date, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer) FROM postgres;
+GRANT ALL ON FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer) TO postgres;
+GRANT ALL ON FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer) TO PUBLIC;
+GRANT ALL ON FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer) TO endiv_owner;
+
+
+--
+-- TOC entry 3553 (class 0 OID 0)
+-- Dependencies: 1192
+-- Name: insertpoi(character varying, integer, character varying, integer, integer, boolean, adress[]); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, adresses adress[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, adresses adress[]) FROM postgres;
+GRANT ALL ON FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, adresses adress[]) TO postgres;
+GRANT ALL ON FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, adresses adress[]) TO PUBLIC;
+GRANT ALL ON FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, adresses adress[]) TO endiv_owner;
+
+
+--
+-- TOC entry 3554 (class 0 OID 0)
+-- Dependencies: 1182
+-- Name: insertroute(integer, character varying, character varying, character varying, character varying, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION insertroute(_lvid integer, _way character varying, _name character varying, _direction character varying, _code character varying, _datasource integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION insertroute(_lvid integer, _way character varying, _name character varying, _direction character varying, _code character varying, _datasource integer) FROM postgres;
+GRANT ALL ON FUNCTION insertroute(_lvid integer, _way character varying, _name character varying, _direction character varying, _code character varying, _datasource integer) TO postgres;
+GRANT ALL ON FUNCTION insertroute(_lvid integer, _way character varying, _name character varying, _direction character varying, _code character varying, _datasource integer) TO PUBLIC;
+GRANT ALL ON FUNCTION insertroute(_lvid integer, _way character varying, _name character varying, _direction character varying, _code character varying, _datasource integer) TO endiv_owner;
+
+
+--
+-- TOC entry 3555 (class 0 OID 0)
+-- Dependencies: 1186
+-- Name: insertroutesection(integer, integer, character varying, date); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION insertroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date) FROM PUBLIC;
+REVOKE ALL ON FUNCTION insertroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date) FROM postgres;
+GRANT ALL ON FUNCTION insertroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date) TO postgres;
+GRANT ALL ON FUNCTION insertroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date) TO PUBLIC;
+GRANT ALL ON FUNCTION insertroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date) TO endiv_owner;
+
+
+--
+-- TOC entry 3556 (class 0 OID 0)
+-- Dependencies: 1185
+-- Name: insertroutestopandstoptime(character varying, character varying, character varying, character varying, integer, integer, boolean, integer, boolean, boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode character varying, _scode character varying, _related_scode character varying, _lvid integer, _rank integer, _scheduled boolean, _hour integer, _is_first boolean, _is_last boolean) FROM PUBLIC;
+REVOKE ALL ON FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode character varying, _scode character varying, _related_scode character varying, _lvid integer, _rank integer, _scheduled boolean, _hour integer, _is_first boolean, _is_last boolean) FROM postgres;
+GRANT ALL ON FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode character varying, _scode character varying, _related_scode character varying, _lvid integer, _rank integer, _scheduled boolean, _hour integer, _is_first boolean, _is_last boolean) TO postgres;
+GRANT ALL ON FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode character varying, _scode character varying, _related_scode character varying, _lvid integer, _rank integer, _scheduled boolean, _hour integer, _is_first boolean, _is_last boolean) TO PUBLIC;
+GRANT ALL ON FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode character varying, _scode character varying, _related_scode character varying, _lvid integer, _rank integer, _scheduled boolean, _hour integer, _is_first boolean, _is_last boolean) TO endiv_owner;
+
+
+--
+-- TOC entry 3557 (class 0 OID 0)
+-- Dependencies: 1189
+-- Name: insertstop(date, character varying, character varying, character varying, boolean, character varying, character varying, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer) FROM postgres;
+GRANT ALL ON FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer) TO postgres;
+GRANT ALL ON FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer) TO PUBLIC;
+GRANT ALL ON FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer) TO endiv_owner;
+
+
+--
+-- TOC entry 3558 (class 0 OID 0)
+-- Dependencies: 1181
+-- Name: insertstoparea(integer, character varying, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION insertstoparea(_city_id integer, _name character varying, _datasource integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION insertstoparea(_city_id integer, _name character varying, _datasource integer) FROM postgres;
+GRANT ALL ON FUNCTION insertstoparea(_city_id integer, _name character varying, _datasource integer) TO postgres;
+GRANT ALL ON FUNCTION insertstoparea(_city_id integer, _name character varying, _datasource integer) TO PUBLIC;
+GRANT ALL ON FUNCTION insertstoparea(_city_id integer, _name character varying, _datasource integer) TO endiv_owner;
+
+
+--
+-- TOC entry 3559 (class 0 OID 0)
+-- Dependencies: 1184
+-- Name: inserttrip(character varying, character varying, character varying, integer, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION inserttrip(_name character varying, _tcode character varying, _rcode character varying, _lvid integer, _datasource integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION inserttrip(_name character varying, _tcode character varying, _rcode character varying, _lvid integer, _datasource integer) FROM postgres;
+GRANT ALL ON FUNCTION inserttrip(_name character varying, _tcode character varying, _rcode character varying, _lvid integer, _datasource integer) TO postgres;
+GRANT ALL ON FUNCTION inserttrip(_name character varying, _tcode character varying, _rcode character varying, _lvid integer, _datasource integer) TO PUBLIC;
+GRANT ALL ON FUNCTION inserttrip(_name character varying, _tcode character varying, _rcode character varying, _lvid integer, _datasource integer) TO endiv_owner;
+
+
+--
+-- TOC entry 3560 (class 0 OID 0)
+-- Dependencies: 1187
+-- Name: updateroutesection(integer, integer, character varying, date, integer, date); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date, _route_section_id integer, _end_date date) FROM PUBLIC;
+REVOKE ALL ON FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date, _route_section_id integer, _end_date date) FROM postgres;
+GRANT ALL ON FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date, _route_section_id integer, _end_date date) TO postgres;
+GRANT ALL ON FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date, _route_section_id integer, _end_date date) TO PUBLIC;
+GRANT ALL ON FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date, _route_section_id integer, _end_date date) TO endiv_owner;
+
+
+--
+-- TOC entry 3561 (class 0 OID 0)
+-- Dependencies: 1180
+-- Name: updatestop(integer, date, character varying, character varying, character varying, boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean) FROM PUBLIC;
+REVOKE ALL ON FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean) FROM postgres;
+GRANT ALL ON FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean) TO postgres;
+GRANT ALL ON FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean) TO PUBLIC;
+GRANT ALL ON FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean) TO endiv_owner;
+
+
+--
+-- TOC entry 3563 (class 0 OID 0)
+-- Dependencies: 174
+-- Name: agency; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE agency FROM PUBLIC;
+REVOKE ALL ON TABLE agency FROM endiv_owner;
+GRANT ALL ON TABLE agency TO endiv_owner;
+GRANT ALL ON TABLE agency TO PUBLIC;
+GRANT ALL ON TABLE agency TO postgres;
+GRANT SELECT ON TABLE agency TO endiv_reader;
+
+
+--
+-- TOC entry 3565 (class 0 OID 0)
+-- Dependencies: 175
+-- Name: agency_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE agency_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE agency_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE agency_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE agency_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE agency_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE agency_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3567 (class 0 OID 0)
+-- Dependencies: 176
+-- Name: alias; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE alias FROM PUBLIC;
+REVOKE ALL ON TABLE alias FROM endiv_owner;
+GRANT ALL ON TABLE alias TO endiv_owner;
+GRANT ALL ON TABLE alias TO PUBLIC;
+GRANT ALL ON TABLE alias TO postgres;
+GRANT SELECT ON TABLE alias TO endiv_reader;
+
+
+--
+-- TOC entry 3569 (class 0 OID 0)
+-- Dependencies: 177
+-- Name: alias_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE alias_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE alias_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE alias_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE alias_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE alias_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE alias_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3571 (class 0 OID 0)
+-- Dependencies: 178
+-- Name: calendar; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE calendar FROM PUBLIC;
+REVOKE ALL ON TABLE calendar FROM endiv_owner;
+GRANT ALL ON TABLE calendar TO endiv_owner;
+GRANT ALL ON TABLE calendar TO PUBLIC;
+GRANT ALL ON TABLE calendar TO postgres;
+GRANT SELECT ON TABLE calendar TO endiv_reader;
+
+
+--
+-- TOC entry 3573 (class 0 OID 0)
+-- Dependencies: 179
+-- Name: calendar_datasource; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE calendar_datasource FROM PUBLIC;
+REVOKE ALL ON TABLE calendar_datasource FROM endiv_owner;
+GRANT ALL ON TABLE calendar_datasource TO endiv_owner;
+GRANT ALL ON TABLE calendar_datasource TO PUBLIC;
+GRANT ALL ON TABLE calendar_datasource TO postgres;
+GRANT SELECT ON TABLE calendar_datasource TO endiv_reader;
+
+
+--
+-- TOC entry 3575 (class 0 OID 0)
+-- Dependencies: 180
+-- Name: calendar_datasource_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE calendar_datasource_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE calendar_datasource_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE calendar_datasource_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE calendar_datasource_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE calendar_datasource_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE calendar_datasource_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3581 (class 0 OID 0)
+-- Dependencies: 181
+-- Name: calendar_element; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE calendar_element FROM PUBLIC;
+REVOKE ALL ON TABLE calendar_element FROM endiv_owner;
+GRANT ALL ON TABLE calendar_element TO endiv_owner;
+GRANT ALL ON TABLE calendar_element TO PUBLIC;
+GRANT ALL ON TABLE calendar_element TO postgres;
+GRANT SELECT ON TABLE calendar_element TO endiv_reader;
+
+
+--
+-- TOC entry 3583 (class 0 OID 0)
+-- Dependencies: 182
+-- Name: calendar_element_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE calendar_element_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE calendar_element_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE calendar_element_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE calendar_element_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE calendar_element_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE calendar_element_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3585 (class 0 OID 0)
+-- Dependencies: 183
+-- Name: calendar_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE calendar_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE calendar_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE calendar_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE calendar_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE calendar_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE calendar_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3587 (class 0 OID 0)
+-- Dependencies: 184
+-- Name: calendar_link; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE calendar_link FROM PUBLIC;
+REVOKE ALL ON TABLE calendar_link FROM endiv_owner;
+GRANT ALL ON TABLE calendar_link TO endiv_owner;
+GRANT ALL ON TABLE calendar_link TO PUBLIC;
+GRANT ALL ON TABLE calendar_link TO postgres;
+GRANT SELECT ON TABLE calendar_link TO endiv_reader;
+
+
+--
+-- TOC entry 3589 (class 0 OID 0)
+-- Dependencies: 185
+-- Name: calendar_link_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE calendar_link_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE calendar_link_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE calendar_link_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE calendar_link_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE calendar_link_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE calendar_link_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3591 (class 0 OID 0)
+-- Dependencies: 186
+-- Name: change_cause; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE change_cause FROM PUBLIC;
+REVOKE ALL ON TABLE change_cause FROM endiv_owner;
+GRANT ALL ON TABLE change_cause TO endiv_owner;
+GRANT ALL ON TABLE change_cause TO PUBLIC;
+GRANT ALL ON TABLE change_cause TO postgres;
+GRANT SELECT ON TABLE change_cause TO endiv_reader;
+
+
+--
+-- TOC entry 3593 (class 0 OID 0)
+-- Dependencies: 187
+-- Name: change_cause_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE change_cause_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE change_cause_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE change_cause_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE change_cause_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE change_cause_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE change_cause_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3595 (class 0 OID 0)
+-- Dependencies: 188
+-- Name: change_cause_link; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE change_cause_link FROM PUBLIC;
+REVOKE ALL ON TABLE change_cause_link FROM endiv_owner;
+GRANT ALL ON TABLE change_cause_link TO endiv_owner;
+GRANT ALL ON TABLE change_cause_link TO PUBLIC;
+GRANT ALL ON TABLE change_cause_link TO postgres;
+GRANT SELECT ON TABLE change_cause_link TO endiv_reader;
+
+
+--
+-- TOC entry 3597 (class 0 OID 0)
+-- Dependencies: 189
+-- Name: change_cause_link_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE change_cause_link_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE change_cause_link_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE change_cause_link_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE change_cause_link_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE change_cause_link_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE change_cause_link_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3599 (class 0 OID 0)
+-- Dependencies: 190
+-- Name: city; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE city FROM PUBLIC;
+REVOKE ALL ON TABLE city FROM endiv_owner;
+GRANT ALL ON TABLE city TO endiv_owner;
+GRANT ALL ON TABLE city TO PUBLIC;
+GRANT ALL ON TABLE city TO postgres;
+GRANT SELECT ON TABLE city TO endiv_reader;
+
+
+--
+-- TOC entry 3601 (class 0 OID 0)
+-- Dependencies: 191
+-- Name: city_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE city_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE city_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE city_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE city_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE city_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE city_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3605 (class 0 OID 0)
+-- Dependencies: 192
+-- Name: comment; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE comment FROM PUBLIC;
+REVOKE ALL ON TABLE comment FROM endiv_owner;
+GRANT ALL ON TABLE comment TO endiv_owner;
+GRANT ALL ON TABLE comment TO PUBLIC;
+GRANT ALL ON TABLE comment TO postgres;
+GRANT SELECT ON TABLE comment TO endiv_reader;
+
+
+--
+-- TOC entry 3607 (class 0 OID 0)
+-- Dependencies: 193
+-- Name: comment_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE comment_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE comment_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE comment_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE comment_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE comment_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE comment_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3609 (class 0 OID 0)
+-- Dependencies: 194
+-- Name: datasource; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE datasource FROM PUBLIC;
+REVOKE ALL ON TABLE datasource FROM endiv_owner;
+GRANT ALL ON TABLE datasource TO endiv_owner;
+GRANT ALL ON TABLE datasource TO PUBLIC;
+GRANT ALL ON TABLE datasource TO postgres;
+GRANT SELECT ON TABLE datasource TO endiv_reader;
+
+
+--
+-- TOC entry 3611 (class 0 OID 0)
+-- Dependencies: 195
+-- Name: datasource_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE datasource_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE datasource_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE datasource_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE datasource_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE datasource_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE datasource_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3617 (class 0 OID 0)
+-- Dependencies: 196
+-- Name: exception_type; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE exception_type FROM PUBLIC;
+REVOKE ALL ON TABLE exception_type FROM endiv_owner;
+GRANT ALL ON TABLE exception_type TO endiv_owner;
+GRANT ALL ON TABLE exception_type TO PUBLIC;
+GRANT ALL ON TABLE exception_type TO postgres;
+GRANT SELECT ON TABLE exception_type TO endiv_reader;
+
+
+--
+-- TOC entry 3619 (class 0 OID 0)
+-- Dependencies: 197
+-- Name: exception_type_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE exception_type_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE exception_type_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE exception_type_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE exception_type_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE exception_type_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE exception_type_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3620 (class 0 OID 0)
+-- Dependencies: 198
+-- Name: export_destination; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE export_destination FROM PUBLIC;
+REVOKE ALL ON TABLE export_destination FROM endiv_owner;
+GRANT ALL ON TABLE export_destination TO endiv_owner;
+GRANT ALL ON TABLE export_destination TO PUBLIC;
+GRANT ALL ON TABLE export_destination TO postgres;
+GRANT SELECT ON TABLE export_destination TO endiv_reader;
+
+
+--
+-- TOC entry 3622 (class 0 OID 0)
+-- Dependencies: 199
+-- Name: export_destination_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE export_destination_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE export_destination_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE export_destination_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE export_destination_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE export_destination_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE export_destination_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3623 (class 0 OID 0)
+-- Dependencies: 200
+-- Name: export_perso; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE export_perso FROM PUBLIC;
+REVOKE ALL ON TABLE export_perso FROM endiv_owner;
+GRANT ALL ON TABLE export_perso TO endiv_owner;
+GRANT ALL ON TABLE export_perso TO PUBLIC;
+GRANT ALL ON TABLE export_perso TO postgres;
+GRANT SELECT ON TABLE export_perso TO endiv_reader;
+
+
+--
+-- TOC entry 3624 (class 0 OID 0)
+-- Dependencies: 201
+-- Name: export_prod; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE export_prod FROM PUBLIC;
+REVOKE ALL ON TABLE export_prod FROM endiv_owner;
+GRANT ALL ON TABLE export_prod TO endiv_owner;
+GRANT ALL ON TABLE export_prod TO PUBLIC;
+GRANT ALL ON TABLE export_prod TO postgres;
+GRANT SELECT ON TABLE export_prod TO endiv_reader;
+
+
+--
+-- TOC entry 3626 (class 0 OID 0)
+-- Dependencies: 202
+-- Name: grid_calendar; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE grid_calendar FROM PUBLIC;
+REVOKE ALL ON TABLE grid_calendar FROM endiv_owner;
+GRANT ALL ON TABLE grid_calendar TO endiv_owner;
+GRANT ALL ON TABLE grid_calendar TO PUBLIC;
+GRANT ALL ON TABLE grid_calendar TO postgres;
+GRANT SELECT ON TABLE grid_calendar TO endiv_reader;
+
+
+--
+-- TOC entry 3628 (class 0 OID 0)
+-- Dependencies: 203
+-- Name: grid_calendar_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE grid_calendar_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE grid_calendar_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE grid_calendar_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE grid_calendar_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE grid_calendar_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE grid_calendar_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3630 (class 0 OID 0)
+-- Dependencies: 204
+-- Name: grid_link_calendar_mask_type; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE grid_link_calendar_mask_type FROM PUBLIC;
+REVOKE ALL ON TABLE grid_link_calendar_mask_type FROM endiv_owner;
+GRANT ALL ON TABLE grid_link_calendar_mask_type TO endiv_owner;
+GRANT ALL ON TABLE grid_link_calendar_mask_type TO PUBLIC;
+GRANT ALL ON TABLE grid_link_calendar_mask_type TO postgres;
+GRANT SELECT ON TABLE grid_link_calendar_mask_type TO endiv_reader;
+
+
+--
+-- TOC entry 3632 (class 0 OID 0)
+-- Dependencies: 205
+-- Name: grid_link_calendar_mask_type_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE grid_link_calendar_mask_type_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE grid_link_calendar_mask_type_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE grid_link_calendar_mask_type_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE grid_link_calendar_mask_type_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE grid_link_calendar_mask_type_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE grid_link_calendar_mask_type_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3634 (class 0 OID 0)
+-- Dependencies: 206
+-- Name: grid_mask_type; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE grid_mask_type FROM PUBLIC;
+REVOKE ALL ON TABLE grid_mask_type FROM endiv_owner;
+GRANT ALL ON TABLE grid_mask_type TO endiv_owner;
+GRANT ALL ON TABLE grid_mask_type TO PUBLIC;
+GRANT ALL ON TABLE grid_mask_type TO postgres;
+GRANT SELECT ON TABLE grid_mask_type TO endiv_reader;
+
+
+--
+-- TOC entry 3636 (class 0 OID 0)
+-- Dependencies: 207
+-- Name: grid_mask_type_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE grid_mask_type_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE grid_mask_type_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE grid_mask_type_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE grid_mask_type_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE grid_mask_type_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE grid_mask_type_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3638 (class 0 OID 0)
+-- Dependencies: 208
+-- Name: line; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE line FROM PUBLIC;
+REVOKE ALL ON TABLE line FROM endiv_owner;
+GRANT ALL ON TABLE line TO endiv_owner;
+GRANT ALL ON TABLE line TO PUBLIC;
+GRANT ALL ON TABLE line TO postgres;
+GRANT SELECT ON TABLE line TO endiv_reader;
+
+
+--
+-- TOC entry 3640 (class 0 OID 0)
+-- Dependencies: 209
+-- Name: line_datasource; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE line_datasource FROM PUBLIC;
+REVOKE ALL ON TABLE line_datasource FROM endiv_owner;
+GRANT ALL ON TABLE line_datasource TO endiv_owner;
+GRANT ALL ON TABLE line_datasource TO PUBLIC;
+GRANT ALL ON TABLE line_datasource TO postgres;
+GRANT SELECT ON TABLE line_datasource TO endiv_reader;
+
+
+--
+-- TOC entry 3642 (class 0 OID 0)
+-- Dependencies: 210
+-- Name: line_datasource_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE line_datasource_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE line_datasource_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE line_datasource_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE line_datasource_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE line_datasource_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE line_datasource_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3644 (class 0 OID 0)
+-- Dependencies: 211
+-- Name: line_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE line_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE line_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE line_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE line_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE line_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE line_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3649 (class 0 OID 0)
+-- Dependencies: 212
+-- Name: line_version; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE line_version FROM PUBLIC;
+REVOKE ALL ON TABLE line_version FROM endiv_owner;
+GRANT ALL ON TABLE line_version TO endiv_owner;
+GRANT ALL ON TABLE line_version TO PUBLIC;
+GRANT ALL ON TABLE line_version TO postgres;
+GRANT SELECT ON TABLE line_version TO endiv_reader;
+
+
+--
+-- TOC entry 3651 (class 0 OID 0)
+-- Dependencies: 213
+-- Name: line_version_datasource; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE line_version_datasource FROM PUBLIC;
+REVOKE ALL ON TABLE line_version_datasource FROM endiv_owner;
+GRANT ALL ON TABLE line_version_datasource TO endiv_owner;
+GRANT ALL ON TABLE line_version_datasource TO PUBLIC;
+GRANT ALL ON TABLE line_version_datasource TO postgres;
+GRANT SELECT ON TABLE line_version_datasource TO endiv_reader;
+
+
+--
+-- TOC entry 3653 (class 0 OID 0)
+-- Dependencies: 214
+-- Name: line_version_datasource_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE line_version_datasource_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE line_version_datasource_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE line_version_datasource_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE line_version_datasource_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE line_version_datasource_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE line_version_datasource_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3655 (class 0 OID 0)
+-- Dependencies: 215
+-- Name: line_version_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE line_version_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE line_version_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE line_version_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE line_version_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE line_version_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE line_version_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3656 (class 0 OID 0)
+-- Dependencies: 216
+-- Name: line_version_not_exported; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE line_version_not_exported FROM PUBLIC;
+REVOKE ALL ON TABLE line_version_not_exported FROM endiv_owner;
+GRANT ALL ON TABLE line_version_not_exported TO endiv_owner;
+GRANT ALL ON TABLE line_version_not_exported TO PUBLIC;
+GRANT ALL ON TABLE line_version_not_exported TO postgres;
+GRANT SELECT ON TABLE line_version_not_exported TO endiv_reader;
+
+
+--
+-- TOC entry 3658 (class 0 OID 0)
+-- Dependencies: 217
+-- Name: line_version_not_exported_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE line_version_not_exported_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE line_version_not_exported_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE line_version_not_exported_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE line_version_not_exported_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE line_version_not_exported_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE line_version_not_exported_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3659 (class 0 OID 0)
+-- Dependencies: 218
+-- Name: log; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE log FROM PUBLIC;
+REVOKE ALL ON TABLE log FROM endiv_owner;
+GRANT ALL ON TABLE log TO endiv_owner;
+GRANT ALL ON TABLE log TO PUBLIC;
+GRANT ALL ON TABLE log TO postgres;
+GRANT SELECT ON TABLE log TO endiv_reader;
+
+
+--
+-- TOC entry 3661 (class 0 OID 0)
+-- Dependencies: 219
+-- Name: log_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE log_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE log_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE log_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE log_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE log_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE log_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3662 (class 0 OID 0)
+-- Dependencies: 220
+-- Name: non_concurrency; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE non_concurrency FROM PUBLIC;
+REVOKE ALL ON TABLE non_concurrency FROM endiv_owner;
+GRANT ALL ON TABLE non_concurrency TO endiv_owner;
+GRANT ALL ON TABLE non_concurrency TO PUBLIC;
+GRANT ALL ON TABLE non_concurrency TO postgres;
+GRANT SELECT ON TABLE non_concurrency TO endiv_reader;
+
+
+--
+-- TOC entry 3663 (class 0 OID 0)
+-- Dependencies: 221
+-- Name: odt_area; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE odt_area FROM PUBLIC;
+REVOKE ALL ON TABLE odt_area FROM endiv_owner;
+GRANT ALL ON TABLE odt_area TO endiv_owner;
+GRANT ALL ON TABLE odt_area TO PUBLIC;
+GRANT ALL ON TABLE odt_area TO postgres;
+GRANT SELECT ON TABLE odt_area TO endiv_reader;
+
+
+--
+-- TOC entry 3664 (class 0 OID 0)
+-- Dependencies: 222
+-- Name: odt_stop; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE odt_stop FROM PUBLIC;
+REVOKE ALL ON TABLE odt_stop FROM endiv_owner;
+GRANT ALL ON TABLE odt_stop TO endiv_owner;
+GRANT ALL ON TABLE odt_stop TO PUBLIC;
+GRANT ALL ON TABLE odt_stop TO postgres;
+GRANT SELECT ON TABLE odt_stop TO endiv_reader;
+
+
+--
+-- TOC entry 3665 (class 0 OID 0)
+-- Dependencies: 223
+-- Name: physical_mode; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE physical_mode FROM PUBLIC;
+REVOKE ALL ON TABLE physical_mode FROM endiv_owner;
+GRANT ALL ON TABLE physical_mode TO endiv_owner;
+GRANT ALL ON TABLE physical_mode TO PUBLIC;
+GRANT ALL ON TABLE physical_mode TO postgres;
+GRANT SELECT ON TABLE physical_mode TO endiv_reader;
+
+
+--
+-- TOC entry 3667 (class 0 OID 0)
+-- Dependencies: 224
+-- Name: physical_mode_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE physical_mode_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE physical_mode_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE physical_mode_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE physical_mode_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE physical_mode_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE physical_mode_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3668 (class 0 OID 0)
+-- Dependencies: 225
+-- Name: poi; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE poi FROM PUBLIC;
+REVOKE ALL ON TABLE poi FROM endiv_owner;
+GRANT ALL ON TABLE poi TO endiv_owner;
+GRANT ALL ON TABLE poi TO PUBLIC;
+GRANT ALL ON TABLE poi TO postgres;
+GRANT SELECT ON TABLE poi TO endiv_reader;
+
+
+--
+-- TOC entry 3671 (class 0 OID 0)
+-- Dependencies: 228
+-- Name: poi_adress; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE poi_adress FROM PUBLIC;
+REVOKE ALL ON TABLE poi_adress FROM endiv_owner;
+GRANT ALL ON TABLE poi_adress TO endiv_owner;
+GRANT ALL ON TABLE poi_adress TO PUBLIC;
+GRANT ALL ON TABLE poi_adress TO postgres;
+GRANT SELECT ON TABLE poi_adress TO endiv_reader;
+
+
+--
+-- TOC entry 3673 (class 0 OID 0)
+-- Dependencies: 229
+-- Name: poi_adress_datasource; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE poi_adress_datasource FROM PUBLIC;
+REVOKE ALL ON TABLE poi_adress_datasource FROM endiv_owner;
+GRANT ALL ON TABLE poi_adress_datasource TO endiv_owner;
+GRANT ALL ON TABLE poi_adress_datasource TO PUBLIC;
+GRANT ALL ON TABLE poi_adress_datasource TO postgres;
+GRANT SELECT ON TABLE poi_adress_datasource TO endiv_reader;
+
+
+--
+-- TOC entry 3675 (class 0 OID 0)
+-- Dependencies: 230
+-- Name: poi_adress_datasource_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE poi_adress_datasource_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE poi_adress_datasource_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE poi_adress_datasource_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE poi_adress_datasource_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE poi_adress_datasource_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE poi_adress_datasource_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3677 (class 0 OID 0)
+-- Dependencies: 231
+-- Name: poi_adress_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE poi_adress_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE poi_adress_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE poi_adress_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE poi_adress_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE poi_adress_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE poi_adress_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3679 (class 0 OID 0)
+-- Dependencies: 226
+-- Name: poi_datasource; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE poi_datasource FROM PUBLIC;
+REVOKE ALL ON TABLE poi_datasource FROM endiv_owner;
+GRANT ALL ON TABLE poi_datasource TO endiv_owner;
+GRANT ALL ON TABLE poi_datasource TO PUBLIC;
+GRANT ALL ON TABLE poi_datasource TO postgres;
+GRANT SELECT ON TABLE poi_datasource TO endiv_reader;
+
+
+--
+-- TOC entry 3681 (class 0 OID 0)
+-- Dependencies: 227
+-- Name: poi_datasource_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE poi_datasource_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE poi_datasource_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE poi_datasource_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE poi_datasource_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE poi_datasource_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE poi_datasource_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3683 (class 0 OID 0)
+-- Dependencies: 232
+-- Name: poi_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE poi_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE poi_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE poi_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE poi_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE poi_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE poi_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3684 (class 0 OID 0)
+-- Dependencies: 233
+-- Name: poi_type; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE poi_type FROM PUBLIC;
+REVOKE ALL ON TABLE poi_type FROM endiv_owner;
+GRANT ALL ON TABLE poi_type TO endiv_owner;
+GRANT ALL ON TABLE poi_type TO PUBLIC;
+GRANT ALL ON TABLE poi_type TO postgres;
+GRANT SELECT ON TABLE poi_type TO endiv_reader;
+
+
+--
+-- TOC entry 3686 (class 0 OID 0)
+-- Dependencies: 234
+-- Name: poi_type_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE poi_type_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE poi_type_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE poi_type_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE poi_type_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE poi_type_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE poi_type_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3687 (class 0 OID 0)
+-- Dependencies: 235
+-- Name: printing; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE printing FROM PUBLIC;
+REVOKE ALL ON TABLE printing FROM endiv_owner;
+GRANT ALL ON TABLE printing TO endiv_owner;
+GRANT ALL ON TABLE printing TO PUBLIC;
+GRANT ALL ON TABLE printing TO postgres;
+GRANT SELECT ON TABLE printing TO endiv_reader;
+
+
+--
+-- TOC entry 3689 (class 0 OID 0)
+-- Dependencies: 236
+-- Name: printing_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE printing_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE printing_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE printing_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE printing_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE printing_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE printing_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3690 (class 0 OID 0)
+-- Dependencies: 237
+-- Name: route; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE route FROM PUBLIC;
+REVOKE ALL ON TABLE route FROM endiv_owner;
+GRANT ALL ON TABLE route TO endiv_owner;
+GRANT ALL ON TABLE route TO PUBLIC;
+GRANT ALL ON TABLE route TO postgres;
+GRANT SELECT ON TABLE route TO endiv_reader;
+
+
+--
+-- TOC entry 3692 (class 0 OID 0)
+-- Dependencies: 238
+-- Name: route_datasource; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE route_datasource FROM PUBLIC;
+REVOKE ALL ON TABLE route_datasource FROM endiv_owner;
+GRANT ALL ON TABLE route_datasource TO endiv_owner;
+GRANT ALL ON TABLE route_datasource TO PUBLIC;
+GRANT ALL ON TABLE route_datasource TO postgres;
+GRANT SELECT ON TABLE route_datasource TO endiv_reader;
+
+
+--
+-- TOC entry 3694 (class 0 OID 0)
+-- Dependencies: 239
+-- Name: route_datasource_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE route_datasource_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE route_datasource_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE route_datasource_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE route_datasource_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE route_datasource_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE route_datasource_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3696 (class 0 OID 0)
+-- Dependencies: 240
+-- Name: route_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE route_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE route_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE route_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE route_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE route_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE route_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3697 (class 0 OID 0)
+-- Dependencies: 241
+-- Name: route_not_exported; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE route_not_exported FROM PUBLIC;
+REVOKE ALL ON TABLE route_not_exported FROM endiv_owner;
+GRANT ALL ON TABLE route_not_exported TO endiv_owner;
+GRANT ALL ON TABLE route_not_exported TO PUBLIC;
+GRANT ALL ON TABLE route_not_exported TO postgres;
+GRANT SELECT ON TABLE route_not_exported TO endiv_reader;
+
+
+--
+-- TOC entry 3699 (class 0 OID 0)
+-- Dependencies: 242
+-- Name: route_not_exported_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE route_not_exported_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE route_not_exported_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE route_not_exported_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE route_not_exported_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE route_not_exported_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE route_not_exported_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3700 (class 0 OID 0)
+-- Dependencies: 243
+-- Name: route_section; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE route_section FROM PUBLIC;
+REVOKE ALL ON TABLE route_section FROM endiv_owner;
+GRANT ALL ON TABLE route_section TO endiv_owner;
+GRANT ALL ON TABLE route_section TO PUBLIC;
+GRANT ALL ON TABLE route_section TO postgres;
+GRANT SELECT ON TABLE route_section TO endiv_reader;
+
+
+--
+-- TOC entry 3702 (class 0 OID 0)
+-- Dependencies: 244
+-- Name: route_section_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE route_section_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE route_section_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE route_section_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE route_section_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE route_section_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE route_section_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3703 (class 0 OID 0)
+-- Dependencies: 245
+-- Name: route_stop; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE route_stop FROM PUBLIC;
+REVOKE ALL ON TABLE route_stop FROM endiv_owner;
+GRANT ALL ON TABLE route_stop TO endiv_owner;
+GRANT ALL ON TABLE route_stop TO PUBLIC;
+GRANT ALL ON TABLE route_stop TO postgres;
+GRANT SELECT ON TABLE route_stop TO endiv_reader;
+
+
+--
+-- TOC entry 3705 (class 0 OID 0)
+-- Dependencies: 246
+-- Name: route_stop_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE route_stop_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE route_stop_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE route_stop_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE route_stop_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE route_stop_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE route_stop_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3706 (class 0 OID 0)
+-- Dependencies: 247
+-- Name: stop; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE stop FROM PUBLIC;
+REVOKE ALL ON TABLE stop FROM endiv_owner;
+GRANT ALL ON TABLE stop TO endiv_owner;
+GRANT ALL ON TABLE stop TO PUBLIC;
+GRANT ALL ON TABLE stop TO postgres;
+GRANT SELECT ON TABLE stop TO endiv_reader;
+
+
+--
+-- TOC entry 3707 (class 0 OID 0)
+-- Dependencies: 248
+-- Name: stop_area; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE stop_area FROM PUBLIC;
+REVOKE ALL ON TABLE stop_area FROM endiv_owner;
+GRANT ALL ON TABLE stop_area TO endiv_owner;
+GRANT ALL ON TABLE stop_area TO PUBLIC;
+GRANT ALL ON TABLE stop_area TO postgres;
+GRANT SELECT ON TABLE stop_area TO endiv_reader;
+
+
+--
+-- TOC entry 3709 (class 0 OID 0)
+-- Dependencies: 249
+-- Name: stop_area_datasource; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE stop_area_datasource FROM PUBLIC;
+REVOKE ALL ON TABLE stop_area_datasource FROM endiv_owner;
+GRANT ALL ON TABLE stop_area_datasource TO endiv_owner;
+GRANT ALL ON TABLE stop_area_datasource TO PUBLIC;
+GRANT ALL ON TABLE stop_area_datasource TO postgres;
+GRANT SELECT ON TABLE stop_area_datasource TO endiv_reader;
+
+
+--
+-- TOC entry 3711 (class 0 OID 0)
+-- Dependencies: 250
+-- Name: stop_area_datasource_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE stop_area_datasource_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE stop_area_datasource_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE stop_area_datasource_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE stop_area_datasource_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE stop_area_datasource_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE stop_area_datasource_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3713 (class 0 OID 0)
+-- Dependencies: 251
+-- Name: stop_area_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE stop_area_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE stop_area_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE stop_area_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE stop_area_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE stop_area_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE stop_area_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3715 (class 0 OID 0)
+-- Dependencies: 252
+-- Name: stop_datasource; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE stop_datasource FROM PUBLIC;
+REVOKE ALL ON TABLE stop_datasource FROM endiv_owner;
+GRANT ALL ON TABLE stop_datasource TO endiv_owner;
+GRANT ALL ON TABLE stop_datasource TO PUBLIC;
+GRANT ALL ON TABLE stop_datasource TO postgres;
+GRANT SELECT ON TABLE stop_datasource TO endiv_reader;
+
+
+--
+-- TOC entry 3717 (class 0 OID 0)
+-- Dependencies: 253
+-- Name: stop_datasource_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE stop_datasource_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE stop_datasource_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE stop_datasource_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE stop_datasource_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE stop_datasource_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE stop_datasource_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3718 (class 0 OID 0)
+-- Dependencies: 254
+-- Name: stop_history; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE stop_history FROM PUBLIC;
+REVOKE ALL ON TABLE stop_history FROM endiv_owner;
+GRANT ALL ON TABLE stop_history TO endiv_owner;
+GRANT ALL ON TABLE stop_history TO PUBLIC;
+GRANT ALL ON TABLE stop_history TO postgres;
+GRANT SELECT ON TABLE stop_history TO endiv_reader;
+
+
+--
+-- TOC entry 3720 (class 0 OID 0)
+-- Dependencies: 255
+-- Name: stop_history_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE stop_history_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE stop_history_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE stop_history_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE stop_history_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE stop_history_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE stop_history_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3721 (class 0 OID 0)
+-- Dependencies: 256
+-- Name: stop_time; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE stop_time FROM PUBLIC;
+REVOKE ALL ON TABLE stop_time FROM endiv_owner;
+GRANT ALL ON TABLE stop_time TO endiv_owner;
+GRANT ALL ON TABLE stop_time TO PUBLIC;
+GRANT ALL ON TABLE stop_time TO postgres;
+GRANT SELECT ON TABLE stop_time TO endiv_reader;
+
+
+--
+-- TOC entry 3723 (class 0 OID 0)
+-- Dependencies: 257
+-- Name: stop_time_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE stop_time_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE stop_time_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE stop_time_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE stop_time_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE stop_time_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE stop_time_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3724 (class 0 OID 0)
+-- Dependencies: 258
+-- Name: transfer; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE transfer FROM PUBLIC;
+REVOKE ALL ON TABLE transfer FROM endiv_owner;
+GRANT ALL ON TABLE transfer TO endiv_owner;
+GRANT ALL ON TABLE transfer TO PUBLIC;
+GRANT ALL ON TABLE transfer TO postgres;
+GRANT SELECT ON TABLE transfer TO endiv_reader;
+
+
+--
+-- TOC entry 3726 (class 0 OID 0)
+-- Dependencies: 259
+-- Name: transfer_datasource; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE transfer_datasource FROM PUBLIC;
+REVOKE ALL ON TABLE transfer_datasource FROM endiv_owner;
+GRANT ALL ON TABLE transfer_datasource TO endiv_owner;
+GRANT ALL ON TABLE transfer_datasource TO PUBLIC;
+GRANT ALL ON TABLE transfer_datasource TO postgres;
+GRANT SELECT ON TABLE transfer_datasource TO endiv_reader;
+
+
+--
+-- TOC entry 3728 (class 0 OID 0)
+-- Dependencies: 260
+-- Name: transfer_datasource_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE transfer_datasource_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE transfer_datasource_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE transfer_datasource_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE transfer_datasource_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE transfer_datasource_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE transfer_datasource_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3730 (class 0 OID 0)
+-- Dependencies: 261
+-- Name: transfer_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE transfer_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE transfer_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE transfer_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE transfer_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE transfer_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE transfer_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3731 (class 0 OID 0)
+-- Dependencies: 262
+-- Name: transfer_not_exported; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE transfer_not_exported FROM PUBLIC;
+REVOKE ALL ON TABLE transfer_not_exported FROM endiv_owner;
+GRANT ALL ON TABLE transfer_not_exported TO endiv_owner;
+GRANT ALL ON TABLE transfer_not_exported TO PUBLIC;
+GRANT ALL ON TABLE transfer_not_exported TO postgres;
+GRANT SELECT ON TABLE transfer_not_exported TO endiv_reader;
+
+
+--
+-- TOC entry 3733 (class 0 OID 0)
+-- Dependencies: 263
+-- Name: transfer_not_exported_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE transfer_not_exported_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE transfer_not_exported_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE transfer_not_exported_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE transfer_not_exported_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE transfer_not_exported_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE transfer_not_exported_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3734 (class 0 OID 0)
+-- Dependencies: 264
+-- Name: trip; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE trip FROM PUBLIC;
+REVOKE ALL ON TABLE trip FROM endiv_owner;
+GRANT ALL ON TABLE trip TO endiv_owner;
+GRANT ALL ON TABLE trip TO PUBLIC;
+GRANT ALL ON TABLE trip TO postgres;
+GRANT SELECT ON TABLE trip TO endiv_reader;
+
+
+--
+-- TOC entry 3735 (class 0 OID 0)
+-- Dependencies: 265
+-- Name: trip_calendar; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE trip_calendar FROM PUBLIC;
+REVOKE ALL ON TABLE trip_calendar FROM endiv_owner;
+GRANT ALL ON TABLE trip_calendar TO endiv_owner;
+GRANT ALL ON TABLE trip_calendar TO PUBLIC;
+GRANT ALL ON TABLE trip_calendar TO postgres;
+GRANT SELECT ON TABLE trip_calendar TO endiv_reader;
+
+
+--
+-- TOC entry 3737 (class 0 OID 0)
+-- Dependencies: 266
+-- Name: trip_calendar_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE trip_calendar_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE trip_calendar_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE trip_calendar_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE trip_calendar_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE trip_calendar_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE trip_calendar_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3739 (class 0 OID 0)
+-- Dependencies: 267
+-- Name: trip_datasource; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE trip_datasource FROM PUBLIC;
+REVOKE ALL ON TABLE trip_datasource FROM endiv_owner;
+GRANT ALL ON TABLE trip_datasource TO endiv_owner;
+GRANT ALL ON TABLE trip_datasource TO PUBLIC;
+GRANT ALL ON TABLE trip_datasource TO postgres;
+GRANT SELECT ON TABLE trip_datasource TO endiv_reader;
+
+
+--
+-- TOC entry 3741 (class 0 OID 0)
+-- Dependencies: 268
+-- Name: trip_datasource_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE trip_datasource_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE trip_datasource_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE trip_datasource_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE trip_datasource_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE trip_datasource_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE trip_datasource_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3743 (class 0 OID 0)
+-- Dependencies: 269
+-- Name: trip_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE trip_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE trip_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE trip_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE trip_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE trip_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE trip_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 3744 (class 0 OID 0)
+-- Dependencies: 270
+-- Name: waypoint; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON TABLE waypoint FROM PUBLIC;
+REVOKE ALL ON TABLE waypoint FROM endiv_owner;
+GRANT ALL ON TABLE waypoint TO endiv_owner;
+GRANT ALL ON TABLE waypoint TO PUBLIC;
+GRANT ALL ON TABLE waypoint TO postgres;
+GRANT SELECT ON TABLE waypoint TO endiv_reader;
+
+
+--
+-- TOC entry 3746 (class 0 OID 0)
+-- Dependencies: 271
+-- Name: waypoint_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+--
+
+REVOKE ALL ON SEQUENCE waypoint_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE waypoint_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE waypoint_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE waypoint_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE waypoint_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE waypoint_id_seq TO endiv_reader;
+
+
+--
+-- TOC entry 2788 (class 826 OID 168776)
+-- Name: DEFAULT PRIVILEGES FOR FUNCTIONS; Type: DEFAULT ACL; Schema: -; Owner: postgres
+--
+
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres REVOKE ALL ON FUNCTIONS  FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres REVOKE ALL ON FUNCTIONS  FROM postgres;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres GRANT ALL ON FUNCTIONS  TO postgres;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres GRANT ALL ON FUNCTIONS  TO PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres GRANT ALL ON FUNCTIONS  TO endiv_owner;
+
+
+-- Completed on 2015-02-02 09:45:11
 
 --
 -- PostgreSQL database dump complete
 --
+
