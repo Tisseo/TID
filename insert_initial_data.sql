@@ -123,16 +123,16 @@ INSERT INTO datasource (id, name, agency_id) VALUES (4, 'TIGRE', 1);
 -- Dependencies: 204
 -- Data for Name: grid_mask_type; Type: TABLE DATA; Schema: public; Owner: postgres
 --
-INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (1, 'Lundi au vendredi', 'BASE');
-INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (2, 'Lundi au samedi', 'BASE');
+INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (1, 'Semaine', 'BASE');
+INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (2, 'Lun-Sam', 'BASE');
 INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (3, 'Samedi', 'BASE');
 INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (4, 'Dimanche', 'BASE');
-INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (5, 'Lundi au vendredi', 'Vacances');
-INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (6, 'Lundi au dimanche', 'BASE');
-INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (7, 'Lundi au dimanche', 'Vacances');
-INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (8, 'Lundi au vendredi', 'Vacances Ligne 63');
+INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (5, 'Semaine', 'Vacances');
+INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (6, '7-jours', 'BASE');
+INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (7, '7-jours', 'Vacances');
+INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (8, 'Semaine', 'Vacances Ligne 63');
 INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (9, 'Dimanche', 'dimanche Renfort noel');
-INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (10, 'Dimanche et jours fériés', 'Jours Fériés');
+INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (10, 'Dimanche', 'Jours Fériés');
 
 --
 -- TOC entry 3512 (class 0 OID 76954)
