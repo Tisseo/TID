@@ -51,17 +51,17 @@ SET search_path = public, pg_catalog;
 
 --
 -- TOC entry 1578 (class 1247 OID 199949)
--- Name: adress; Type: TYPE; Schema: public; Owner: postgres
+-- Name: address; Type: TYPE; Schema: public; Owner: postgres
 --
 
-CREATE TYPE adress AS (
-	adress character varying,
+CREATE TYPE address AS (
+	address character varying,
 	the_geom character varying,
 	is_entrance boolean
 );
 
 
-ALTER TYPE public.adress OWNER TO postgres;
+ALTER TYPE public.address OWNER TO postgres;
 
 --
 -- TOC entry 1191 (class 1255 OID 199950)
@@ -107,7 +107,7 @@ CREATE FUNCTION cleanpoi() RETURNS void
     AS $$
     BEGIN
         DELETE FROM poi_datasource;
-        DELETE FROM poi_adress;
+        DELETE FROM poi_address;
         DELETE FROM poi;
         DELETE FROM poi_type;
     END;
@@ -118,19 +118,19 @@ ALTER FUNCTION public.cleanpoi() OWNER TO postgres;
 
 --
 -- TOC entry 1180 (class 1255 OID 199952)
--- Name: createadresstype(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: createaddresstype(); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION createadresstype() RETURNS void
+CREATE FUNCTION createaddresstype() RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
         _type_exists INTEGER;
     BEGIN
-        SELECT INTO _type_exists (SELECT 1 FROM pg_type WHERE typname = 'adress');
+        SELECT INTO _type_exists (SELECT 1 FROM pg_type WHERE typname = 'address');
         IF _type_exists IS NULL THEN
-            CREATE TYPE adress AS (
-                adress character varying,
+            CREATE TYPE address AS (
+                address character varying,
                 the_geom character varying,
                 is_entrance boolean
             );
@@ -139,7 +139,7 @@ CREATE FUNCTION createadresstype() RETURNS void
     $$;
 
 
-ALTER FUNCTION public.createadresstype() OWNER TO postgres;
+ALTER FUNCTION public.createaddresstype() OWNER TO postgres;
 
 --
 -- TOC entry 1192 (class 1255 OID 199953)
@@ -182,17 +182,17 @@ ALTER FUNCTION public.insertcalendar(_tcode character varying, _rcode character 
 
 --
 -- TOC entry 1190 (class 1255 OID 199954)
--- Name: insertpoi(character varying, integer, character varying, integer, integer, boolean, adress[]); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: insertpoi(character varying, integer, character varying, integer, integer, boolean, address[]); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, adresses adress[]) RETURNS void
+CREATE FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, addresses address[]) RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
         _type_id integer;
         _poi_id integer;
         _real_geom geometry(Point, 3943);
-        _adress adress;
+        _address address;
     BEGIN
         IF _is_velo THEN
             _type_id := _type::integer;
@@ -204,16 +204,16 @@ CREATE FUNCTION insertpoi(_name character varying, _city_id integer, _type chara
         END IF;
         INSERT INTO poi(name, city_id, poi_type_id, priority) VALUES (_name, _city_id, _type_id, _priority) RETURNING id INTO _poi_id;
         INSERT INTO poi_datasource(poi_id, code, datasource_id) VALUES (_poi_id, '', _datasource);
-        FOREACH _adress IN ARRAY adresses
+        FOREACH _address IN ARRAY addresses
         LOOP
-            _real_geom := ST_GeomFromText(_adress.the_geom, 3943);
-            INSERT INTO poi_adress(poi_id, adress, is_entrance, the_geom) VALUES (_poi_id, _adress.adress, _adress.is_entrance, _real_geom);
+            _real_geom := ST_GeomFromText(_address.the_geom, 3943);
+            INSERT INTO poi_address(poi_id, address, is_entrance, the_geom) VALUES (_poi_id, _address.address, _address.is_entrance, _real_geom);
         END LOOP;
     END;
     $$;
 
 
-ALTER FUNCTION public.insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, adresses adress[]) OWNER TO postgres;
+ALTER FUNCTION public.insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, addresses address[]) OWNER TO postgres;
 
 --
 -- TOC entry 1188 (class 1255 OID 199955)
@@ -1147,6 +1147,7 @@ CREATE TABLE grid_calendar (
     id integer NOT NULL,
     line_version_id integer,
     name character varying(255) NOT NULL,
+    color character varying(7) NOT NULL,
     monday boolean NOT NULL,
     tuesday boolean NOT NULL,
     wednesday boolean NOT NULL,
@@ -1313,7 +1314,8 @@ ALTER SEQUENCE grid_mask_type_id_seq OWNED BY grid_mask_type.id;
 CREATE TABLE line (
     id integer NOT NULL,
     number character varying(10) NOT NULL,
-    physical_mode_id integer NOT NULL
+    physical_mode_id integer NOT NULL,
+    priority integer NOT NULL
 );
 
 
@@ -1417,9 +1419,9 @@ CREATE TABLE line_version (
     forward_direction character varying(255) NOT NULL,
     backward_direction character varying(255) NOT NULL,
     bg_color character varying(20) DEFAULT 'blanc' NOT NULL ,
-    bg_hexa_color character varying(6) DEFAULT '#FFFFFF' NOT NULL,
+    bg_hexa_color character varying(7) DEFAULT '#FFFFFF' NOT NULL,
     fg_color character varying(20) DEFAULT 'noir' NOT NULL,
-    fg_hexa_color character varying(6) DEFAULT '#000000' NOT NULL,
+    fg_hexa_color character varying(7) DEFAULT '#000000' NOT NULL,
     carto_file text,
     accessibility boolean ,
     air_conditioned boolean,
@@ -1819,10 +1821,10 @@ COMMENT ON COLUMN poi.priority IS 'Importance du POI. 1 = prioritaire, 5 = peu i
 
 --
 -- TOC entry 227 (class 1259 OID 200109)
--- Name: poi_adress; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
+-- Name: poi_address; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
-CREATE TABLE poi_adress (
+CREATE TABLE poi_address (
     id integer NOT NULL,
     poi_id integer NOT NULL,
     address text,
@@ -1831,75 +1833,75 @@ CREATE TABLE poi_adress (
 );
 
 
-ALTER TABLE public.poi_adress OWNER TO endiv_owner;
+ALTER TABLE public.poi_address OWNER TO endiv_owner;
 
 --
 -- TOC entry 3682 (class 0 OID 0)
 -- Dependencies: 227
--- Name: TABLE poi_adress; Type: COMMENT; Schema: public; Owner: endiv_owner
+-- Name: TABLE poi_address; Type: COMMENT; Schema: public; Owner: endiv_owner
 --
 
-COMMENT ON TABLE poi_adress IS 'Localisation du POI ou de son entree.';
+COMMENT ON TABLE poi_address IS 'Localisation du POI ou de son entree.';
 
 
 --
 -- TOC entry 3683 (class 0 OID 0)
 -- Dependencies: 227
--- Name: COLUMN poi_adress.id; Type: COMMENT; Schema: public; Owner: endiv_owner
+-- Name: COLUMN poi_address.id; Type: COMMENT; Schema: public; Owner: endiv_owner
 --
 
-COMMENT ON COLUMN poi_adress.id IS '
+COMMENT ON COLUMN poi_address.id IS '
 ';
 
 
 --
 -- TOC entry 3684 (class 0 OID 0)
 -- Dependencies: 227
--- Name: COLUMN poi_adress.address; Type: COMMENT; Schema: public; Owner: endiv_owner
+-- Name: COLUMN poi_address.address; Type: COMMENT; Schema: public; Owner: endiv_owner
 --
 
-COMMENT ON COLUMN poi_adress.address IS 'Adresse postale de la localisation du POI.';
+COMMENT ON COLUMN poi_address.address IS 'Adresse postale de la localisation du POI.';
 
 
 --
 -- TOC entry 3685 (class 0 OID 0)
 -- Dependencies: 227
--- Name: COLUMN poi_adress.is_entrance; Type: COMMENT; Schema: public; Owner: endiv_owner
+-- Name: COLUMN poi_address.is_entrance; Type: COMMENT; Schema: public; Owner: endiv_owner
 --
 
-COMMENT ON COLUMN poi_adress.is_entrance IS 'Indique sil la localisation est une entree du POI ou le barycentre du POI.';
+COMMENT ON COLUMN poi_address.is_entrance IS 'Indique sil la localisation est une entree du POI ou le barycentre du POI.';
 
 
 --
 -- TOC entry 228 (class 1259 OID 200115)
--- Name: poi_adress_datasource; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
+-- Name: poi_address_datasource; Type: TABLE; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
-CREATE TABLE poi_adress_datasource (
+CREATE TABLE poi_address_datasource (
     id integer NOT NULL,
-    poi_adress_id integer NOT NULL,
+    poi_address_id integer NOT NULL,
     datasource_id integer NOT NULL,
     code character varying(20)
 );
 
 
-ALTER TABLE public.poi_adress_datasource OWNER TO endiv_owner;
+ALTER TABLE public.poi_address_datasource OWNER TO endiv_owner;
 
 --
 -- TOC entry 3687 (class 0 OID 0)
 -- Dependencies: 228
--- Name: TABLE poi_adress_datasource; Type: COMMENT; Schema: public; Owner: endiv_owner
+-- Name: TABLE poi_address_datasource; Type: COMMENT; Schema: public; Owner: endiv_owner
 --
 
-COMMENT ON TABLE poi_adress_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
+COMMENT ON TABLE poi_address_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
 
 
 --
 -- TOC entry 229 (class 1259 OID 200118)
--- Name: poi_adress_datasource_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
+-- Name: poi_address_datasource_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
-CREATE SEQUENCE poi_adress_datasource_id_seq
+CREATE SEQUENCE poi_address_datasource_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -1907,23 +1909,23 @@ CREATE SEQUENCE poi_adress_datasource_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.poi_adress_datasource_id_seq OWNER TO endiv_owner;
+ALTER TABLE public.poi_address_datasource_id_seq OWNER TO endiv_owner;
 
 --
 -- TOC entry 3689 (class 0 OID 0)
 -- Dependencies: 229
--- Name: poi_adress_datasource_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
+-- Name: poi_address_datasource_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
-ALTER SEQUENCE poi_adress_datasource_id_seq OWNED BY poi_adress_datasource.id;
+ALTER SEQUENCE poi_address_datasource_id_seq OWNED BY poi_address_datasource.id;
 
 
 --
 -- TOC entry 230 (class 1259 OID 200120)
--- Name: poi_adress_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
+-- Name: poi_address_id_seq; Type: SEQUENCE; Schema: public; Owner: endiv_owner
 --
 
-CREATE SEQUENCE poi_adress_id_seq
+CREATE SEQUENCE poi_address_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -1931,15 +1933,15 @@ CREATE SEQUENCE poi_adress_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.poi_adress_id_seq OWNER TO endiv_owner;
+ALTER TABLE public.poi_address_id_seq OWNER TO endiv_owner;
 
 --
 -- TOC entry 3691 (class 0 OID 0)
 -- Dependencies: 230
--- Name: poi_adress_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
+-- Name: poi_address_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: endiv_owner
 --
 
-ALTER SEQUENCE poi_adress_id_seq OWNED BY poi_adress.id;
+ALTER SEQUENCE poi_address_id_seq OWNED BY poi_address.id;
 
 
 --
@@ -3401,7 +3403,7 @@ ALTER TABLE ONLY poi ALTER COLUMN id SET DEFAULT nextval('poi_id_seq'::regclass)
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
-ALTER TABLE ONLY poi_adress ALTER COLUMN id SET DEFAULT nextval('poi_adress_id_seq'::regclass);
+ALTER TABLE ONLY poi_address ALTER COLUMN id SET DEFAULT nextval('poi_address_id_seq'::regclass);
 
 
 --
@@ -3409,7 +3411,7 @@ ALTER TABLE ONLY poi_adress ALTER COLUMN id SET DEFAULT nextval('poi_adress_id_s
 -- Name: id; Type: DEFAULT; Schema: public; Owner: endiv_owner
 --
 
-ALTER TABLE ONLY poi_adress_datasource ALTER COLUMN id SET DEFAULT nextval('poi_adress_datasource_id_seq'::regclass);
+ALTER TABLE ONLY poi_address_datasource ALTER COLUMN id SET DEFAULT nextval('poi_address_datasource_id_seq'::regclass);
 
 
 --
@@ -3826,20 +3828,20 @@ ALTER TABLE ONLY physical_mode
 
 --
 -- TOC entry 3307 (class 2606 OID 200345)
--- Name: poi_adress_datasource_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
+-- Name: poi_address_datasource_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
-ALTER TABLE ONLY poi_adress_datasource
-    ADD CONSTRAINT poi_adress_datasource_pk PRIMARY KEY (id);
+ALTER TABLE ONLY poi_address_datasource
+    ADD CONSTRAINT poi_address_datasource_pk PRIMARY KEY (id);
 
 
 --
 -- TOC entry 3304 (class 2606 OID 200347)
--- Name: poi_adress_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
+-- Name: poi_address_pk; Type: CONSTRAINT; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
-ALTER TABLE ONLY poi_adress
-    ADD CONSTRAINT poi_adress_pk PRIMARY KEY (id);
+ALTER TABLE ONLY poi_address
+    ADD CONSTRAINT poi_address_pk PRIMARY KEY (id);
 
 
 --
@@ -4074,10 +4076,10 @@ CREATE INDEX calendar_link_trip_id_idx ON calendar_link USING btree (trip_id);
 
 --
 -- TOC entry 3305 (class 1259 OID 200396)
--- Name: poi_adress_poi_id_idx; Type: INDEX; Schema: public; Owner: endiv_owner; Tablespace: 
+-- Name: poi_address_poi_id_idx; Type: INDEX; Schema: public; Owner: endiv_owner; Tablespace: 
 --
 
-CREATE INDEX poi_adress_poi_id_idx ON poi_adress USING btree (poi_id);
+CREATE INDEX poi_address_poi_id_idx ON poi_address USING btree (poi_id);
 
 
 --
@@ -4447,29 +4449,29 @@ ALTER TABLE ONLY odt_stop
 
 --
 -- TOC entry 3392 (class 2606 OID 200555)
--- Name: poi_adress_datasource_datasource_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
+-- Name: poi_address_datasource_datasource_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
-ALTER TABLE ONLY poi_adress_datasource
-    ADD CONSTRAINT poi_adress_datasource_datasource_id_fk FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY poi_address_datasource
+    ADD CONSTRAINT poi_address_datasource_datasource_id_fk FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 
 
 --
 -- TOC entry 3393 (class 2606 OID 200560)
--- Name: poi_adress_datasource_poi_adress_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
+-- Name: poi_address_datasource_poi_address_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
-ALTER TABLE ONLY poi_adress_datasource
-    ADD CONSTRAINT poi_adress_datasource_poi_adress_id_fk FOREIGN KEY (poi_adress_id) REFERENCES poi_adress(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY poi_address_datasource
+    ADD CONSTRAINT poi_address_datasource_poi_address_id_fk FOREIGN KEY (poi_address_id) REFERENCES poi_address(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 
 
 --
 -- TOC entry 3391 (class 2606 OID 200565)
--- Name: poi_adress_poi_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
+-- Name: poi_address_poi_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: endiv_owner
 --
 
-ALTER TABLE ONLY poi_adress
-    ADD CONSTRAINT poi_adress_poi_id_fk FOREIGN KEY (poi_id) REFERENCES poi(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY poi_address
+    ADD CONSTRAINT poi_address_poi_id_fk FOREIGN KEY (poi_id) REFERENCES poi(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 
 
 --
@@ -4822,12 +4824,12 @@ GRANT USAGE ON SCHEMA public TO endiv_owner;
 --
 -- TOC entry 3548 (class 0 OID 0)
 -- Dependencies: 1578
--- Name: adress; Type: ACL; Schema: public; Owner: postgres
+-- Name: address; Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON TYPE adress FROM PUBLIC;
-REVOKE ALL ON TYPE adress FROM postgres;
-GRANT ALL ON TYPE adress TO PUBLIC;
+REVOKE ALL ON TYPE address FROM PUBLIC;
+REVOKE ALL ON TYPE address FROM postgres;
+GRANT ALL ON TYPE address TO PUBLIC;
 
 
 --
@@ -4859,14 +4861,14 @@ GRANT ALL ON FUNCTION cleanpoi() TO endiv_owner;
 --
 -- TOC entry 3551 (class 0 OID 0)
 -- Dependencies: 1180
--- Name: createadresstype(); Type: ACL; Schema: public; Owner: postgres
+-- Name: createaddresstype(); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION createadresstype() FROM PUBLIC;
-REVOKE ALL ON FUNCTION createadresstype() FROM postgres;
-GRANT ALL ON FUNCTION createadresstype() TO postgres;
-GRANT ALL ON FUNCTION createadresstype() TO PUBLIC;
-GRANT ALL ON FUNCTION createadresstype() TO endiv_owner;
+REVOKE ALL ON FUNCTION createaddresstype() FROM PUBLIC;
+REVOKE ALL ON FUNCTION createaddresstype() FROM postgres;
+GRANT ALL ON FUNCTION createaddresstype() TO postgres;
+GRANT ALL ON FUNCTION createaddresstype() TO PUBLIC;
+GRANT ALL ON FUNCTION createaddresstype() TO endiv_owner;
 
 
 --
@@ -4885,14 +4887,14 @@ GRANT ALL ON FUNCTION insertcalendar(_tcode character varying, _rcode character 
 --
 -- TOC entry 3553 (class 0 OID 0)
 -- Dependencies: 1190
--- Name: insertpoi(character varying, integer, character varying, integer, integer, boolean, adress[]); Type: ACL; Schema: public; Owner: postgres
+-- Name: insertpoi(character varying, integer, character varying, integer, integer, boolean, address[]); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, adresses adress[]) FROM PUBLIC;
-REVOKE ALL ON FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, adresses adress[]) FROM postgres;
-GRANT ALL ON FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, adresses adress[]) TO postgres;
-GRANT ALL ON FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, adresses adress[]) TO PUBLIC;
-GRANT ALL ON FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, adresses adress[]) TO endiv_owner;
+REVOKE ALL ON FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, addresses address[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, addresses address[]) FROM postgres;
+GRANT ALL ON FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, addresses address[]) TO postgres;
+GRANT ALL ON FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, addresses address[]) TO PUBLIC;
+GRANT ALL ON FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, addresses address[]) TO endiv_owner;
 
 
 --
@@ -5730,57 +5732,57 @@ GRANT SELECT ON TABLE poi TO endiv_reader;
 --
 -- TOC entry 3686 (class 0 OID 0)
 -- Dependencies: 227
--- Name: poi_adress; Type: ACL; Schema: public; Owner: endiv_owner
+-- Name: poi_address; Type: ACL; Schema: public; Owner: endiv_owner
 --
 
-REVOKE ALL ON TABLE poi_adress FROM PUBLIC;
-REVOKE ALL ON TABLE poi_adress FROM endiv_owner;
-GRANT ALL ON TABLE poi_adress TO endiv_owner;
-GRANT ALL ON TABLE poi_adress TO PUBLIC;
-GRANT ALL ON TABLE poi_adress TO postgres;
-GRANT SELECT ON TABLE poi_adress TO endiv_reader;
+REVOKE ALL ON TABLE poi_address FROM PUBLIC;
+REVOKE ALL ON TABLE poi_address FROM endiv_owner;
+GRANT ALL ON TABLE poi_address TO endiv_owner;
+GRANT ALL ON TABLE poi_address TO PUBLIC;
+GRANT ALL ON TABLE poi_address TO postgres;
+GRANT SELECT ON TABLE poi_address TO endiv_reader;
 
 
 --
 -- TOC entry 3688 (class 0 OID 0)
 -- Dependencies: 228
--- Name: poi_adress_datasource; Type: ACL; Schema: public; Owner: endiv_owner
+-- Name: poi_address_datasource; Type: ACL; Schema: public; Owner: endiv_owner
 --
 
-REVOKE ALL ON TABLE poi_adress_datasource FROM PUBLIC;
-REVOKE ALL ON TABLE poi_adress_datasource FROM endiv_owner;
-GRANT ALL ON TABLE poi_adress_datasource TO endiv_owner;
-GRANT ALL ON TABLE poi_adress_datasource TO PUBLIC;
-GRANT ALL ON TABLE poi_adress_datasource TO postgres;
-GRANT SELECT ON TABLE poi_adress_datasource TO endiv_reader;
+REVOKE ALL ON TABLE poi_address_datasource FROM PUBLIC;
+REVOKE ALL ON TABLE poi_address_datasource FROM endiv_owner;
+GRANT ALL ON TABLE poi_address_datasource TO endiv_owner;
+GRANT ALL ON TABLE poi_address_datasource TO PUBLIC;
+GRANT ALL ON TABLE poi_address_datasource TO postgres;
+GRANT SELECT ON TABLE poi_address_datasource TO endiv_reader;
 
 
 --
 -- TOC entry 3690 (class 0 OID 0)
 -- Dependencies: 229
--- Name: poi_adress_datasource_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+-- Name: poi_address_datasource_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
 --
 
-REVOKE ALL ON SEQUENCE poi_adress_datasource_id_seq FROM PUBLIC;
-REVOKE ALL ON SEQUENCE poi_adress_datasource_id_seq FROM endiv_owner;
-GRANT ALL ON SEQUENCE poi_adress_datasource_id_seq TO endiv_owner;
-GRANT ALL ON SEQUENCE poi_adress_datasource_id_seq TO PUBLIC;
-GRANT ALL ON SEQUENCE poi_adress_datasource_id_seq TO postgres;
-GRANT SELECT ON SEQUENCE poi_adress_datasource_id_seq TO endiv_reader;
+REVOKE ALL ON SEQUENCE poi_address_datasource_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE poi_address_datasource_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE poi_address_datasource_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE poi_address_datasource_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE poi_address_datasource_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE poi_address_datasource_id_seq TO endiv_reader;
 
 
 --
 -- TOC entry 3692 (class 0 OID 0)
 -- Dependencies: 230
--- Name: poi_adress_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
+-- Name: poi_address_id_seq; Type: ACL; Schema: public; Owner: endiv_owner
 --
 
-REVOKE ALL ON SEQUENCE poi_adress_id_seq FROM PUBLIC;
-REVOKE ALL ON SEQUENCE poi_adress_id_seq FROM endiv_owner;
-GRANT ALL ON SEQUENCE poi_adress_id_seq TO endiv_owner;
-GRANT ALL ON SEQUENCE poi_adress_id_seq TO PUBLIC;
-GRANT ALL ON SEQUENCE poi_adress_id_seq TO postgres;
-GRANT SELECT ON SEQUENCE poi_adress_id_seq TO endiv_reader;
+REVOKE ALL ON SEQUENCE poi_address_id_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE poi_address_id_seq FROM endiv_owner;
+GRANT ALL ON SEQUENCE poi_address_id_seq TO endiv_owner;
+GRANT ALL ON SEQUENCE poi_address_id_seq TO PUBLIC;
+GRANT ALL ON SEQUENCE poi_address_id_seq TO postgres;
+GRANT SELECT ON SEQUENCE poi_address_id_seq TO endiv_reader;
 
 
 --
