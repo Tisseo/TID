@@ -4827,9 +4827,11 @@ GRANT USAGE ON SCHEMA public TO endiv_owner;
 -- Name: address; Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON TYPE address FROM PUBLIC;
-REVOKE ALL ON TYPE address FROM postgres;
-GRANT ALL ON TYPE address TO PUBLIC;
+-- Possible seulement à partir de psql 9.2
+
+-- REVOKE ALL ON TYPE address FROM PUBLIC;
+-- REVOKE ALL ON TYPE address FROM postgres;
+-- GRANT ALL ON TYPE address TO PUBLIC;
 
 
 --
