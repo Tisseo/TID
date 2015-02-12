@@ -162,7 +162,7 @@ INSERT INTO line (id, number, physical_mode_id, priority) VALUES (5, '10', 3, 3)
 INSERT INTO line (id, number, physical_mode_id, priority) VALUES (6, '12', 3, 3);
 INSERT INTO line (id, number, physical_mode_id, priority) VALUES (7, '14', 3, 3);
 INSERT INTO line (id, number, physical_mode_id, priority) VALUES (8, '15', 3, 3);
-INSERT INTO line (id, number, physical_mode_id, priority) VALUES (9, 'L16', 3, 3);
+INSERT INTO line (id, number, physical_mode_id, priority) VALUES (9, 'L16', 3, 2);
 INSERT INTO line (id, number, physical_mode_id, priority) VALUES (10, '19', 3, 3);
 INSERT INTO line (id, number, physical_mode_id, priority) VALUES (11, '17', 3, 3);
 INSERT INTO line (id, number, physical_mode_id, priority) VALUES (12, '20', 3, 3);
