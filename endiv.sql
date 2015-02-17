@@ -417,18 +417,18 @@ ALTER FUNCTION public.updatestop(_stop_history_id integer, _date date, _name cha
 -- Name: insertline(character varying, integer,  character varying,  integer); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE OR REPLACE FUNCTION public.insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer)
+CREATE OR REPLACE FUNCTION public.insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer, _priority integer default 0)
     RETURNS integer AS $$
     DECLARE
         _line_id integer;
     BEGIN
-        INSERT INTO line (number, physical_mode_id) VALUES (_number, _physical_mode_id) RETURNING line.id INTO _line_id;
+        INSERT INTO line (number, physical_mode_id, priority) VALUES (_number, _physical_mode_id, _priority) RETURNING line.id INTO _line_id;
         INSERT INTO line_datasource (line_id, datasource_id, code) VALUES (_line_id, _datasource, _line_code);
         RETURN _line_id;
     END;
     $$ LANGUAGE 'plpgsql';
 
-ALTER FUNCTION public.insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer) OWNER TO postgres;
+ALTER FUNCTION public.insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer, _priority integer) OWNER TO postgres;
 
 --
 -- Name: insertlineversion(integer, integer, date, date, date, integer, character varying, character varying, character varying, character varying, character varying, character varying, character varying, text, boolean, boolean, boolean, text, character varying, integer, character varying); Type: FUNCTION; Schema: public; Owner: postgres
@@ -5047,12 +5047,11 @@ GRANT ALL ON FUNCTION updatestop(_stop_history_id integer, _date date, _name cha
 --
 -- Name: insertline(character varying, integer, character varying, integer); Type: ACL; Schema: public; Owner: postgres
 --
-
-REVOKE ALL ON FUNCTION insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer) FROM PUBLIC;
-REVOKE ALL ON FUNCTION insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer) FROM postgres;
-GRANT ALL ON FUNCTION insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer) TO postgres;
-GRANT ALL ON FUNCTION insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer) TO PUBLIC;
-GRANT ALL ON FUNCTION insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer) TO endiv_owner;
+REVOKE ALL ON FUNCTION insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer, _priority integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer, _priority integer) FROM postgres;
+GRANT ALL ON FUNCTION insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer, _priority integer) TO postgres;
+GRANT ALL ON FUNCTION insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer, _priority integer) TO PUBLIC;
+GRANT ALL ON FUNCTION insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer, _priority integer) TO endiv_owner;
 
 
 --
