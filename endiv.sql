@@ -5045,6 +5045,28 @@ GRANT ALL ON FUNCTION updatestop(_stop_history_id integer, _date date, _name cha
 
 
 --
+-- Name: insertline(character varying, integer, character varying, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer) FROM postgres;
+GRANT ALL ON FUNCTION insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer) TO postgres;
+GRANT ALL ON FUNCTION insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer) TO PUBLIC;
+GRANT ALL ON FUNCTION insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer) TO endiv_owner;
+
+
+--
+-- Name: insertlineversion(integer, integer, date, date, date, integer, character varying, character varying, character  varying, character varying, character varying, character varying, character varying, text, boolean, boolean, boolean, text, character varying, integer, character varying); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION insertlineversion(_line_id integer, _version integer, _start_date date, _end_date date, _planned_end_date date, _child_line_id integer, _name character varying, _forward_direction character varying, _backward_direction character  varying, _bg_color character varying, _bg_hexa_color character varying, _fg_color character varying, _fg_hexa_color character varying, _carto_file text, _accessibility boolean, _air_conditioned boolean, _certified boolean, _comment text, _depot character varying, _datasource integer, _code character varying) FROM PUBLIC;
+REVOKE ALL ON FUNCTION insertlineversion(_line_id integer, _version integer, _start_date date, _end_date date, _planned_end_date date, _child_line_id integer, _name character varying, _forward_direction character varying, _backward_direction character  varying, _bg_color character varying, _bg_hexa_color character varying, _fg_color character varying, _fg_hexa_color character varying, _carto_file text, _accessibility boolean, _air_conditioned boolean, _certified boolean, _comment text, _depot character varying, _datasource integer, _code character varying) FROM postgres;
+GRANT ALL ON FUNCTION insertlineversion(_line_id integer, _version integer, _start_date date, _end_date date, _planned_end_date date, _child_line_id integer, _name character varying, _forward_direction character varying, _backward_direction character  varying, _bg_color character varying, _bg_hexa_color character varying, _fg_color character varying, _fg_hexa_color character varying, _carto_file text, _accessibility boolean, _air_conditioned boolean, _certified boolean, _comment text, _depot character varying, _datasource integer, _code character varying) TO postgres;
+GRANT ALL ON FUNCTION insertlineversion(_line_id integer, _version integer, _start_date date, _end_date date, _planned_end_date date, _child_line_id integer, _name character varying, _forward_direction character varying, _backward_direction character  varying, _bg_color character varying, _bg_hexa_color character varying, _fg_color character varying, _fg_hexa_color character varying, _carto_file text, _accessibility boolean, _air_conditioned boolean, _certified boolean, _comment text, _depot character varying, _datasource integer, _code character varying) TO PUBLIC;
+GRANT ALL ON FUNCTION insertlineversion(_line_id integer, _version integer, _start_date date, _end_date date, _planned_end_date date, _child_line_id integer, _name character varying, _forward_direction character varying, _backward_direction character  varying, _bg_color character varying, _bg_hexa_color character varying, _fg_color character varying, _fg_hexa_color character varying, _carto_file text, _accessibility boolean, _air_conditioned boolean, _certified boolean, _comment text, _depot character varying, _datasource integer, _code character varying) TO endiv_owner;
+
+
+--
 -- TOC entry 3563 (class 0 OID 0)
 -- Dependencies: 175
 -- Name: agency; Type: ACL; Schema: public; Owner: endiv_owner
