@@ -46,6 +46,14 @@ CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
 
 COMMENT ON EXTENSION postgis IS 'PostGIS geometry, geography, and raster spatial types and functions';
 
+--
+-- EXTENSION file_fdw; SERVER: file_fdw_server
+--
+
+CREATE EXTENSION IF NOT EXISTS file_fdw;
+COMMENT ON EXTENSION file_fdw IS 'foreign-data wrapper which can be used to access data files in the (server)file system';
+CREATE SERVER file_fdw_server FOREIGN DATA WRAPPER file_fdw;
+
 
 SET search_path = public, pg_catalog;
 
@@ -294,10 +302,10 @@ ALTER FUNCTION public.insertroutestopandstoptime(_rcode character varying, _tcod
 
 --
 -- TOC entry 1189 (class 1255 OID 199958)
--- Name: insertstop(date, character varying, character varying, character varying, boolean, character varying, character varying, integer); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: insertstop(date, character varying, character varying, character varying, boolean, character varying, character varying, integer, integer); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer) RETURNS void
+CREATE FUNCTION public.insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer, _srid integer default 27572) RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -308,7 +316,7 @@ CREATE FUNCTION insertstop(_date date, _name character varying, _x character var
     BEGIN
         SELECT SA.id INTO _stop_area_id FROM stop_area SA JOIN city C ON C.id = SA.city_id WHERE SA.short_name = _name AND C.insee = _insee;
         _temp_geom := 'POINT(' || _x || ' ' || _y || ')';
-        _the_geom := ST_Transform(ST_GeomFromText(_temp_geom, 27572), 3943);
+        _the_geom := ST_Transform(ST_GeomFromText(_temp_geom, _srid), 3943);
 
         IF _stop_area_id IS NULL THEN
             RAISE EXCEPTION 'stop area not found with this short_name % and city %', _name, _insee;
@@ -321,8 +329,7 @@ CREATE FUNCTION insertstop(_date date, _name character varying, _x character var
     END;
     $$;
 
-
-ALTER FUNCTION public.insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer) OWNER TO postgres;
+ALTER FUNCTION public.insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer, _srid integer) OWNER TO postgres;
 
 --
 -- TOC entry 1187 (class 1255 OID 199959)
@@ -405,6 +412,40 @@ CREATE FUNCTION updatestop(_stop_history_id integer, _date date, _name character
 
 
 ALTER FUNCTION public.updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean) OWNER TO postgres;
+
+--
+-- Name: insertline(character varying, integer,  character varying,  integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE OR REPLACE FUNCTION public.insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer)
+    RETURNS integer AS $$
+    DECLARE
+        _line_id integer;
+    BEGIN
+        INSERT INTO line (number, physical_mode_id) VALUES (_number, _physical_mode_id) RETURNING line.id INTO _line_id;
+        INSERT INTO line_datasource (line_id, datasource_id, code) VALUES (_line_id, _datasource, _line_code);
+        RETURN _line_id;
+    END;
+    $$ LANGUAGE 'plpgsql';
+
+ALTER FUNCTION public.insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer) OWNER TO postgres;
+
+--
+-- Name: insertlineversion(integer, integer, date, date, date, integer, character varying, character varying, character varying, character varying, character varying, character varying, character varying, text, boolean, boolean, boolean, text, character varying, integer, character varying); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE OR REPLACE FUNCTION public.insertlineversion(_line_id integer, _version integer, _start_date date, _end_date date, _planned_end_date date, _child_line_id integer, _name character varying, _forward_direction character varying, _backward_direction character varying, _bg_color character varying, _bg_hexa_color character varying, _fg_color character varying, _fg_hexa_color character varying, _carto_file text, _accessibility boolean, _air_conditioned boolean, _certified boolean, _comment text, _depot character varying, _datasource integer, _code character varying)
+    RETURNS integer AS $$
+    DECLARE
+        _line_version_id integer;
+    BEGIN
+        INSERT INTO line_version (line_id, version, start_date, end_date, planned_end_date, child_line_id, name, forward_direction, backward_direction, bg_color, bg_hexa_color, fg_color, fg_hexa_color, carto_file, accessibility, air_conditioned, certified, comment, depot) VALUES (_line_id, _version, _start_date, _end_date, _planned_end_date, _child_line_id, _name, _forward_direction, _backward_direction, _bg_color, _bg_hexa_color, _fg_color, _fg_hexa_color, _carto_file, _accessibility, _air_conditioned, _certified, _comment, _depot) RETURNING line_version.id INTO _line_version_id;
+        INSERT INTO line_version_datasource (line_version_id, datasource_id, code) VALUES (_line_version_id, _datasource, _code);
+        RETURN _line_version_id;
+    END;
+    $$ LANGUAGE 'plpgsql';
+
+ALTER FUNCTION public.insertlineversion(_line_id integer, _version integer, _start_date date, _end_date date, _planned_end_date date, _child_line_id integer, _name character varying, _forward_direction character varying, _backward_direction character  varying, _bg_color character varying, _bg_hexa_color character varying, _fg_color character varying, _fg_hexa_color character varying, _carto_file text, _accessibility boolean, _air_conditioned boolean, _certified boolean, _comment text, _depot character varying, _datasource integer, _code character varying) OWNER TO postgres;
 
 SET default_tablespace = '';
 
@@ -4944,11 +4985,11 @@ GRANT ALL ON FUNCTION insertroutestopandstoptime(_rcode character varying, _tcod
 -- Name: insertstop(date, character varying, character varying, character varying, boolean, character varying, character varying, integer); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer) FROM PUBLIC;
-REVOKE ALL ON FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer) FROM postgres;
-GRANT ALL ON FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer) TO postgres;
-GRANT ALL ON FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer) TO PUBLIC;
-GRANT ALL ON FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer) TO endiv_owner;
+REVOKE ALL ON FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer, _srid integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer, _srid integer) FROM postgres;
+GRANT ALL ON FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer, _srid integer) TO postgres;
+GRANT ALL ON FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer, _srid integer) TO PUBLIC;
+GRANT ALL ON FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer, _srid integer) TO endiv_owner;
 
 
 --

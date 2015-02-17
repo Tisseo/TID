@@ -6,6 +6,7 @@
 --
 
 INSERT INTO agency (id, name, url, timezone, lang, phone) VALUES (1, 'Tisséo', 'http://www.tisseo.fr', 'Europe/Paris', 'fr', NULL);
+INSERT INTO agency (id, name, url, timezone, lang, phone) VALUES (2, 'Arc-en-ciel', 'http://www.haute-garonne.fr/fr/nos-actions/deplacements.html', 'Europe/Paris', 'fr', NULL);
 
 
 --
@@ -116,6 +117,7 @@ INSERT INTO datasource (id, name, agency_id) VALUES (1, 'HASTUS', 1);
 INSERT INTO datasource (id, name, agency_id) VALUES (2, 'Service Données', 1);
 INSERT INTO datasource (id, name, agency_id) VALUES (3, 'Information Voyageurs', 1);
 INSERT INTO datasource (id, name, agency_id) VALUES (4, 'TIGRE', 1);
+INSERT INTO datasource (id, name, agency_id) VALUES (5, 'CG31', 2);
 
 
 --
