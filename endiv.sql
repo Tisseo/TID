@@ -505,8 +505,9 @@ CREATE TABLE city (
     id integer NOT NULL,
     insee character varying(5) NOT NULL,
     name character varying(255) NOT NULL,
-    main_stop_area_id integer
-);
+    main_stop_area_id integer,
+    the_geom geometry(Polygon,3943)
+ );
 
 
 ALTER TABLE public.city OWNER TO endiv_owner;
