@@ -74,6 +74,46 @@ CREATE FUNCTION createaddresstype() RETURNS void
     END;
     $$;
 
+CREATE FUNCTION insertcalendar(_name character varying, _ccode character varying, _datasource integer, _calendar_type integer default 1) RETURNS integer 
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        _calendar_id integer;
+    BEGIN
+        INSERT INTO calendar(name, calendar_type) VALUES (_name, _calendar_type) RETURNING id INTO _calendar_id;
+        INSERT INTO calendar_datasource(calendar_id, code, datasource_id) VALUES (_calendar_id, _ccode, _datasource);
+        RETURN _calendar_id;
+    END;
+    $$;
+COMMENT ON FUNCTION insertcalendar (character varying, character varying, integer, character varying, date, integer) IS 'insert record in tables calendar and calendar_datasource and return new calendar.id';
+
+CREATE FUNCTION insertcalendarlink(_trip_id integer, _period_calendar_id integer, _day_calendar_id integer default NULL) RETURNS integer 
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        _id integer;
+    BEGIN
+        IF _day_calendar_id IS NULL THEN
+            SELECT id INTO _day_calendar_id FROM calendar WHERE name = 'Dimanche';
+        END IF;
+        INSERT INTO calendar_link(trip_id, period_calendar_id, day_calendar_id) VALUES(_trip_id, _period_calendar_id, _day_calendar_id) RETURNING id INTO _id;
+        RETURN _id;
+    END;
+    $$;
+comment on FUNCTION insertcalendarlink (integer, integer, integer) IS 'Insert record in table calendar_link(default value for day_calendar_id is Dimanche) and return new id';
+
+CREATE FUNCTION insertcalendarelement(_calendar_id integer, _start_date date, _end_date date, _interval integer default NULL, _positive character varying default NULL, _included_calendar_id integer default NULL) RETURNS integer 
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        _id integer;
+    BEGIN
+        INSERT INTO calendar_element(calendar_id, start_date, end_date, positive, interval, included_calendar_id) VALUES(_calendar_id, _start_date, _end_date, _positive, _interval, _included_calendar_id) RETURNING id INTO _id;
+        RETURN _id;
+    END;
+    $$;
+comment on FUNCTION insertcalendarelement (integer, date, date, integer, character varying, integer) IS 'Insert record in table calendar_element and return new id';
+
 --
 -- TOC entry 1192 (class 1255 OID 199953)
 -- Name: insertcalendar(character varying, character varying, integer, character varying, date, integer); Type: FUNCTION; Schema: public; Owner: postgres
@@ -142,11 +182,6 @@ CREATE FUNCTION insertpoi(_name character varying, _city_id integer, _type chara
     END;
     $$;
 
---
--- TOC entry 1188 (class 1255 OID 199955)
--- Name: insertroute(integer, character varying, character varying, character varying, character varying, integer); Type: FUNCTION; Schema: public; Owner: postgres
---
-
 CREATE FUNCTION insertroute(_lvid integer, _way character varying, _name character varying, _direction character varying, _code character varying, _datasource integer) RETURNS void
     LANGUAGE plpgsql
     AS $$
@@ -155,11 +190,7 @@ CREATE FUNCTION insertroute(_lvid integer, _way character varying, _name charact
         INSERT INTO route_datasource(route_id, datasource_id, code) VALUES (currval('route_id_seq'), _datasource, _code);
     END;
     $$;
-
---
--- TOC entry 1182 (class 1255 OID 199956)
--- Name: insertroutesection(integer, integer, character varying, date); Type: FUNCTION; Schema: public; Owner: postgres
---
+comment on FUNCTION insertroute (integer, character varying, character varying, character varying, character varying, integer) IS 'Insert record in tables route and route_datasource.';
 
 CREATE FUNCTION insertroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date) RETURNS void
     LANGUAGE plpgsql
@@ -171,7 +202,7 @@ CREATE FUNCTION insertroutesection(_start_stop_id integer, _end_stop_id integer,
         INSERT INTO route_section(start_stop_id, end_stop_id, start_date, the_geom) VALUES (_start_stop_id, _end_stop_id, _start_date, _real_geom);
     END;
     $$;
-
+comment on FUNCTION insertroutesection (integer, integer, character varying, date) IS 'Insert record in table route_section.';
 
 --
 -- TOC entry 1186 (class 1255 OID 199957)
@@ -255,7 +286,7 @@ CREATE FUNCTION insertstoparea(_city_id integer, _name character varying, _datas
         INSERT INTO stop_area_datasource(stop_area_id, datasource_id, code) VALUES(_stop_area_id, _datasource, null);
     END;
     $$;
-
+comment on FUNCTION insertstoparea (integer, character varying, integer) IS 'Insert record in tables stop_area and stop_area_datasource';
 --
 -- TOC entry 1184 (class 1255 OID 199960)
 -- Name: inserttrip(character varying, character varying, character varying, integer, integer); Type: FUNCTION; Schema: public; Owner: postgres
@@ -272,7 +303,7 @@ CREATE FUNCTION inserttrip(_name character varying, _tcode character varying, _r
         INSERT INTO trip_datasource(trip_id, datasource_id, code) VALUES (currval('trip_id_seq'), _datasource, _tcode);
     END;
     $$;
-
+comment on FUNCTION inserttrip (character varying, character varying, character varying, integer, integer) IS 'Insert record in tables trip and trip_datasource, route is found from the route code(datasource) _rcode and the line_version id _lvid';
 
 --
 -- TOC entry 1185 (class 1255 OID 199961)
@@ -326,6 +357,7 @@ CREATE OR REPLACE FUNCTION public.insertline(_number character varying, _physica
         RETURN _line_id;
     END;
     $$ LANGUAGE 'plpgsql';
+comment on FUNCTION insertline (character varying, integer, character varying, integer, integer) IS 'Insert record in tables line and line_datasource and return the new line.id';
 
 --
 -- Name: insertlineversion(integer, integer, date, date, date, integer, character varying, character varying, character varying, character varying, character varying, character varying, character varying, text, boolean, boolean, boolean, text, character varying, integer, character varying); Type: FUNCTION; Schema: public; Owner: postgres
@@ -341,4 +373,9 @@ CREATE OR REPLACE FUNCTION public.insertlineversion(_line_id integer, _version i
         RETURN _line_version_id;
     END;
     $$ LANGUAGE 'plpgsql';
+comment on FUNCTION insertlineversion (integer, integer, date, date, date, integer, character varying, character varying, character varying, character varying, character varying, character varying, character varying, text, boolean, boolean, boolean, text, character varying, integer, character varying) IS 'Insert record in tables line_version and line_version_datasource and return the new line_version.id';
+
+
+
+
 

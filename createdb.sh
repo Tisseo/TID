@@ -28,5 +28,6 @@ dropdb $database_name
 createdb $database_name
 psql -f $base_dir/endiv.sql $database_name
 psql -f $base_dir/endiv_rights.sql $database_name
+psql -f $base_dir/stored_procedures.sql $database_name
 psql -f $base_dir/insert_initial_data.sql $database_name
 
