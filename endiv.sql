@@ -8,10 +8,6 @@ SET standard_conforming_strings = on;
 SET check_function_bodies = false;
 SET client_min_messages = warning;
 
---
--- TOC entry 273 (class 3079 OID 11691)
--- Name: plpgsql; Type: EXTENSION; Schema: -; Owner: 
---
 
 CREATE EXTENSION IF NOT EXISTS plpgsql WITH SCHEMA pg_catalog;
 
