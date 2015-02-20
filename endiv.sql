@@ -1,5 +1,5 @@
 --
--- PostgreSQL database dump
+-- Creation de la structure de tables ENDIV
 --
 
 -- Dumped from database version 9.1.14
