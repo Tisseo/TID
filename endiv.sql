@@ -12,12 +12,6 @@ SET client_min_messages = warning;
 CREATE EXTENSION IF NOT EXISTS plpgsql WITH SCHEMA pg_catalog;
 
 
---
--- TOC entry 3546 (class 0 OID 0)
--- Dependencies: 273
--- Name: EXTENSION plpgsql; Type: COMMENT; Schema: -; Owner: 
---
-
 COMMENT ON EXTENSION plpgsql IS 'PL/pgSQL procedural language';
 
 
