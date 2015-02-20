@@ -4,11 +4,6 @@ SET standard_conforming_strings = on;
 SET check_function_bodies = false;
 SET client_min_messages = warning;
 
---
--- TOC entry 1191 (class 1255 OID 199950)
--- Name: cleanimport(); Type: FUNCTION; Schema: public; Owner: postgres
---
-
 CREATE FUNCTION cleanimport() RETURNS void
     LANGUAGE plpgsql
     AS $$
@@ -35,10 +30,7 @@ CREATE FUNCTION cleanimport() RETURNS void
     END;
     $$;
 COMMENT ON FUNCTION cleanimport() IS 'Debug function used to clean all data related to import scripts from hastus/tigre.';
---
--- TOC entry 1181 (class 1255 OID 199951)
--- Name: cleanpoi(); Type: FUNCTION; Schema: public; Owner: postgres
---
+
 
 CREATE FUNCTION cleanpoi() RETURNS void
     LANGUAGE plpgsql
@@ -51,10 +43,7 @@ CREATE FUNCTION cleanpoi() RETURNS void
     END;
     $$;
 COMMENT ON FUNCTION cleanpoi() IS 'Debug function used to clean all data related to poi.';
---
--- TOC entry 1180 (class 1255 OID 199952)
--- Name: createaddresstype(); Type: FUNCTION; Schema: public; Owner: postgres
---
+
 
 CREATE FUNCTION createaddresstype() RETURNS void
     LANGUAGE plpgsql
@@ -88,6 +77,7 @@ CREATE FUNCTION insertcalendar(_name character varying, _ccode character varying
     $$;
 COMMENT ON FUNCTION insertcalendar (character varying, character varying, integer, integer) IS 'insert record in tables calendar and calendar_datasource and return new calendar.id';
 
+
 CREATE FUNCTION insertcalendarlink(_trip_id integer, _period_calendar_id integer, _day_calendar_id integer default NULL) RETURNS integer 
     LANGUAGE plpgsql
     AS $$
@@ -103,6 +93,7 @@ CREATE FUNCTION insertcalendarlink(_trip_id integer, _period_calendar_id integer
     $$;
 COMMENT ON FUNCTION insertcalendarlink (integer, integer, integer) IS 'Insert record in table calendar_link(default value for day_calendar_id is Dimanche) and return new id';
 
+
 CREATE FUNCTION insertcalendarelement(_calendar_id integer, _start_date date, _end_date date, _interval integer default NULL, _positive character varying default NULL, _included_calendar_id integer default NULL) RETURNS integer 
     LANGUAGE plpgsql
     AS $$
@@ -115,10 +106,6 @@ CREATE FUNCTION insertcalendarelement(_calendar_id integer, _start_date date, _e
     $$;
 COMMENT ON FUNCTION insertcalendarelement (integer, date, date, integer, character varying, integer) IS 'Insert record in table calendar_element and return new id';
 
---
--- TOC entry 1192 (class 1255 OID 199953)
--- Name: insertcalendar(character varying, character varying, integer, character varying, date, integer); Type: FUNCTION; Schema: public; Owner: postgres
---
 
 CREATE FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer) RETURNS void
     LANGUAGE plpgsql
@@ -151,10 +138,7 @@ CREATE FUNCTION insertcalendar(_tcode character varying, _rcode character varyin
     END;
     $$;
 COMMENT ON FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer) IS 'Insert new records in tables calendar, calendar_element, calendar_datasource and calendar_link. If the calendar_link already exists, only insert a new record in table calendar_element. Provided codes are used to select trip and route ids using also the provided line version id.';
---
--- TOC entry 1190 (class 1255 OID 199954)
--- Name: insertpoi(character varying, integer, character varying, integer, integer, boolean, address[]); Type: FUNCTION; Schema: public; Owner: postgres
---
+
 
 CREATE FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, addresses address[]) RETURNS void
     LANGUAGE plpgsql
@@ -184,6 +168,7 @@ CREATE FUNCTION insertpoi(_name character varying, _city_id integer, _type chara
     $$;
 COMMENT ON FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, addresses address[]) IS 'Insert a new couple of records in tables poi and poi_datasource, then insert related poi_address records if provided. The geometry provided is transformed from text to geometry(Point) using SRID fixed at 3943.';
 
+
 CREATE FUNCTION insertroute(_lvid integer, _way character varying, _name character varying, _direction character varying, _code character varying, _datasource integer) RETURNS void
     LANGUAGE plpgsql
     AS $$
@@ -193,6 +178,7 @@ CREATE FUNCTION insertroute(_lvid integer, _way character varying, _name charact
     END;
     $$;
 COMMENT ON FUNCTION insertroute (integer, character varying, character varying, character varying, character varying, integer) IS 'Insert record in tables route and route_datasource.';
+
 
 CREATE FUNCTION insertroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date) RETURNS void
     LANGUAGE plpgsql
@@ -206,10 +192,6 @@ CREATE FUNCTION insertroutesection(_start_stop_id integer, _end_stop_id integer,
     $$;
 COMMENT ON FUNCTION insertroutesection (integer, integer, character varying, date) IS 'Insert record in table route_section.';
 
---
--- TOC entry 1186 (class 1255 OID 199957)
--- Name: insertroutestopandstoptime(character varying, character varying, character varying, character varying, integer, integer, boolean, integer, boolean, boolean); Type: FUNCTION; Schema: public; Owner: postgres
---
 
 CREATE FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode character varying, _scode character varying, _related_scode character varying, _lvid integer, _rank integer, _scheduled boolean, _hour integer, _is_first boolean, _is_last boolean) RETURNS void
     LANGUAGE plpgsql
@@ -243,14 +225,10 @@ CREATE FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode char
         INSERT INTO stop_time(route_stop_id, trip_id, departure_time, arrival_time) VALUES (_route_stop_id, _trip_id, _hour, _hour);
     END;
     $$;
-COMMENT ON FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode character varying, _scode character varying, _related_scode character varying, _lvid integer, _rank integer, _scheduled boolean, _hour integer, _is_first boolean, _is_last boolean) IS 'Insert a new route_stop record if it doesn\'t exists then insert a related stop_time record. Using provided stop codes and position, attach the route_stop record to its related route_section and fill correct information about rank, pickup, dropoff fields. If the route_stop record already exists, only add a new related stop_time record.';
+COMMENT ON FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode character varying, _scode character varying, _related_scode character varying, _lvid integer, _rank integer, _scheduled boolean, _hour integer, _is_first boolean, _is_last boolean) IS 'Insert a new route_stop record if it doesn''t exists then insert a related stop_time record. Using provided stop codes and position, attach the route_stop record to its related route_section and fill correct information about rank, pickup, dropoff fields. If the route_stop record already exists, only add a new related stop_time record.';
 
---
--- TOC entry 1189 (class 1255 OID 199958)
--- Name: insertstop(date, character varying, character varying, character varying, boolean, character varying, character varying, integer, integer); Type: FUNCTION; Schema: public; Owner: postgres
---
 
-CREATE FUNCTION public.insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer, _srid integer default 27572) RETURNS void
+CREATE FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer, _srid integer default 27572) RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -275,10 +253,6 @@ CREATE FUNCTION public.insertstop(_date date, _name character varying, _x charac
     $$;
 COMMENT ON FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer, _srid integer) IS 'Insert a new record in table stop and its related data in tables waypoint, stop_datasource, stop_history. The geometry present in stop_history is provided as x,y values and is transformed into a geometry(Point) using a specific SRID.';
 
---
--- TOC entry 1187 (class 1255 OID 199959)
--- Name: insertstoparea(integer, character varying, integer); Type: FUNCTION; Schema: public; Owner: postgres
---
 
 CREATE FUNCTION insertstoparea(_city_id integer, _name character varying, _datasource integer) RETURNS void
     LANGUAGE plpgsql
@@ -291,10 +265,7 @@ CREATE FUNCTION insertstoparea(_city_id integer, _name character varying, _datas
     END;
     $$;
 COMMENT ON FUNCTION insertstoparea (integer, character varying, integer) IS 'Insert record in tables stop_area and stop_area_datasource';
---
--- TOC entry 1184 (class 1255 OID 199960)
--- Name: inserttrip(character varying, character varying, character varying, integer, integer); Type: FUNCTION; Schema: public; Owner: postgres
---
+
 
 CREATE FUNCTION inserttrip(_name character varying, _tcode character varying, _rcode character varying, _lvid integer, _datasource integer) RETURNS void
     LANGUAGE plpgsql
@@ -309,10 +280,6 @@ CREATE FUNCTION inserttrip(_name character varying, _tcode character varying, _r
     $$;
 COMMENT ON FUNCTION inserttrip (character varying, character varying, character varying, integer, integer) IS 'Insert record in tables trip and trip_datasource, route is found from the route code(datasource) _rcode and the line_version id _lvid';
 
---
--- TOC entry 1185 (class 1255 OID 199961)
--- Name: updateroutesection(integer, integer, character varying, date, integer, date); Type: FUNCTION; Schema: public; Owner: postgres
---
 
 CREATE FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date, _route_section_id integer, _end_date date) RETURNS void
     LANGUAGE plpgsql
@@ -327,10 +294,6 @@ CREATE FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer,
     $$;
 COMMENT ON FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date, _route_section_id integer, _end_date date) IS 'Close a route_section by updating the existing record and fixing its end date. Then insert a new route_section which will replace the old one, with an empty end date.';
 
---
--- TOC entry 1183 (class 1255 OID 199962)
--- Name: updatestop(integer, date, character varying, character varying, character varying, boolean); Type: FUNCTION; Schema: public; Owner: postgres
---
 
 CREATE FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean) RETURNS void
     LANGUAGE plpgsql
@@ -348,9 +311,6 @@ CREATE FUNCTION updatestop(_stop_history_id integer, _date date, _name character
     $$;
 COMMENT ON FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean) IS 'Close an old stop_history version by setting its end date, then add a new version of this stop_history. The provided geometry is passed as x, y values and is transformed into a geometry(Point) switching SRID from 27572 to 3943.';
 
---
--- Name: insertline(character varying, integer,  character varying,  integer); Type: FUNCTION; Schema: public; Owner: postgres
---
 
 CREATE OR REPLACE FUNCTION public.insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer, _priority integer default 0)
     RETURNS integer AS $$
@@ -364,9 +324,6 @@ CREATE OR REPLACE FUNCTION public.insertline(_number character varying, _physica
     $$ LANGUAGE 'plpgsql';
 COMMENT ON FUNCTION insertline (character varying, integer, character varying, integer, integer) IS 'Insert record in tables line and line_datasource and return the new line.id';
 
---
--- Name: insertlineversion(integer, integer, date, date, date, integer, character varying, character varying, character varying, character varying, character varying, character varying, character varying, text, boolean, boolean, boolean, text, character varying, integer, character varying); Type: FUNCTION; Schema: public; Owner: postgres
---
 
 CREATE OR REPLACE FUNCTION public.insertlineversion(_line_id integer, _version integer, _start_date date, _end_date date, _planned_end_date date, _child_line_id integer, _name character varying, _forward_direction character varying, _backward_direction character varying, _bg_color character varying, _bg_hexa_color character varying, _fg_color character varying, _fg_hexa_color character varying, _carto_file text, _accessibility boolean, _air_conditioned boolean, _certified boolean, _comment text, _depot character varying, _datasource integer, _code character varying)
     RETURNS integer AS $$

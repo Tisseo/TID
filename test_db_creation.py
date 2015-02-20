@@ -86,7 +86,7 @@ def main():
 		create_stored_procedures(connection)
 		create_grants(connection)
 	
-	print u'creation OK'
+	print u'tests OK'
 	sys.exit(0)
 
 if __name__ == "__main__":
