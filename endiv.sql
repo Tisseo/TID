@@ -2,10 +2,6 @@
 -- Creation de la structure de tables ENDIV
 --
 
--- Dumped from database version 9.1.14
--- Dumped by pg_dump version 9.3.1
--- Started on 2015-02-03 16:26:35
-
 SET statement_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
