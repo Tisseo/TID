@@ -94,7 +94,7 @@ CREATE FUNCTION insertcalendarlink(_trip_id integer, _period_calendar_id integer
 COMMENT ON FUNCTION insertcalendarlink (integer, integer, integer) IS 'Insert record in table calendar_link(default value for day_calendar_id is Dimanche) and return new id';
 
 
-CREATE FUNCTION insertcalendarelement(_calendar_id integer, _start_date date, _end_date date, _interval integer default NULL, _positive character varying default NULL, _included_calendar_id integer default NULL) RETURNS integer 
+CREATE FUNCTION insertcalendarelement(_calendar_id integer, _start_date date, _end_date date, _interval integer default NULL, _positive character varying default '+', _included_calendar_id integer default NULL) RETURNS integer 
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -146,7 +146,7 @@ CREATE FUNCTION insertpoi(_name character varying, _city_id integer, _type chara
     DECLARE
         _type_id integer;
         _poi_id integer;
-        _real_geom geometry(Point, 3943);
+        _real_geom pgis.geometry(Point, 3943);
         _address address;
     BEGIN
         IF _is_velo THEN
@@ -161,7 +161,7 @@ CREATE FUNCTION insertpoi(_name character varying, _city_id integer, _type chara
         INSERT INTO poi_datasource(poi_id, code, datasource_id) VALUES (_poi_id, '', _datasource);
         FOREACH _address IN ARRAY addresses
         LOOP
-            _real_geom := ST_GeomFromText(_address.the_geom, 3943);
+            _real_geom := pgis.ST_GeomFromText(_address.the_geom, 3943);
             INSERT INTO poi_address(poi_id, address, is_entrance, the_geom) VALUES (_poi_id, _address.address, _address.is_entrance, _real_geom);
         END LOOP;
     END;
@@ -184,9 +184,9 @@ CREATE FUNCTION insertroutesection(_start_stop_id integer, _end_stop_id integer,
     LANGUAGE plpgsql
     AS $$
     DECLARE
-        _real_geom geometry(Linestring, 3943);
+        _real_geom pgis.geometry(Linestring, 3943);
     BEGIN
-        _real_geom := ST_GeomFromText(_the_geom, 3943);
+        _real_geom := pgis.ST_GeomFromText(_the_geom, 3943);
         INSERT INTO route_section(start_stop_id, end_stop_id, start_date, the_geom) VALUES (_start_stop_id, _end_stop_id, _start_date, _real_geom);
     END;
     $$;
@@ -234,12 +234,12 @@ CREATE FUNCTION insertstop(_date date, _name character varying, _x character var
     DECLARE
         _stop_id integer;
         _stop_area_id integer;
-        _the_geom geometry(Point, 3943);
+        _the_geom pgis.geometry(Point, 3943);
         _temp_geom character varying;
     BEGIN
         SELECT SA.id INTO _stop_area_id FROM stop_area SA JOIN city C ON C.id = SA.city_id WHERE SA.short_name = _name AND C.insee = _insee;
         _temp_geom := 'POINT(' || _x || ' ' || _y || ')';
-        _the_geom := ST_Transform(ST_GeomFromText(_temp_geom, _srid), 3943);
+        _the_geom := pgis.ST_Transform(pgis.ST_GeomFromText(_temp_geom, _srid), 3943);
 
         IF _stop_area_id IS NULL THEN
             RAISE EXCEPTION 'stop area not found with this short_name % and city %', _name, _insee;
@@ -285,9 +285,9 @@ CREATE FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer,
     LANGUAGE plpgsql
     AS $$
     DECLARE
-        _real_geom geometry(Linestring, 3943);
+        _real_geom pgis.geometry(Linestring, 3943);
     BEGIN
-        _real_geom := ST_GeomFromText(_the_geom, 3943);
+        _real_geom := pgis.ST_GeomFromText(_the_geom, 3943);
         UPDATE route_section SET end_date = _end_date WHERE id = _route_section_id;
         INSERT INTO route_section(start_stop_id, end_stop_id, start_date, the_geom) VALUES (_start_stop_id, _end_stop_id, _start_date, _real_geom);
     END;
@@ -301,10 +301,10 @@ CREATE FUNCTION updatestop(_stop_history_id integer, _date date, _name character
     DECLARE
         _stop_id integer;
         _temp_geom character varying;
-        _the_geom geometry(Point, 3943);
+        _the_geom pgis.geometry(Point, 3943);
     BEGIN
         _temp_geom := 'POINT(' || _x || ' ' || _y || ')';
-        _the_geom := ST_Transform(ST_GeomFromText(_temp_geom, 27572), 3943);
+        _the_geom := pgis.ST_Transform(pgis.ST_GeomFromText(_temp_geom, 27572), 3943);
         UPDATE stop_history SET end_date = _date - interval '1 day' WHERE id = _stop_history_id RETURNING stop_id INTO _stop_id;
         INSERT INTO stop_history(stop_id, start_date, short_name, the_geom, accessibility) VALUES (_stop_id, _date, _name, _the_geom, _access);
     END;

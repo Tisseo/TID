@@ -10,19 +10,20 @@ SET client_min_messages = warning;
 
 CREATE EXTENSION IF NOT EXISTS plpgsql WITH SCHEMA pg_catalog;
 
-CREATE SCHEMA IF NOT EXISTS pgis;
+CREATE SCHEMA pgis;
 CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA pgis;
 
 
--- C'est quoi ça ? Je commente
---
--- CREATE EXTENSION IF NOT EXISTS file_fdw;
--- COMMENT ON EXTENSION file_fdw IS 'foreign-data wrapper which can be used to access data files in the (server)file system';
--- REATE SERVER file_fdw_server FOREIGN DATA WRAPPER file_fdw;
+-- wrapper de fichiers txt type csv utilisé pour les imports gtfs
+CREATE EXTENSION IF NOT EXISTS file_fdw;
+COMMENT ON EXTENSION file_fdw IS 'foreign-data wrapper which can be used to access data files in the (server)file system';
+CREATE SERVER file_fdw_server FOREIGN DATA WRAPPER file_fdw;
+
 
 SET default_tablespace = '';
 SET default_with_oids = false;
 SET search_path = public, pg_catalog, pgis;
+-- ALTER DATABASE current_database() SET search_path = public, pg_catalog, pgis;
 
 CREATE TYPE address AS (
 	address character varying,
@@ -198,7 +199,7 @@ ALTER TABLE ONLY grid_calendar ADD CONSTRAINT grid_calendar_pk PRIMARY KEY (id);
 ALTER TABLE ONLY grid_calendar ADD CONSTRAINT grid_calendar_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 
 CREATE TABLE grid_link_calendar_mask_type (
-    id,
+    id serial,
     grid_calendar_id integer NOT NULL,
     grid_mask_type_id integer NOT NULL,
     active boolean NOT NULL
@@ -492,17 +493,6 @@ ALTER TABLE ONLY route_stop ADD CONSTRAINT route_stop_waypoint_id_fk FOREIGN KEY
 CREATE INDEX route_stop_route_id_idx ON route_stop USING btree (route_id);
 CREATE INDEX route_stop_waypoint_id_idx ON route_stop USING btree (waypoint_id);
 
-CREATE TABLE stop (
-    id serial,
-    stop_area_id integer NOT NULL,
-    master_stop_id integer
-);
-COMMENT ON TABLE stop IS 'Arret de bus ou de TAD, quai de tram ou de metro.';
-ALTER TABLE ONLY stop ADD CONSTRAINT stop_pk PRIMARY KEY (id);
-ALTER TABLE ONLY stop ADD CONSTRAINT stop_id_fk FOREIGN KEY (id) REFERENCES waypoint(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY stop ADD CONSTRAINT stop_master_stop_id_fk FOREIGN KEY (master_stop_id) REFERENCES stop(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY stop ADD CONSTRAINT stop_stop_area_id_fk FOREIGN KEY (stop_area_id) REFERENCES stop_area(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
-
 CREATE TABLE stop_area (
     id serial,
     short_name character varying(255) NOT NULL,
@@ -517,6 +507,17 @@ COMMENT ON COLUMN stop_area.long_name IS 'Par defaut, le long_name est identique
 COMMENT ON COLUMN stop_area.transfer_duration IS 'Temps en secondes de transfert entre deux arret de cette zone d''arrets.';
 ALTER TABLE ONLY stop_area ADD CONSTRAINT stop_area_pk PRIMARY KEY (id);
 ALTER TABLE ONLY stop_area ADD CONSTRAINT stop_area_city_id_fk FOREIGN KEY (city_id) REFERENCES city(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+
+CREATE TABLE stop (
+    id serial,
+    stop_area_id integer NOT NULL,
+    master_stop_id integer
+);
+COMMENT ON TABLE stop IS 'Arret de bus ou de TAD, quai de tram ou de metro.';
+ALTER TABLE ONLY stop ADD CONSTRAINT stop_pk PRIMARY KEY (id);
+ALTER TABLE ONLY stop ADD CONSTRAINT stop_id_fk FOREIGN KEY (id) REFERENCES waypoint(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY stop ADD CONSTRAINT stop_master_stop_id_fk FOREIGN KEY (master_stop_id) REFERENCES stop(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY stop ADD CONSTRAINT stop_stop_area_id_fk FOREIGN KEY (stop_area_id) REFERENCES stop_area(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 
 CREATE TABLE stop_area_datasource (
     id serial,

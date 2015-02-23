@@ -44,24 +44,24 @@ def main():
             cursor.execute(query, (1, u"StopArea1", 2,))
 
             #insertstop(_date, _name, _x, _y, _access, _code, _insee, _datasource, _srid)
-            query = u"InsertStop(%s, %s, %s, %s, %s, %s, %s, %s, %s)"
-            cursor.execute(query, (u"2014-01-31", u"StopArea1", 526577.0, 1844787.0, True, u"01", u"31003", 2, 27572,))
-            cursor.execute(u"select last value from stop_id_seq")
+            query = u"SELECT InsertStop(%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            cursor.execute(query, (u"2014-01-31", u"StopArea1", "526577.0", "1844787.0", True, u"01", u"31003", 2, 27572,))
+            cursor.execute(u"select last_value from stop_id_seq")
             stop1_id = cursor.fetchone()[0]
-            cursor.execute(query, (u"2014-02-01", u"StopArea1", 526580.0, 1844756.0, True, u"02", u"31003", 2, 27572,))
-            cursor.execute(u"select last value from stop_id_seq")
+            cursor.execute(query, (u"2014-02-01", u"StopArea1", "526580.0", "1844756.0", True, u"02", u"31003", 2, 27572,))
+            cursor.execute(u"select last_value from stop_id_seq")
             stop2_id = cursor.fetchone()[0]
 
             #inserttrip(_name, _tcode, _rcode, _lvid, _datasource)
             query = u"SELECT InsertTrip(%s, %s, %s, %s, %s)"
             cursor.execute(query, (u"trip1", u"01", u"01", line_version_id, 2,))
-            cursor.execute(u"select last value from trip_id_seq")
+            cursor.execute(u"select last_value from trip_id_seq")
             trip_id = cursor.fetchone()[0]
 
             #insertcalendar(_name, _ccode, _datasource, _calendar_type)
             query = u"SELECT InsertCalendar(%s, %s, %s, %s)"
             cursor.execute(query, (u"calendar1", u"01", 2, 1,))
-            cursor.execute(u"select last value from calendar_id_seq")
+            cursor.execute(u"select last_value from calendar_id_seq")
             calendar_id = cursor.fetchone()[0]
 
             #insertcalendarlink(_trip_id, _period_calendar_id, _day_calendar_id)
