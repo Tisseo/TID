@@ -10,15 +10,14 @@ SET client_min_messages = warning;
 
 CREATE EXTENSION IF NOT EXISTS plpgsql WITH SCHEMA pg_catalog;
 
-CREATE SCHEMA IF NOT EXISTS pgis;
+CREATE SCHEMA pgis;
 CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA pgis;
 
 
--- C'est quoi ça ? Je commente
---
--- CREATE EXTENSION IF NOT EXISTS file_fdw;
--- COMMENT ON EXTENSION file_fdw IS 'foreign-data wrapper which can be used to access data files in the (server)file system';
--- REATE SERVER file_fdw_server FOREIGN DATA WRAPPER file_fdw;
+-- wrapper de fichiers txt type csv utilisé pour les imports gtfs
+CREATE EXTENSION IF NOT EXISTS file_fdw;
+COMMENT ON EXTENSION file_fdw IS 'foreign-data wrapper which can be used to access data files in the (server)file system';
+CREATE SERVER file_fdw_server FOREIGN DATA WRAPPER file_fdw;
 
 SET default_tablespace = '';
 SET default_with_oids = false;
@@ -80,7 +79,6 @@ COMMENT ON TABLE calendar IS 'Le calendrier d''application des services en produ
 
 
 
-
 CREATE TABLE calendar_datasource (
     id integer NOT NULL,
     calendar_id integer NOT NULL,
@@ -95,6 +93,13 @@ CREATE SEQUENCE calendar_datasource_id_seq
     NO MAXVALUE
     CACHE 1;
 ALTER SEQUENCE calendar_datasource_id_seq OWNED BY calendar_datasource.id;
+CREATE SEQUENCE calendar_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+ALTER SEQUENCE calendar_id_seq OWNED BY calendar.id;
 
 
 
@@ -119,13 +124,6 @@ CREATE SEQUENCE calendar_element_id_seq
     NO MAXVALUE
     CACHE 1;
 ALTER SEQUENCE calendar_element_id_seq OWNED BY calendar_element.id;
-CREATE SEQUENCE calendar_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-ALTER SEQUENCE calendar_id_seq OWNED BY calendar.id;
 
 
 
@@ -767,6 +765,31 @@ COMMENT ON TABLE stop IS 'Arret de bus ou de TAD, quai de tram ou de metro.';
 
 
 
+CREATE TABLE stop_datasource (
+    id integer NOT NULL,
+    stop_id integer NOT NULL,
+    datasource_id integer NOT NULL,
+    code character varying(20)
+);
+COMMENT ON TABLE stop_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
+CREATE SEQUENCE stop_datasource_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+ALTER SEQUENCE stop_datasource_id_seq OWNED BY stop_datasource.id;
+CREATE SEQUENCE stop_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+ALTER SEQUENCE stop_id_seq OWNED BY stop.id;
+
+
+
+
 CREATE TABLE stop_area (
     id integer NOT NULL,
     short_name character varying(255) NOT NULL,
@@ -808,24 +831,6 @@ ALTER SEQUENCE stop_area_id_seq OWNED BY stop_area.id;
 
 
 
-CREATE TABLE stop_datasource (
-    id integer NOT NULL,
-    stop_id integer NOT NULL,
-    datasource_id integer NOT NULL,
-    code character varying(20)
-);
-COMMENT ON TABLE stop_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
-CREATE SEQUENCE stop_datasource_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-ALTER SEQUENCE stop_datasource_id_seq OWNED BY stop_datasource.id;
--- TODO : Une seule seq ici alors qu'il y en a deux sur les autres tables datasourcées ???
-
-
-
 CREATE TABLE stop_history (
     id integer NOT NULL,
     stop_id integer NOT NULL,
@@ -836,7 +841,6 @@ CREATE TABLE stop_history (
     the_geom geometry(Point,3943) NOT NULL,
     accessibility boolean
 );
-ALTER TABLE public.stop_history OWNER TO endiv_owner;
 COMMENT ON TABLE stop_history IS 'Proprietes d''un arret. Un arret n''a qu''un historique dans le temps. Si une caracteristique cahnge, l''historique precedent est cloture et un nouveau est cree.';
 COMMENT ON COLUMN stop_history.short_name IS 'Nom de l''arret dans le referentiel Hastus. Pas de modification possible.';
 COMMENT ON COLUMN stop_history.long_name IS 'Champ inutile pour le moment. Laisser vide.';
@@ -949,29 +953,6 @@ COMMENT ON COLUMN trip.comment_id IS 'Lien vers les commentaires pour les fiches
 
 
 
-CREATE TABLE trip_calendar (
-    id integer NOT NULL,
-    grid_mask_type_id integer NOT NULL,
-    monday boolean NOT NULL,
-    tuesday boolean NOT NULL,
-    wednesday boolean NOT NULL,
-    thursday boolean NOT NULL,
-    friday boolean NOT NULL,
-    saturday boolean NOT NULL,
-    sunday boolean NOT NULL
-);
-COMMENT ON TABLE trip_calendar IS 'Description des jours de circulation des services (trips) pour les fiches horaires. Table remplie par l''import Hastus FICHOR pour les lignes exploitees par Tisseo.';
-CREATE SEQUENCE trip_calendar_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-ALTER SEQUENCE trip_calendar_id_seq OWNED BY trip_calendar.id;
-
-
-
-
 CREATE TABLE trip_datasource (
     id integer NOT NULL,
     trip_id integer NOT NULL,
@@ -997,16 +978,32 @@ ALTER SEQUENCE trip_id_seq OWNED BY trip.id;
 
 
 
-CREATE TABLE waypoint (
-    id integer NOT NULL
+CREATE TABLE trip_calendar (
+    id integer NOT NULL,
+    grid_mask_type_id integer NOT NULL,
+    monday boolean NOT NULL,
+    tuesday boolean NOT NULL,
+    wednesday boolean NOT NULL,
+    thursday boolean NOT NULL,
+    friday boolean NOT NULL,
+    saturday boolean NOT NULL,
+    sunday boolean NOT NULL
 );
-CREATE SEQUENCE waypoint_id_seq
+COMMENT ON TABLE trip_calendar IS 'Description des jours de circulation des services (trips) pour les fiches horaires. Table remplie par l''import Hastus FICHOR pour les lignes exploitees par Tisseo.';
+CREATE SEQUENCE trip_calendar_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-ALTER SEQUENCE waypoint_id_seq OWNED BY waypoint.id;
+ALTER SEQUENCE trip_calendar_id_seq OWNED BY trip_calendar.id;
+
+
+
+
+CREATE TABLE waypoint (
+    id integer NOT NULL
+);
 
 
 
@@ -1047,6 +1044,7 @@ ALTER TABLE ONLY route_section ALTER COLUMN id SET DEFAULT nextval('route_sectio
 ALTER TABLE ONLY route_stop ALTER COLUMN id SET DEFAULT nextval('route_stop_id_seq'::regclass);
 ALTER TABLE ONLY stop_area ALTER COLUMN id SET DEFAULT nextval('stop_area_id_seq'::regclass);
 ALTER TABLE ONLY stop_area_datasource ALTER COLUMN id SET DEFAULT nextval('stop_area_datasource_id_seq'::regclass);
+ALTER TABLE ONLY stop ALTER COLUMN id SET DEFAULT nextval('stop_id_seq'::regclass);
 ALTER TABLE ONLY stop_datasource ALTER COLUMN id SET DEFAULT nextval('stop_datasource_id_seq'::regclass);
 ALTER TABLE ONLY stop_history ALTER COLUMN id SET DEFAULT nextval('stop_history_id_seq'::regclass);
 ALTER TABLE ONLY stop_time ALTER COLUMN id SET DEFAULT nextval('stop_time_id_seq'::regclass);
@@ -1056,7 +1054,6 @@ ALTER TABLE ONLY transfer_not_exported ALTER COLUMN id SET DEFAULT nextval('tran
 ALTER TABLE ONLY trip ALTER COLUMN id SET DEFAULT nextval('trip_id_seq'::regclass);
 ALTER TABLE ONLY trip_calendar ALTER COLUMN id SET DEFAULT nextval('trip_calendar_id_seq'::regclass);
 ALTER TABLE ONLY trip_datasource ALTER COLUMN id SET DEFAULT nextval('trip_datasource_id_seq'::regclass);
-ALTER TABLE ONLY waypoint ALTER COLUMN id SET DEFAULT nextval('waypoint_id_seq'::regclass);
 
 
 

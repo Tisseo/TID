@@ -312,7 +312,7 @@ CREATE FUNCTION updatestop(_stop_history_id integer, _date date, _name character
 COMMENT ON FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean) IS 'Close an old stop_history version by setting its end date, then add a new version of this stop_history. The provided geometry is passed as x, y values and is transformed into a geometry(Point) switching SRID from 27572 to 3943.';
 
 
-CREATE OR REPLACE FUNCTION public.insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer, _priority integer default 0)
+CREATE FUNCTION insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer, _priority integer default 0)
     RETURNS integer AS $$
     DECLARE
         _line_id integer;
@@ -325,7 +325,7 @@ CREATE OR REPLACE FUNCTION public.insertline(_number character varying, _physica
 COMMENT ON FUNCTION insertline (character varying, integer, character varying, integer, integer) IS 'Insert record in tables line and line_datasource and return the new line.id';
 
 
-CREATE OR REPLACE FUNCTION public.insertlineversion(_line_id integer, _version integer, _start_date date, _end_date date, _planned_end_date date, _child_line_id integer, _name character varying, _forward_direction character varying, _backward_direction character varying, _bg_color character varying, _bg_hexa_color character varying, _fg_color character varying, _fg_hexa_color character varying, _carto_file text, _accessibility boolean, _air_conditioned boolean, _certified boolean, _comment text, _depot character varying, _datasource integer, _code character varying)
+CREATE FUNCTION insertlineversion(_line_id integer, _version integer, _start_date date, _end_date date, _planned_end_date date, _child_line_id integer, _name character varying, _forward_direction character varying, _backward_direction character varying, _bg_color character varying, _bg_hexa_color character varying, _fg_color character varying, _fg_hexa_color character varying, _carto_file text, _accessibility boolean, _air_conditioned boolean, _certified boolean, _comment text, _depot character varying, _datasource integer, _code character varying)
     RETURNS integer AS $$
     DECLARE
         _line_version_id integer;
