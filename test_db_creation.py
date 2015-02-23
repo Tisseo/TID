@@ -3,8 +3,6 @@
 
 import psycopg2
 import sys
-import logging
-import logging.config
 
 
 POSTGRESQL_connection = u"host='localhost' port=5432 user='postgres' password='postgres'"
@@ -53,7 +51,7 @@ def create_database():
 
 
 def create_data_structure(connection):
-    print u'creating data structure...'
+    print u'creating data structure(endiv.sql)...'
     with connection.cursor() as cursor:
         try:
             cursor.execute(open("endiv.sql", "r").read())

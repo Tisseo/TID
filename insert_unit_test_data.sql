@@ -54,12 +54,12 @@ INSERT INTO stop_area_datasource (stop_area_id, datasource_id, code) VALUES (1, 
 INSERT INTO stop_area_datasource (stop_area_id, datasource_id, code) VALUES (2, 1, '02');
 INSERT INTO stop_area_datasource (stop_area_id, datasource_id, code) VALUES (3, 1, '03');
 
-INSERT INTO waypoint (id) VALUES (1);
-INSERT INTO waypoint (id) VALUES (2);
-INSERT INTO waypoint (id) VALUES (3);
-INSERT INTO waypoint (id) VALUES (4);
-INSERT INTO waypoint (id) VALUES (5);
-INSERT INTO waypoint (id) VALUES (6);
+INSERT INTO waypoint DEFAULT VALUES;
+INSERT INTO waypoint DEFAULT VALUES;
+INSERT INTO waypoint DEFAULT VALUES;
+INSERT INTO waypoint DEFAULT VALUES;
+INSERT INTO waypoint DEFAULT VALUES;
+INSERT INTO waypoint DEFAULT VALUES;
 
 INSERT INTO stop (stop_area_id, master_stop_id) VALUES (1, NULL);
 INSERT INTO stop (stop_area_id, master_stop_id) VALUES (1, NULL);
@@ -141,3 +141,5 @@ INSERT INTO stop_time (route_stop_id, trip_id, arrival_time, departure_time) VAL
 INSERT INTO stop_time (route_stop_id, trip_id, arrival_time, departure_time) VALUES (3, 3, 39900, 39900);
 INSERT INTO stop_time (route_stop_id, trip_id, arrival_time, departure_time) VALUES (4, 4, 46800, 46800);
 INSERT INTO stop_time (route_stop_id, trip_id, arrival_time, departure_time) VALUES (4, 4, 47100, 47100);
+
+INSERT INTO poi_type(name) VALUES ('poi_type1');

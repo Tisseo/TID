@@ -13,7 +13,6 @@ CREATE SCHEMA pgis;
 CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA pgis;
 
 
-
 -- wrapper de fichiers txt type csv utilisé pour les imports gtfs
 CREATE EXTENSION IF NOT EXISTS file_fdw;
 COMMENT ON EXTENSION file_fdw IS 'foreign-data wrapper which can be used to access data files in the (server)file system';
@@ -22,10 +21,13 @@ CREATE SERVER file_fdw_server FOREIGN DATA WRAPPER file_fdw;
 
 SET default_tablespace = '';
 SET default_with_oids = false;
--- chemins par defaut
-DO $$BEGIN
-   execute 'alter database ' || current_database() || ' set search_path = public, pg_catalog, pgis';
-END;$$;
+SET search_path = public, pg_catalog, pgis;
+
+DO $$
+BEGIN
+   execute 'alter database ' || current_database() || ' SET search_path = public, pg_catalog, pgis';
+END;
+$$;
 
 -- Creation des tables, cles primaires et indexes
 
