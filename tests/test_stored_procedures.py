@@ -3,8 +3,6 @@
 
 import psycopg2
 import sys
-import logging
-import logging.config
 
 
 POSTGRESQL_connection = u"host='localhost' port=5432 user='postgres' password='postgres' dbname='endiv_jenkins'"

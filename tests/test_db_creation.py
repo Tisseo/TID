@@ -54,7 +54,7 @@ def create_data_structure(connection):
     print u'creating data structure(endiv.sql)...'
     with connection.cursor() as cursor:
         try:
-            cursor.execute(open("endiv.sql", "r").read())
+            cursor.execute(open("../endiv.sql", "r").read())
             cursor.execute("COMMIT")
         except psycopg2.Error, e:
             print "error while loading data structure: {0}".format(e)
@@ -65,7 +65,7 @@ def create_stored_procedures(connection):
     print u'creating stored procedures...'
     with connection.cursor() as cursor:
         try:
-            cursor.execute(open("stored_procedures.sql", "r").read())
+            cursor.execute(open("../stored_procedures.sql", "r").read())
             cursor.execute("COMMIT")
         except psycopg2.Error, e:
             print "error while loading stored procedures: {0}".format(e)
@@ -76,7 +76,7 @@ def create_grants(connection):
     print u'creating grants...'
     with connection.cursor() as cursor:
         try:
-            cursor.execute(open("grants.sql", "r").read())
+            cursor.execute(open("../grants.sql", "r").read())
             cursor.execute("COMMIT")
         except psycopg2.Error, e:
             print "error while creating grants: {0}".format(e)
