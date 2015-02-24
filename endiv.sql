@@ -209,7 +209,7 @@ CREATE TABLE line_datasource (
 COMMENT ON TABLE line_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
 
 CREATE TABLE line_version (
-    id serialPRIMARY KEY,
+    id serial PRIMARY KEY,
     line_id integer NOT NULL,
     version integer NOT NULL,
     start_date date NOT NULL,
