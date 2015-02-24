@@ -153,11 +153,11 @@ CREATE TABLE export_destination (
 );
 
 CREATE TABLE export_perso (
-    table_name character varying(30) PRIMARY KEY NOT NULL
+    table_name character varying(30) PRIMARY KEY
 );
 
 CREATE TABLE export_prod (
-    table_name character varying(30) PRIMARY KEY NOT NULL
+    table_name character varying(30) PRIMARY KEY
 );
 
 CREATE TABLE grid_calendar (
