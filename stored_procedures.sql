@@ -125,15 +125,14 @@ CREATE FUNCTION insertcalendar(_tcode character varying, _rcode character varyin
                 RAISE EXCEPTION 'trip not found with code %s and route_id %s', _tcode, _route_id;
             END IF;
         END IF;
-		-- TODO : faire un seul select et un if not null
-        IF NOT EXISTS (SELECT CL.id FROM calendar_link CL WHERE CL.trip_id = _trip_id) THEN
+        SELECT CL.period_calendar_id INTO _calendar_id FROM calendar_link CL WHERE CL.trip_id = _trip_id;
+        IF _calendar_id IS NULL THEN
             SELECT id INTO _day_calendar_id FROM calendar WHERE name = 'Dimanche';
             INSERT INTO calendar(name, calendar_type) VALUES (_name, 1);
             INSERT INTO calendar_datasource(calendar_id, code, datasource_id) VALUES (currval('calendar_id_seq'), _tcode, _datasource);
             INSERT INTO calendar_link(trip_id, period_calendar_id, day_calendar_id) VALUES(_trip_id, currval('calendar_id_seq'), _day_calendar_id);
             INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(currval('calendar_id_seq'), _date, _date, 1);
         ELSE
-            SELECT CL.period_calendar_id INTO _calendar_id FROM calendar_link CL WHERE CL.trip_id = _trip_id;
             INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(_calendar_id, _date, _date, 1);
         END IF;
     END;
@@ -151,7 +150,10 @@ CREATE FUNCTION insertpoi(_name character varying, _city_id integer, _type chara
         _address address;
     BEGIN
         IF _is_velo THEN
-		-- TODO : commentaire
+		-- When boolean _is_velo is True, the _type parameter (for poi_type)
+        -- which usually references a poi_type.name is in fact directly the 
+        -- poi_type.id. Bicycles poi are persisted from a different
+        -- loop in the import script and their poi_type is always the same.
             _type_id := _type::integer;
         ELSE
             SELECT id INTO _type_id FROM poi_type WHERE name = _type;
@@ -211,9 +213,12 @@ CREATE FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode char
         SELECT RS.id INTO _route_stop_id FROM route_stop RS WHERE RS.route_id = _route_id AND RS.waypoint_id = _stop_id AND RS.rank = _rank;
         IF _route_stop_id IS NULL THEN
             SELECT W.id INTO _related_stop_id FROM waypoint W JOIN stop S ON S.id = W.id JOIN stop_datasource SD ON SD.stop_id = S.id WHERE SD.code = _related_scode;
+            -- _is_last and _is_first booleans :
+            --      _is_first         : pickup = True   | dropoff = False   | route_section (start_stop = _stop_id / end_stop = _related_stop_id)
+            --      _is_last          : pickup = False  | dropoff = True    | route_section (start_stop = _related_stop_id / end_stop = _stop_id)
+            --      neither of them   : pickup = True   | dropoff = True    | route_section (start_stop = _stop_id / end_stop = _related_stop_id)
             IF _is_last IS FALSE THEN
                 SELECT RE.id INTO _route_section_id FROM route_section RE WHERE start_stop_id = _stop_id AND end_stop_id = _related_stop_id;
-				-- TODO : commentaire si _is_first alors pckup/dropoff...
                 IF _is_first IS TRUE THEN
                     INSERT INTO route_stop(route_id, waypoint_id, rank, scheduled_stop, route_section_id, pickup, drop_off, reservation_required) VALUES (_route_id, _stop_id, _rank, _scheduled, _route_section_id, True, False, False) RETURNING id INTO _route_stop_id;
                 ELSE
