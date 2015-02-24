@@ -76,7 +76,8 @@ CREATE TABLE calendar_element (
     end_date date,
     positive character varying(1) NOT NULL,
     "interval" integer,
-    included_calendar_id integer
+    included_calendar_id integer,	
+    CHECK (start_date <= end_date)
 );
 COMMENT ON TABLE calendar_element IS 'Element composant le calendrier. Il a comme champs les bornes, l''agencement avec d''autres calendar-element, un intervalle de repetition en cas de calendrier recurrent (lundi), et peut inclure un calendrier.';
 COMMENT ON COLUMN calendar_element.positive IS 'agencement des calendar_element d''un meme calendrier : ajout, soustraction, intersection avec les precedents';
