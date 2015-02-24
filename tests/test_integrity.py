@@ -19,7 +19,8 @@ def main():
         with connection.cursor() as cursor:
             with open('insert_integrity_errors.sql', 'r') as errors_files:
                 for line in errors_files:
-                    if line[0:1] != "--":
+                    line = line.replace("\n", "")
+                    if line[0:2] != "--":
                         caught_exception = None
                         try:
                             cursor.execute(line)
@@ -32,7 +33,6 @@ def main():
                             if caught_exception:
                                 print "Occurred error:\n{0}".format(caught_exception)
                             sys.exit(1)
-        
         
     finally:
         if connection:
