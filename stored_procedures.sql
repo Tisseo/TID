@@ -125,6 +125,7 @@ CREATE FUNCTION insertcalendar(_tcode character varying, _rcode character varyin
                 RAISE EXCEPTION 'trip not found with code %s and route_id %s', _tcode, _route_id;
             END IF;
         END IF;
+		-- TODO : faire un seul select et un if not null
         IF NOT EXISTS (SELECT CL.id FROM calendar_link CL WHERE CL.trip_id = _trip_id) THEN
             SELECT id INTO _day_calendar_id FROM calendar WHERE name = 'Dimanche';
             INSERT INTO calendar(name, calendar_type) VALUES (_name, 1);
@@ -150,6 +151,7 @@ CREATE FUNCTION insertpoi(_name character varying, _city_id integer, _type chara
         _address address;
     BEGIN
         IF _is_velo THEN
+		-- TODO : commentaire
             _type_id := _type::integer;
         ELSE
             SELECT id INTO _type_id FROM poi_type WHERE name = _type;
@@ -211,6 +213,7 @@ CREATE FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode char
             SELECT W.id INTO _related_stop_id FROM waypoint W JOIN stop S ON S.id = W.id JOIN stop_datasource SD ON SD.stop_id = S.id WHERE SD.code = _related_scode;
             IF _is_last IS FALSE THEN
                 SELECT RE.id INTO _route_section_id FROM route_section RE WHERE start_stop_id = _stop_id AND end_stop_id = _related_stop_id;
+				-- TODO : commentaire si _is_first alors pckup/dropoff...
                 IF _is_first IS TRUE THEN
                     INSERT INTO route_stop(route_id, waypoint_id, rank, scheduled_stop, route_section_id, pickup, drop_off, reservation_required) VALUES (_route_id, _stop_id, _rank, _scheduled, _route_section_id, True, False, False) RETURNING id INTO _route_stop_id;
                 ELSE
