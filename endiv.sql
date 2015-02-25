@@ -28,20 +28,16 @@ BEGIN
    execute 'alter database ' || current_database() || ' SET search_path = public, pg_catalog, pgis';
 END;
 $$;
+--creation des types 
+CREATE TYPE calendar_type AS ENUM ('jour', 'periode', 'mixte', 'accessibilite', 'brique');
+CREATE TYPE calendar_operator AS ENUM ('+', '-', '&');
 
 -- Creation des tables, cles primaires et indexes
-
-CREATE TYPE address AS (
-	address character varying,
-	the_geom character varying,
-	is_entrance boolean
-);
-
 CREATE TABLE agency (
     id serial PRIMARY KEY,
-    name character varying(30),
+    name character varying(30) NOT NULL,
     url character varying(100),
-    timezone character varying(30),
+    timezone character varying(30) NOT NULL,
     lang character varying(3),
     phone character varying(20)
 );
@@ -50,14 +46,15 @@ COMMENT ON TABLE agency IS 'Reseau de transport en commun. Contient egalement le
 CREATE TABLE alias (
     id serial PRIMARY KEY,
     stop_area_id integer,
-    name character varying(255)
+    name character varying(255) NOT NULL
 );
 COMMENT ON TABLE alias IS 'Alias des zones d''arrets.';
 
 CREATE TABLE calendar (
     id serial PRIMARY KEY,
     name character varying(50) NOT NULL,
-    calendar_type integer NOT NULL
+    "calendar_type" calendar_type,
+    line_version_id integer
 );
 COMMENT ON TABLE calendar IS 'Le calendrier d''application des services en production. Il est lui-meme compose de calendar_element.';
 
@@ -74,9 +71,9 @@ CREATE TABLE calendar_element (
     calendar_id integer NOT NULL,
     start_date date,
     end_date date,
-    positive character varying(1) NOT NULL,
+    positive calendar_operator NOT NULL,
     "interval" integer,
-    included_calendar_id integer,	
+    included_calendar_id integer,
     CHECK (start_date <= end_date)
 );
 COMMENT ON TABLE calendar_element IS 'Element composant le calendrier. Il a comme champs les bornes, l''agencement avec d''autres calendar-element, un intervalle de repetition en cas de calendrier recurrent (lundi), et peut inclure un calendrier.';
@@ -165,7 +162,7 @@ CREATE TABLE grid_calendar (
     id serial PRIMARY KEY,
     line_version_id integer,
     name character varying(255) NOT NULL,
-    color character varying(7) NOT NULL,
+    color character varying(7),
     monday boolean NOT NULL,
     tuesday boolean NOT NULL,
     wednesday boolean NOT NULL,
@@ -200,6 +197,8 @@ CREATE TABLE line (
     priority integer NOT NULL
 );
 COMMENT ON TABLE line IS 'Ligne commerciale de TC.';
+COMMENT ON COLUMN line.number IS 'Numéro de la ligne. Peut ne pas etre numerique. Par exple : T1, A ou L16 sont des numeros.';
+COMMENT ON COLUMN line.priority IS 'Priorité de la ligne. Sert notamment a trier les lignes dans les listes de lignes.';
 
 CREATE TABLE line_datasource (
     id serial PRIMARY KEY,
@@ -356,7 +355,7 @@ COMMENT ON COLUMN printing.comment IS 'Raison du tirage : initial, reassort ou c
 CREATE TABLE route (
     id serial PRIMARY KEY,
     line_version_id integer NOT NULL,
-    way character varying(10) NOT NULL,
+    way character varying(10),
     name character varying(100) NOT NULL,
     direction character varying(255) NOT NULL,
     comment_id integer
@@ -521,7 +520,10 @@ CREATE TABLE trip (
     name character varying(20) NOT NULL,
     route_id integer NOT NULL,
     trip_calendar_id integer,
-    comment_id integer
+    comment_id integer,
+    is_pattern boolean,
+    pattern_id integer,
+    trip_parent_id integer
 );
 COMMENT ON TABLE trip IS 'Service d''un itineraire. Fait le lien entre les horaires et les itineraires.';
 COMMENT ON COLUMN trip.name IS 'Nom de l''objet. Si vient d''Hastus, identiques a la datasource.';
