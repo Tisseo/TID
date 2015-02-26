@@ -155,7 +155,6 @@ CREATE TABLE grid_calendar (
     id serial PRIMARY KEY,
     line_version_id integer,
     name character varying(255) NOT NULL,
-    color character varying(7),
     monday boolean NOT NULL,
     tuesday boolean NOT NULL,
     wednesday boolean NOT NULL,
