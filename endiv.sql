@@ -30,6 +30,7 @@ END;
 $$;
 --creation des types 
 CREATE TYPE calendar_type AS ENUM ('jour', 'periode', 'mixte', 'accessibilite', 'brique');
+CREATE TYPE line_version_status AS ENUM ('new', 'wip', 'published', 'test');
 CREATE TYPE calendar_operator AS ENUM ('+', '-', '&');
 CREATE TYPE address AS (address character varying, the_geom character varying, is_entrance boolean);
 
@@ -83,20 +84,10 @@ COMMENT ON COLUMN calendar_element."interval" IS 'intervalle de repetition en ca
 COMMENT ON COLUMN calendar_element.included_calendar_id IS 'id du calendrier inclus';
 CREATE INDEX calendar_element_calendar_id_idx ON calendar_element USING btree (calendar_id);
 
-CREATE TABLE calendar_link (
-    id serial PRIMARY KEY,
-    trip_id integer NOT NULL,
-    day_calendar_id integer NOT NULL,
-    period_calendar_id integer NOT NULL
-);
-COMMENT ON TABLE calendar_link IS 'Lien entre les calendriers et les services (trip) de production auxquels il s''applique.';
-CREATE INDEX calendar_link_day_calendar_id_idx ON calendar_link USING btree (day_calendar_id);
-CREATE INDEX calendar_link_period_calendar_id_idx ON calendar_link USING btree (period_calendar_id);
-CREATE INDEX calendar_link_trip_id_idx ON calendar_link USING btree (trip_id);
-
 CREATE TABLE change_cause (
     id serial PRIMARY KEY,
-    description character varying(255)
+    description character varying(255),
+    date date NOT NULL
 );
 COMMENT ON TABLE change_cause IS 'Motif de creation d''une nouvelle line_version.';
 
@@ -115,6 +106,7 @@ CREATE TABLE city (
     the_geom geometry(Polygon,3943)
  );
 COMMENT ON TABLE city IS 'Commune.';
+CREATE INDEX city_geom_idx ON city USING GIST (the_geom); 
 
 CREATE TABLE comment (
     id serial PRIMARY KEY,
@@ -229,7 +221,8 @@ CREATE TABLE line_version (
     air_conditioned boolean,
     certified boolean DEFAULT false NOT NULL,
     comment text,
-    depot character varying(50)
+    depot character varying(50),
+    status line_version_status
 );
 COMMENT ON TABLE line_version IS 'Offre d''une ligne.';
 COMMENT ON COLUMN line_version.start_date IS 'Date de debut d''offre.';
@@ -267,9 +260,9 @@ CREATE TABLE non_concurrency (
     priority_line_id integer NOT NULL,
     non_priority_line_id integer NOT NULL,
     "time" integer NOT NULL,
-	PRIMARY KEY (priority_line_id, non_priority_line_id)
+    PRIMARY KEY (priority_line_id, non_priority_line_id)
 );
-COMMENT ON TABLE non_concurrency IS 'Table des non concurrences, une ligne est prioritaire sur une autre pour un delta de temps.';
+COMMENT ON TABLE non_concurrency IS 'Table des non concurrences, une ligne est prioritaire sur une autre pour un delta de temps. Une seule regle de non concurrence peut lier 2 lignes.';
 
 CREATE TABLE odt_area (
     id serial PRIMARY KEY,
@@ -285,7 +278,7 @@ CREATE TABLE odt_stop (
     end_date date,
     pickup boolean NOT NULL,
     drop_off boolean NOT NULL,
-	PRIMARY KEY (odt_area_id, stop_id, start_date)
+    PRIMARY KEY (odt_area_id, stop_id, start_date)
 );
 COMMENT ON TABLE odt_stop IS 'Lien entre un arret et une zone d''arret pour un intervalle de temps.';
 
@@ -524,13 +517,18 @@ CREATE TABLE trip (
     comment_id integer,
     is_pattern boolean,
     pattern_id integer,
-    trip_parent_id integer
+    trip_parent_id integer,
+    day_calendar_id integer,
+    period_calendar_id integer
 );
 COMMENT ON TABLE trip IS 'Service d''un itineraire. Fait le lien entre les horaires et les itineraires.';
 COMMENT ON COLUMN trip.name IS 'Nom de l''objet. Si vient d''Hastus, identiques a la datasource.';
 COMMENT ON COLUMN trip.trip_calendar_id IS 'Lien vers un calendrier de fiche horaire. Null si il s''agit d''un service de prod non present dans les fiches horaires.';
 COMMENT ON COLUMN trip.comment_id IS 'Lien vers les commentaires pour les fiches horaires.';
 CREATE INDEX trip_route_id_idx ON trip USING btree (route_id);
+CREATE INDEX trip_route_id_calendat_idx ON trip WHERE trip_calendar_id IS NOT NULL USING btree (route_id);
+CREATE INDEX trip_day_calendar_id_idx ON trip USING btree (day_calendar_id);
+CREATE INDEX trip_period_calendar_id_idx ON trip USING btree (period_calendar_id);
 
 CREATE TABLE trip_calendar (
     id serial PRIMARY KEY,
@@ -623,9 +621,8 @@ ALTER TABLE ONLY datasource ADD CONSTRAINT datasource_id_agency_fk FOREIGN KEY (
 ALTER TABLE ONLY city ADD CONSTRAINT city_main_stop_area_id_fk FOREIGN KEY (main_stop_area_id) REFERENCES stop_area(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY change_cause_link ADD CONSTRAINT change_cause_link_change_cause_id_fk FOREIGN KEY (change_cause_id) REFERENCES change_cause(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY change_cause_link ADD CONSTRAINT change_cause_link_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY calendar_link ADD CONSTRAINT calendar_link_day_calendar_id_fk FOREIGN KEY (day_calendar_id) REFERENCES calendar(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY calendar_link ADD CONSTRAINT calendar_link_period_calendar_id_fk FOREIGN KEY (period_calendar_id) REFERENCES calendar(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY calendar_link ADD CONSTRAINT calendar_link_trip_id_fk FOREIGN KEY (trip_id) REFERENCES trip(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY trip ADD CONSTRAINT trip_day_calendar_id_fk FOREIGN KEY (day_calendar_id) REFERENCES calendar(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY trip ADD CONSTRAINT trip_period_calendar_id_fk FOREIGN KEY (period_calendar_id) REFERENCES calendar(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY calendar_element ADD CONSTRAINT calendar_element_calendar_id_fk FOREIGN KEY (calendar_id) REFERENCES calendar(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY calendar_element ADD CONSTRAINT calendar_element_included_calendar_id_fk FOREIGN KEY (included_calendar_id) REFERENCES calendar(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY calendar_datasource ADD CONSTRAINT calendar_datasource_calendar_id_fk FOREIGN KEY (calendar_id) REFERENCES calendar(id) ON UPDATE RESTRICT ON DELETE RESTRICT;

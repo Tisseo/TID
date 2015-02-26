@@ -64,7 +64,7 @@ CREATE FUNCTION createaddresstype() RETURNS void
 COMMENT ON FUNCTION createaddresstype() IS 'Check address type exists and create it if needed.';
 
 
-CREATE FUNCTION insertcalendar(_name character varying, _ccode character varying, _datasource integer, _calendar_type integer default 1) RETURNS integer 
+CREATE FUNCTION insertcalendar(_name character varying, _ccode character varying, _datasource integer, _calendar_type calendar_type default 'periode') RETURNS integer 
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -78,20 +78,20 @@ CREATE FUNCTION insertcalendar(_name character varying, _ccode character varying
 COMMENT ON FUNCTION insertcalendar (character varying, character varying, integer, integer) IS 'insert record in tables calendar and calendar_datasource and return new calendar.id';
 
 
-CREATE FUNCTION insertcalendarlink(_trip_id integer, _period_calendar_id integer, _day_calendar_id integer default NULL) RETURNS integer 
-    LANGUAGE plpgsql
-    AS $$
-    DECLARE
-        _id integer;
-    BEGIN
-        IF _day_calendar_id IS NULL THEN
-            SELECT id INTO _day_calendar_id FROM calendar WHERE name = 'Dimanche';
-        END IF;
-        INSERT INTO calendar_link(trip_id, period_calendar_id, day_calendar_id) VALUES(_trip_id, _period_calendar_id, _day_calendar_id) RETURNING id INTO _id;
-        RETURN _id;
-    END;
-    $$;
-COMMENT ON FUNCTION insertcalendarlink (integer, integer, integer) IS 'Insert record in table calendar_link(default value for day_calendar_id is Dimanche) and return new id';
+-- CREATE FUNCTION insertcalendarlink(_trip_id integer, _period_calendar_id integer, _day_calendar_id integer default NULL) RETURNS integer 
+    -- LANGUAGE plpgsql
+    -- AS $$
+    -- DECLARE
+        -- _id integer;
+    -- BEGIN
+        -- IF _day_calendar_id IS NULL THEN
+            -- SELECT id INTO _day_calendar_id FROM calendar WHERE name = 'Dimanche';
+        -- END IF;
+        -- INSERT INTO calendar_link(trip_id, period_calendar_id, day_calendar_id) VALUES(_trip_id, _period_calendar_id, _day_calendar_id) RETURNING id INTO _id;
+        -- RETURN _id;
+    -- END;
+    -- $$;
+-- COMMENT ON FUNCTION insertcalendarlink (integer, integer, integer) IS 'Insert record in table calendar_link(default value for day_calendar_id is Dimanche) and return new id';
 
 
 CREATE FUNCTION insertcalendarelement(_calendar_id integer, _start_date date, _end_date date, _interval integer default NULL, _positive character varying default '+', _included_calendar_id integer default NULL) RETURNS integer 
@@ -114,8 +114,8 @@ CREATE FUNCTION insertcalendar(_tcode character varying, _rcode character varyin
         _route_id integer;
         _trip_id integer;
         _calendar_id integer;
-        _day_calendar_id integer;
     BEGIN
+        -- Check route and trip exist and raise if not
         SELECT R.id INTO _route_id FROM route R JOIN route_datasource RD ON RD.route_id = R.id WHERE R.line_version_id = _lvid AND RD.code = _rcode;
         IF _route_id IS NULL THEN
             RAISE EXCEPTION 'route not found with code %s and line_version_id %s', _rcode, _lvid;
@@ -125,12 +125,13 @@ CREATE FUNCTION insertcalendar(_tcode character varying, _rcode character varyin
                 RAISE EXCEPTION 'trip not found with code %s and route_id %s', _tcode, _route_id;
             END IF;
         END IF;
-        SELECT CL.period_calendar_id INTO _calendar_id FROM calendar_link CL WHERE CL.trip_id = _trip_id;
+        -- Check the calendar already exist, if it doesn't add it with its datasource and link it to its related trip, else, add new calendar_element
+        -- Any case : Insert new calendar_element
+        SELECT T.period_calendar_id INTO _calendar_id FROM trip T WHERE T.id = _trip_id;
         IF _calendar_id IS NULL THEN
-            SELECT id INTO _day_calendar_id FROM calendar WHERE name = 'Dimanche';
-            INSERT INTO calendar(name, calendar_type) VALUES (_name, 1);
+            INSERT INTO calendar(name, calendar_type) VALUES (_name, 'periode');
             INSERT INTO calendar_datasource(calendar_id, code, datasource_id) VALUES (currval('calendar_id_seq'), _tcode, _datasource);
-            INSERT INTO calendar_link(trip_id, period_calendar_id, day_calendar_id) VALUES(_trip_id, currval('calendar_id_seq'), _day_calendar_id);
+            UPDATE trip SET period_calendar_id =  currval('calendar_id_seq');
             INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(currval('calendar_id_seq'), _date, _date, 1);
         ELSE
             INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(_calendar_id, _date, _date, 1);

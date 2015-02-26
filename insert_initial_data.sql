@@ -686,8 +686,8 @@ INSERT INTO line_version_datasource (id, line_version_id, datasource_id, code) V
 INSERT INTO line_version_datasource (id, line_version_id, datasource_id, code) VALUES (109, 109, 3, 'amaier');
 
 
-INSERT INTO calendar(name, calendar_type) VALUES('Dimanche', 0);
-INSERT INTO calendar_datasource(calendar_id, datasource_id, code) VALUES(1, 3, '');
+-- INSERT INTO calendar(name, calendar_type) VALUES('Dimanche', 0);
+-- INSERT INTO calendar_datasource(calendar_id, datasource_id, code) VALUES(1, 3, '');
 
 -- Completed on 2014-12-16 10:26:02
 
