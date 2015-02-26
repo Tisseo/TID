@@ -631,3 +631,7 @@ ALTER TABLE ONLY calendar_element ADD CONSTRAINT calendar_element_included_calen
 ALTER TABLE ONLY calendar_datasource ADD CONSTRAINT calendar_datasource_calendar_id_fk FOREIGN KEY (calendar_id) REFERENCES calendar(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY calendar_datasource ADD CONSTRAINT calendar_datasource_datasource_id_fk FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY alias ADD CONSTRAINT alias_stop_area_id_fk FOREIGN KEY (stop_area_id) REFERENCES stop_area(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+
+ALTER TABLE ONLY calendar ADD CONSTRAINT calendar_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY trip ADD CONSTRAINT trip_pattern_id_fk FOREIGN KEY (pattern_id) REFERENCES trip(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY trip ADD CONSTRAINT trip_trip_parent_id_fk FOREIGN KEY (trip_parent_id) REFERENCES trip(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
