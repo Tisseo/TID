@@ -87,15 +87,16 @@ CREATE INDEX calendar_element_calendar_id_idx ON calendar_element USING btree (c
 
 CREATE TABLE change_cause (
     id serial PRIMARY KEY,
-    description character varying(255),
-    date date NOT NULL
+    description character varying(255)
 );
-COMMENT ON TABLE change_cause IS 'Motif de creation d''une nouvelle line_version.';
+COMMENT ON TABLE change_cause IS 'Modification sur une line_version, soit initialisation soit en cours d exploitation.';
 
 CREATE TABLE change_cause_link (
     id serial PRIMARY KEY,
     change_cause_id integer,
-    line_version_id integer
+    line_version_id integer,
+    date date NOT NULL
+
 );
 COMMENT ON TABLE change_cause_link IS 'Lien entre les motifs de nouvelle line_version et la line_version.';
 CREATE INDEX change_cause_line_version_id_idx ON change_cause_link USING btree (line_version_id);
