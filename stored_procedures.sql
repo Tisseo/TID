@@ -78,22 +78,6 @@ CREATE FUNCTION insertcalendar(_name character varying, _ccode character varying
 COMMENT ON FUNCTION insertcalendar (character varying, character varying, integer, integer) IS 'insert record in tables calendar and calendar_datasource and return new calendar.id';
 
 
--- CREATE FUNCTION insertcalendarlink(_trip_id integer, _period_calendar_id integer, _day_calendar_id integer default NULL) RETURNS integer 
-    -- LANGUAGE plpgsql
-    -- AS $$
-    -- DECLARE
-        -- _id integer;
-    -- BEGIN
-        -- IF _day_calendar_id IS NULL THEN
-            -- SELECT id INTO _day_calendar_id FROM calendar WHERE name = 'Dimanche';
-        -- END IF;
-        -- INSERT INTO calendar_link(trip_id, period_calendar_id, day_calendar_id) VALUES(_trip_id, _period_calendar_id, _day_calendar_id) RETURNING id INTO _id;
-        -- RETURN _id;
-    -- END;
-    -- $$;
--- COMMENT ON FUNCTION insertcalendarlink (integer, integer, integer) IS 'Insert record in table calendar_link(default value for day_calendar_id is Dimanche) and return new id';
-
-
 CREATE FUNCTION insertcalendarelement(_calendar_id integer, _start_date date, _end_date date, _interval integer default NULL, _positive character varying default '+', _included_calendar_id integer default NULL) RETURNS integer 
     LANGUAGE plpgsql
     AS $$

@@ -59,6 +59,7 @@ CREATE TABLE calendar (
     line_version_id integer
 );
 COMMENT ON TABLE calendar IS 'Le calendrier d''application des services en production. Il est lui-meme compose de calendar_element.';
+CREATE INDEX calendar_line_version_id_idx ON calendar USING btree (line_version_id);
 
 CREATE TABLE calendar_datasource (
     id serial PRIMARY KEY,
@@ -97,6 +98,8 @@ CREATE TABLE change_cause_link (
     line_version_id integer
 );
 COMMENT ON TABLE change_cause_link IS 'Lien entre les motifs de nouvelle line_version et la line_version.';
+CREATE INDEX change_cause_line_version_id_idx ON change_cause_link USING btree (line_version_id);
+CREATE INDEX change_cause_change_cause_id_idx ON change_cause_link USING btree (change_cause_id);
 
 CREATE TABLE city (
     id serial PRIMARY KEY,
@@ -107,6 +110,7 @@ CREATE TABLE city (
  );
 COMMENT ON TABLE city IS 'Commune.';
 CREATE INDEX city_geom_idx ON city USING GIST (the_geom); 
+CREATE INDEX city_main_stop_area_id_idx ON city USING btree (main_stop_area_id);
 
 CREATE TABLE comment (
     id serial PRIMARY KEY,
@@ -164,6 +168,7 @@ CREATE TABLE grid_calendar (
     sunday boolean NOT NULL
 );
 COMMENT ON TABLE grid_calendar IS 'Grille horaire d''une fiche horaire. Table remplie par l''IV via interface dediee lors de la creation de la fiche horaire.';
+CREATE INDEX grid_calendar_line_version_id_idx ON grid_calendar USING btree (line_version_id);
 
 CREATE TABLE grid_link_calendar_mask_type (
     id serial PRIMARY KEY,
@@ -172,6 +177,8 @@ CREATE TABLE grid_link_calendar_mask_type (
     active boolean NOT NULL
 );
 COMMENT ON TABLE grid_link_calendar_mask_type IS 'Lien entre les calendriers Hastus fiche horaire et les grilles horaires de la fiche. Table remplie par l''IV via interface dediee lors de la creation de la fiche horaire.';
+CREATE INDEX grid_link_calendar_mask_type_grid_calendar_id_idx ON grid_link_calendar_mask_type USING btree (grid_calendar_id);
+CREATE INDEX grid_link_calendar_mask_type_grid_mask_type_id_idx ON grid_link_calendar_mask_type USING btree (grid_mask_type_id);
 
 CREATE TABLE grid_mask_type (
     id serial PRIMARY KEY,

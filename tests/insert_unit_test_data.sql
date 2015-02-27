@@ -30,10 +30,10 @@ INSERT INTO line_version (line_id, version, start_date, end_date, planned_end_da
 INSERT INTO line_version_datasource (line_version_id, datasource_id, code) VALUES (1, 1, '01');
 INSERT INTO line_version_datasource (line_version_id, datasource_id, code) VALUES (2, 1, '02');
 
-INSERT INTO grid_calendar(line_version_id, name, color, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (1,'Lundi à vendredi','#fdd67f','true','true','true','true','true','false','false');
-INSERT INTO grid_calendar(line_version_id, name, color, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (1,'Samedi','#a1b7e4','false','false','false','false','false','true','false');
-INSERT INTO grid_calendar(line_version_id, name, color, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (2,'Lundi à vendredi en vacances scolaires','#86d391','true','true','true','true','true','false','false');
-INSERT INTO grid_calendar(line_version_id, name, color, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (2,'Lundi à vendredi','#fdd67f','true','true','true','true','true','false','false');
+INSERT INTO grid_calendar(line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (1,'Lundi à vendredi','true','true','true','true','true','false','false');
+INSERT INTO grid_calendar(line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (1,'Samedi','false','false','false','false','false','true','false');
+INSERT INTO grid_calendar(line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (2,'Lundi à vendredi en vacances scolaires','true','true','true','true','true','false','false');
+INSERT INTO grid_calendar(line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (2,'Lundi à vendredi','true','true','true','true','true','false','false');
 
 INSERT INTO grid_link_calendar_mask_type(grid_calendar_id, grid_mask_type_id, active) VALUES (1,1,'true');
 INSERT INTO grid_link_calendar_mask_type(grid_calendar_id, grid_mask_type_id, active) VALUES (2,1,'true');
@@ -95,16 +95,15 @@ INSERT INTO route_datasource (route_id, datasource_id, code) VALUES (4, 1, '04')
 INSERT INTO trip_calendar (grid_mask_type_id, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (1, true, true, true, true, true, false, false);
 INSERT INTO trip_calendar (grid_mask_type_id, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (2, false, false, false, false, false, true, true);
 
-
 INSERT INTO trip (name, route_id, trip_calendar_id, comment_id) VALUES ('15707550', 1, 1, NULL);
 INSERT INTO trip (name, route_id, trip_calendar_id, comment_id) VALUES ('15707555', 2, 1, NULL);
 INSERT INTO trip (name, route_id, trip_calendar_id, comment_id) VALUES ('15707558', 3, 2, NULL);
 INSERT INTO trip (name, route_id, trip_calendar_id, comment_id) VALUES ('15707559', 4, 2, NULL);
 
-INSERT INTO trip_datasource (trip_id, datasource_id, code) VALUES (1, 1, '01');
-INSERT INTO trip_datasource (trip_id, datasource_id, code) VALUES (2, 1, '02');
-INSERT INTO trip_datasource (trip_id, datasource_id, code) VALUES (3, 1, '03');
-INSERT INTO trip_datasource (trip_id, datasource_id, code) VALUES (4, 1, '04');
+INSERT INTO trip_datasource (trip_id, datasource_id, code, day_calendar_id, period_calendar_id) VALUES (1, 1, '01', 1, 1);
+INSERT INTO trip_datasource (trip_id, datasource_id, code, day_calendar_id, period_calendar_id) VALUES (2, 1, '02', 1, 1);
+INSERT INTO trip_datasource (trip_id, datasource_id, code, day_calendar_id, period_calendar_id) VALUES (3, 1, '03', 2, 2);
+INSERT INTO trip_datasource (trip_id, datasource_id, code, day_calendar_id, period_calendar_id) VALUES (4, 1, '04', 2, 2);
 
 INSERT INTO route_section (start_stop_id, end_stop_id, start_date, end_date, the_geom) VALUES (5, 3, '2015-02-12', NULL, '0102000020670F00000500000078307B41A2213841544228BC6E3E4141438D6327C9213841657E629B523E4141E667B8A2E421384187DF0BB73C3E414179211D232222384146C5C9DC103E41415AE002613F22384106F61803FC3D4141');
 INSERT INTO route_section (start_stop_id, end_stop_id, start_date, end_date, the_geom) VALUES (6, 4, '2015-02-12', NULL, '0102000020670F000004000000C23C3BF167213841037EC748963E4141C6E76716402138410E5FF020B13E414161BD38A22D21384165CBEE8EBD3E4141F6251BD6E320384131945515E23E4141');
@@ -119,11 +118,6 @@ INSERT INTO route_stop (route_id, waypoint_id, rank, scheduled_stop, pickup, dro
 INSERT INTO route_stop (route_id, waypoint_id, rank, scheduled_stop, pickup, drop_off, reservation_required, route_section_id, internal_service) VALUES (3, 3, 1, true, true, true, false, 3, NULL);
 INSERT INTO route_stop (route_id, waypoint_id, rank, scheduled_stop, pickup, drop_off, reservation_required, route_section_id, internal_service) VALUES (4, 4, 0, true, true, true, false, 4, NULL);
 INSERT INTO route_stop (route_id, waypoint_id, rank, scheduled_stop, pickup, drop_off, reservation_required, route_section_id, internal_service) VALUES (4, 2, 1, true, true, true, false, 4, NULL);
-
-INSERT INTO calendar_link (trip_id, day_calendar_id, period_calendar_id) VALUES (1, 1, 1);
-INSERT INTO calendar_link (trip_id, day_calendar_id, period_calendar_id) VALUES (2, 1, 1);
-INSERT INTO calendar_link (trip_id, day_calendar_id, period_calendar_id) VALUES (3, 2, 2);
-INSERT INTO calendar_link (trip_id, day_calendar_id, period_calendar_id) VALUES (4, 2, 2);
 
 INSERT INTO calendar_element (calendar_id, start_date, end_date, positive, "interval", included_calendar_id) VALUES (1, '2015-02-16', '2015-02-16', '+', NULL, NULL);
 INSERT INTO calendar_element (calendar_id, start_date, end_date, positive, "interval", included_calendar_id) VALUES (1, '2015-02-17', '2015-02-17', '+', NULL, NULL);

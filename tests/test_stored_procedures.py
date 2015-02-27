@@ -81,10 +81,10 @@ def main():
             cursor.execute(u"select last_value from calendar_id_seq")
             calendar_id = cursor.fetchone()[0]
 
-            print u"test function insertcalendarlink ..."
+            #print u"test function insertcalendarlink ..."
             #insertcalendarlink(_trip_id, _period_calendar_id, _day_calendar_id)
-            query = u"SELECT InsertCalendarLink(%s, %s, %s)"
-            cursor.execute(query, (trip_id, calendar_id, None, ))
+            # query = u"SELECT InsertCalendarLink(%s, %s, %s)"
+            # cursor.execute(query, (trip_id, calendar_id, None, ))
 
             print u"test function insertcalendarelement ..."
             #insertcalendarelement(_calendar_id, _start_date, _end_date, _interval, _positive, _included_calendar_id)
