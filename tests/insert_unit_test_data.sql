@@ -1,5 +1,6 @@
 
 INSERT INTO agency (id, name, url, timezone, lang, phone) VALUES (1, 'Réseau TEST', 'http://www.tisseo.fr', 'Europe/Paris', 'fr', NULL);
+SELECT pg_catalog.setval('agency_id_seq', 2, false);
 
 INSERT INTO datasource (id, name, agency_id) VALUES (1, 'Source 1', 1);
 INSERT INTO datasource (id, name, agency_id) VALUES (2, 'Source 2', 1);
@@ -66,6 +67,7 @@ INSERT INTO stop_area_datasource (stop_area_id, datasource_id, code) VALUES (1, 
 INSERT INTO stop_area_datasource (stop_area_id, datasource_id, code) VALUES (2, 1, '02');
 INSERT INTO stop_area_datasource (stop_area_id, datasource_id, code) VALUES (3, 1, '03');
 
+SELECT pg_catalog.setval('waypoint_id_seq', 1, false);
 INSERT INTO waypoint DEFAULT VALUES;
 INSERT INTO waypoint DEFAULT VALUES;
 INSERT INTO waypoint DEFAULT VALUES;
