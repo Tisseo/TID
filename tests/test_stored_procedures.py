@@ -16,7 +16,8 @@ def main():
         sys.exit(1)
 
     query = ''
-    with connection.cursor() as cursor:
+    cursor = connection.cursor()
+    try:
         try:
             print u"test function insertline ..."
             #insertline(_number, _physical_mode_id, _line_code, _datasource, _priority)
@@ -121,7 +122,12 @@ def main():
         except psycopg2.Error, e:
             print "query error: {0}\n{1}".format(query, e)
             sys.exit(1)
-
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+        connection.close()
+    
     print u'tests OK'
     sys.exit(0)
 

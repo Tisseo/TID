@@ -16,14 +16,18 @@ def main():
         sys.exit(1)
 
     query = ''
-    with connection.cursor() as cursor:
+    cursor = connection.cursor()
+    try:
         try:
             cursor.execute(open("insert_unit_test_data.sql", "r").read())
             cursor.execute("COMMIT")
         except psycopg2.Error, e:
             print "error while inserting datas: {0}".format(e)
             sys.exit(1)
-
+    finally:
+        if cursor:
+            cursor.close()
+            
     print u'insertions OK'
     sys.exit(0)
 

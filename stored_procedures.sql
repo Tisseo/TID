@@ -75,7 +75,7 @@ CREATE FUNCTION insertcalendar(_name character varying, _ccode character varying
         RETURN _calendar_id;
     END;
     $$;
-COMMENT ON FUNCTION insertcalendar (character varying, character varying, integer, integer) IS 'insert record in tables calendar and calendar_datasource and return new calendar.id';
+COMMENT ON FUNCTION insertcalendar (character varying, character varying, integer, calendar_type) IS 'insert record in tables calendar and calendar_datasource and return new calendar.id';
 
 
 CREATE FUNCTION insertcalendarelement(_calendar_id integer, _start_date date, _end_date date, _interval integer default NULL, _positive character varying default '+', _included_calendar_id integer default NULL) RETURNS integer 

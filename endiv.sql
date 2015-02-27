@@ -533,7 +533,7 @@ COMMENT ON COLUMN trip.name IS 'Nom de l''objet. Si vient d''Hastus, identiques 
 COMMENT ON COLUMN trip.trip_calendar_id IS 'Lien vers un calendrier de fiche horaire. Null si il s''agit d''un service de prod non present dans les fiches horaires.';
 COMMENT ON COLUMN trip.comment_id IS 'Lien vers les commentaires pour les fiches horaires.';
 CREATE INDEX trip_route_id_idx ON trip USING btree (route_id);
-CREATE INDEX trip_route_id_calendat_idx ON trip WHERE trip_calendar_id IS NOT NULL USING btree (route_id);
+CREATE INDEX trip_route_id_calendar_idx ON trip USING btree (route_id) WHERE (trip_calendar_id IS NOT NULL);
 CREATE INDEX trip_day_calendar_id_idx ON trip USING btree (day_calendar_id);
 CREATE INDEX trip_period_calendar_id_idx ON trip USING btree (period_calendar_id);
 

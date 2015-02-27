@@ -30,20 +30,22 @@ def create_database():
         old_isolation_level = connection.isolation_level
         connection.set_isolation_level(0)
     
-        with connection.cursor() as cursor:
-            try:
-                query = u"drop database if exists {0}".format(DATABASE_NAME)
-                cursor.execute(query)
-            except psycopg2.Error, e:
-                print "query error: {0}\n{1}".format(query, e)
-                sys.exit(1)
-            try:
-                query = u"create database {0}".format(DATABASE_NAME)
-                cursor.execute(query)
-            except psycopg2.Error, e:
-                print "query error: {0}\n{1}".format(query,e)
-                sys.exit(1)
+        cursor = connection.cursor()
+        try:
+            query = u"drop database if exists {0}".format(DATABASE_NAME)
+            cursor.execute(query)
+        except psycopg2.Error, e:
+            print "query error: {0}\n{1}".format(query, e)
+            sys.exit(1)
+        try:
+            query = u"create database {0}".format(DATABASE_NAME)
+            cursor.execute(query)
+        except psycopg2.Error, e:
+            print "query error: {0}\n{1}".format(query,e)
+            sys.exit(1)
     finally:
+        if cursor:
+            cursor.close()
         if connection:
             if old_isolation_level:
                 connection.set_isolation_level(old_isolation_level)
@@ -52,44 +54,60 @@ def create_database():
 
 def create_data_structure(connection):
     print u'creating data structure(endiv.sql)...'
-    with connection.cursor() as cursor:
+    cursor = connection.cursor()
+    try:
         try:
             cursor.execute(open("../endiv.sql", "r").read())
             cursor.execute("COMMIT")
         except psycopg2.Error, e:
             print "error while loading data structure: {0}".format(e)
             sys.exit(1)
+    finally:
+        if cursor:
+            cursor.close()
 
 
 def create_stored_procedures(connection):
     print u'creating stored procedures...'
-    with connection.cursor() as cursor:
+    cursor = connection.cursor()
+    try:
         try:
             cursor.execute(open("../stored_procedures.sql", "r").read())
             cursor.execute("COMMIT")
         except psycopg2.Error, e:
             print "error while loading stored procedures: {0}".format(e)
             sys.exit(1)
+    finally:
+        if cursor:
+            cursor.close()
 
 
 def create_grants(connection):
     print u'creating grants...'
-    with connection.cursor() as cursor:
+    cursor = connection.cursor()
+    try:
         try:
             cursor.execute(open("../grants.sql", "r").read())
             cursor.execute("COMMIT")
         except psycopg2.Error, e:
             print "error while creating grants: {0}".format(e)
             sys.exit(1)
+    finally:
+        if cursor:
+            cursor.close()
             
 
 def main():
     create_database()
     
-    with get_connection() as connection:
+    try:
+        connection = get_connection()
         create_data_structure(connection)
         create_stored_procedures(connection)
         create_grants(connection)
+    finally:
+        if connection:
+            connection.close()
     
     print u'tests OK'
     sys.exit(0)
