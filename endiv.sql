@@ -278,7 +278,7 @@ CREATE TABLE non_concurrency (
 COMMENT ON TABLE non_concurrency IS 'Table des non concurrences, une ligne est prioritaire sur une autre pour un delta de temps. Une seule regle de non concurrence peut lier 2 lignes.';
 
 CREATE TABLE odt_area (
-    id serial PRIMARY KEY,
+    id integer PRIMARY KEY,
     name character varying(30) NOT NULL,
     comment text
 );
@@ -438,7 +438,7 @@ COMMENT ON COLUMN stop_area.long_name IS 'Par defaut, le long_name est identique
 COMMENT ON COLUMN stop_area.transfer_duration IS 'Temps en secondes de transfert entre deux arret de cette zone d''arrets.';
 
 CREATE TABLE stop (
-    id serial PRIMARY KEY,
+    id integer PRIMARY KEY,
     stop_area_id integer NOT NULL,
     master_stop_id integer
 );
