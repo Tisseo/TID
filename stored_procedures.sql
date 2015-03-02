@@ -91,7 +91,7 @@ CREATE FUNCTION insertcalendarelement(_calendar_id integer, _start_date date, _e
 COMMENT ON FUNCTION insertcalendarelement (integer, date, date, integer, character varying, integer) IS 'Insert record in table calendar_element and return new id';
 
 
-CREATE FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer) RETURNS void
+CREATE FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer,  _positive character varying default '+') RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -116,13 +116,13 @@ CREATE FUNCTION insertcalendar(_tcode character varying, _rcode character varyin
             INSERT INTO calendar(name, calendar_type) VALUES (_name, 'periode');
             INSERT INTO calendar_datasource(calendar_id, code, datasource_id) VALUES (currval('calendar_id_seq'), _tcode, _datasource);
             UPDATE trip SET period_calendar_id =  currval('calendar_id_seq');
-            INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(currval('calendar_id_seq'), _date, _date, 1);
+            INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(currval('calendar_id_seq'), _date, _date, _positive);
         ELSE
-            INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(_calendar_id, _date, _date, 1);
+            INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(_calendar_id, _date, _date, _positive);
         END IF;
     END;
     $$;
-COMMENT ON FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer) IS 'Insert new records in tables calendar, calendar_element, calendar_datasource and calendar_link. If the calendar_link already exists, only insert a new record in table calendar_element. Provided codes are used to select trip and route ids using also the provided line version id.';
+COMMENT ON FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer, _positive character varying) IS 'Insert new records in tables calendar, calendar_element, calendar_datasource and calendar_link. If the calendar_link already exists, only insert a new record in table calendar_element. Provided codes are used to select trip and route ids using also the provided line version id.';
 
 
 CREATE FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, addresses address[]) RETURNS void
