@@ -111,9 +111,9 @@ CREATE FUNCTION insertcalendar(_tcode character varying, _rcode character varyin
         -- Any case : Insert new calendar_element
         SELECT T.period_calendar_id INTO _calendar_id FROM trip T WHERE T.id = _trip_id;
         IF _calendar_id IS NULL THEN
-            INSERT INTO calendar(name, calendar_type) VALUES (_name, 'periode');
+            INSERT INTO calendar(name, calendar_type, line_version_id) VALUES (_name, 'periode', _lvid);
             INSERT INTO calendar_datasource(calendar_id, code, datasource_id) VALUES (currval('calendar_id_seq'), _tcode, _datasource);
-            UPDATE trip SET period_calendar_id =  currval('calendar_id_seq');
+            UPDATE trip SET period_calendar_id =  currval('calendar_id_seq') WHERE id = _trip_id;
             INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(currval('calendar_id_seq'), _date, _date, _positive);
         ELSE
             INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(_calendar_id, _date, _date, _positive);
