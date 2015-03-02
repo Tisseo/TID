@@ -114,7 +114,7 @@ CREATE FUNCTION insertcalendar(_tcode character varying, _rcode character varyin
             INSERT INTO calendar(name, calendar_type) VALUES (_name, 'periode');
             INSERT INTO calendar_datasource(calendar_id, code, datasource_id) VALUES (currval('calendar_id_seq'), _tcode, _datasource);
             UPDATE trip SET period_calendar_id =  currval('calendar_id_seq');
-            INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(currval('calendar_id_seq'), _date, _date, '+');
+            INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(currval('calendar_id_seq'), _date, _date, _positive);
         ELSE
             INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(_calendar_id, _date, _date, _positive);
         END IF;
