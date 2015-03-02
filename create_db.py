@@ -3,28 +3,28 @@
 
 import psycopg2
 import sys
-
+import argparse
 
 POSTGRESQL_connection = u"host='localhost' port=5432 user='postgres' password='postgres'"
-DATABASE_NAME = u"endiv_jenkins"
+#DATABASE_NAME = u"endiv_jenkins"
 
 
-def get_connection(connect_db=True):
+def get_connection(database_name=''):
     try:
-        if connect_db:
-            connection_string = POSTGRESQL_connection
-            connection_string += u"dbname='{0}'".format(DATABASE_NAME)
-            return psycopg2.connect(connection_string)
-        else:
+        if database_name=='':
             return psycopg2.connect(POSTGRESQL_connection)
+        else:
+            connection_string = POSTGRESQL_connection
+            connection_string += u"dbname='{0}'".format(database_name)
+            return psycopg2.connect(connection_string)
     except psycopg2.Error as e:
         print u"connection à la base de données impossible {0}".format(e)
         sys.exit(1)
 
 
-def create_database():
+def create_database(database_name):
     print u'creating database...'
-    connection = get_connection(False)
+    connection = get_connection()
     try:
         # should be psycopg2.extensions.ISOLATION_LEVEL_READ_COMMITTED(default)
         old_isolation_level = connection.isolation_level
@@ -32,13 +32,13 @@ def create_database():
     
         cursor = connection.cursor()
         try:
-            query = u"drop database if exists {0}".format(DATABASE_NAME)
+            query = u"drop database if exists {0}".format(database_name)
             cursor.execute(query)
         except psycopg2.Error, e:
             print "query error: {0}\n{1}".format(query, e)
             sys.exit(1)
         try:
-            query = u"create database {0}".format(DATABASE_NAME)
+            query = u"create database {0}".format(database_name)
             cursor.execute(query)
         except psycopg2.Error, e:
             print "query error: {0}\n{1}".format(query,e)
@@ -98,18 +98,21 @@ def create_grants(connection):
             
 
 def main():
-    create_database()
+    parser = argparse.ArgumentParser(description="Script de création d'une base de données ENDIV.")
+    parser.add_argument("database", help="Spécifie le nom de la base de données")
+    args = parser.parse_args()
+
+
+    create_database(args.database)
     
     try:
-        connection = get_connection()
+        connection = get_connection(args.database)
         create_data_structure(connection)
         create_stored_procedures(connection)
         create_grants(connection)
     finally:
         if connection:
             connection.close()
-    
-    print u'tests OK'
     sys.exit(0)
 
 if __name__ == "__main__":
