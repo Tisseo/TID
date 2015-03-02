@@ -25,7 +25,6 @@ CREATE FUNCTION cleanimport() RETURNS void
         DELETE FROM waypoint;
         DELETE FROM stop_area_datasource;
         DELETE FROM stop_area;
-        INSERT INTO calendar(name, calendar_type) VALUES('Dimanche', 0);
     END;
     $$;
 COMMENT ON FUNCTION cleanimport() IS 'Debug function used to clean all data related to import scripts from hastus/tigre.';
