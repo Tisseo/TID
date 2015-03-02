@@ -13,7 +13,6 @@ CREATE FUNCTION cleanimport() RETURNS void
         DELETE FROM stop_time;
         DELETE FROM route_stop;
         DELETE FROM calendar_datasource;
-        DELETE FROM calendar_link;
         DELETE FROM calendar_element;
         DELETE FROM calendar;
         DELETE FROM trip;
