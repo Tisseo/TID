@@ -32,7 +32,6 @@ $$;
 CREATE TYPE calendar_type AS ENUM ('jour', 'periode', 'mixte', 'accessibilite', 'brique');
 CREATE TYPE line_version_status AS ENUM ('new', 'wip', 'published', 'test');
 CREATE TYPE calendar_operator AS ENUM ('+', '-', '&');
-CREATE TYPE address AS (address character varying, the_geom character varying, is_entrance boolean);
 
 -- Creation des tables, cles primaires et indexes
 CREATE TABLE agency (

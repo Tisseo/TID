@@ -43,25 +43,6 @@ CREATE FUNCTION cleanpoi() RETURNS void
 COMMENT ON FUNCTION cleanpoi() IS 'Debug function used to clean all data related to poi.';
 
 
-CREATE FUNCTION createaddresstype() RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-    DECLARE
-        _type_exists INTEGER;
-    BEGIN
-        SELECT INTO _type_exists (SELECT 1 FROM pg_type WHERE typname = 'address');
-        IF _type_exists IS NULL THEN
-            CREATE TYPE address AS (
-                address character varying,
-                the_geom character varying,
-                is_entrance boolean
-            );
-        END IF;
-    END;
-    $$;
-COMMENT ON FUNCTION createaddresstype() IS 'Check address type exists and create it if needed.';
-
-
 CREATE FUNCTION insertcalendar(_name character varying, _ccode character varying, _datasource integer, _calendar_type calendar_type default 'periode') RETURNS integer 
     LANGUAGE plpgsql
     AS $$
@@ -122,6 +103,8 @@ CREATE FUNCTION insertcalendar(_tcode character varying, _rcode character varyin
     $$;
 COMMENT ON FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer, _positive calendar_operator) IS 'Insert new records in tables calendar, calendar_element, calendar_datasource and calendar_link. If the calendar_link already exists, only insert a new record in table calendar_element. Provided codes are used to select trip and route ids using also the provided line version id.';
 
+
+CREATE TYPE address AS (address character varying, the_geom character varying, is_entrance boolean);
 
 CREATE FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, addresses address[]) RETURNS void
     LANGUAGE plpgsql
