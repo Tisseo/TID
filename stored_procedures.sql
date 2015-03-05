@@ -101,7 +101,7 @@ CREATE FUNCTION insertcalendar(_tcode character varying, _rcode character varyin
         END IF;
     END;
     $$;
-COMMENT ON FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer, _positive calendar_operator) IS 'Insertion selon condition de nouvelles entrées calendar, calendar_datasource et calendar_element plus mise à jour d\'une entrée trip associée à ces nouveaux calendriers. Si le calendrier rattaché au trip existe déjà lors de l\'appel de cette fonction, elle effectuera une simple insertion d\'une entrée calendar_element.';
+COMMENT ON FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer, _positive calendar_operator) IS 'Insertion selon condition de nouvelles entrées calendar, calendar_datasource et calendar_element plus mise à jour dune entrée trip associée à ces nouveaux calendriers. Si le calendrier rattaché au trip existe déjà lors de lappel de cette fonction, elle effectuera une simple insertion dune entrée calendar_element.';
 
 CREATE TYPE address AS (address character varying, the_geom character varying, is_entrance boolean);
 
@@ -135,7 +135,7 @@ CREATE FUNCTION insertpoi(_name character varying, _city_id integer, _type chara
         END LOOP;
     END;
     $$;
-COMMENT ON FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, addresses address[]) IS 'Insertion de nouvelles entrées poi, poi_datasource et si passées en paramètre, poi_adress. Les poi_adress sont passées dans le tableau addresses qui contient des types address (le type address est un type technique contenant les champs nécessaires à l\'insertion d\'une entrée poi_address). Ainsi toutes les entrées poi_address seront associées à la donnée poi nouvellement créée.';
+COMMENT ON FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, addresses address[]) IS 'Insertion de nouvelles entrées poi, poi_datasource et si passées en paramètre, poi_adress. Les poi_adress sont passées dans le tableau addresses qui contient des types address (le type address est un type technique contenant les champs nécessaires à linsertion dune entrée poi_address). Ainsi toutes les entrées poi_address seront associées à la donnée poi nouvellement créée.';
 
 
 CREATE FUNCTION insertroute(_lvid integer, _way character varying, _name character varying, _direction character varying, _code character varying, _datasource integer) RETURNS void
@@ -197,7 +197,7 @@ CREATE FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode char
         INSERT INTO stop_time(route_stop_id, trip_id, departure_time, arrival_time) VALUES (_route_stop_id, _trip_id, _hour, _hour);
     END;
     $$;
-COMMENT ON FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode character varying, _scode character varying, _related_scode character varying, _lvid integer, _rank integer, _scheduled boolean, _hour integer, _is_first boolean, _is_last boolean) IS 'Insertion d\'une nouvelle entrée dans route_stop si elle n\'existe pas déjà. Insertion d\'une nouvelle entrée stop_time. Dans le cas d\'insertion d\'un route_stop, certaines valeurs changent en fonction du rang du route_stop dans l\'itinéraire. Chaque route_stop est rattaché à une route_section sauf le dernier (doublon avec l\'avant dernier sinon). Les booléens pickup/dropoff prennent également des valeur différentes selon le rang du route_stop.';
+COMMENT ON FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode character varying, _scode character varying, _related_scode character varying, _lvid integer, _rank integer, _scheduled boolean, _hour integer, _is_first boolean, _is_last boolean) IS 'Insertion dune nouvelle entrée dans route_stop si elle nexiste pas déjà. Insertion dune nouvelle entrée stop_time. Dans le cas dinsertion dun route_stop, certaines valeurs changent en fonction du rang du route_stop dans litinéraire. Chaque route_stop est rattaché à une route_section sauf le dernier (doublon avec lavant dernier sinon). Les booléens pickup/dropoff prennent également des valeur différentes selon le rang du route_stop.';
 
 CREATE FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer, _srid integer default 27572) RETURNS void
     LANGUAGE plpgsql
@@ -222,7 +222,7 @@ CREATE FUNCTION insertstop(_date date, _name character varying, _x character var
         END IF;
     END;
     $$;
-COMMENT ON FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer, _srid integer) IS 'Insertion de 4 nouvelles entrées : un waypoint et un stop qui possèderont le même ID, puis les stop_datasource et stop_history associés au nouveau stop. La géométrie du stop_history est construite depuis des valeurs x/y passées en paramètre. Ces valeurs sont issues d\'un SRID 27572 (sortie HASTUS) et la géométrie finale est passée en SRID 3943.';
+COMMENT ON FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer, _srid integer) IS 'Insertion de 4 nouvelles entrées : un waypoint et un stop qui possèderont le même ID, puis les stop_datasource et stop_history associés au nouveau stop. La géométrie du stop_history est construite depuis des valeurs x/y passées en paramètre. Ces valeurs sont issues dun SRID 27572 (sortie HASTUS) et la géométrie finale est passée en SRID 3943.';
 
 
 CREATE FUNCTION insertstoparea(_city_id integer, _name character varying, _datasource integer) RETURNS void
@@ -235,7 +235,7 @@ CREATE FUNCTION insertstoparea(_city_id integer, _name character varying, _datas
         INSERT INTO stop_area_datasource(stop_area_id, datasource_id, code) VALUES(_stop_area_id, _datasource, null);
     END;
     $$;
-COMMENT ON FUNCTION insertstoparea (integer, character varying, integer) IS 'Insertion d\'une entrée stop_area et de sa datasource associée.';
+COMMENT ON FUNCTION insertstoparea (integer, character varying, integer) IS 'Insertion dune entrée stop_area et de sa datasource associée.';
 
 
 CREATE FUNCTION inserttrip(_name character varying, _tcode character varying, _rcode character varying, _lvid integer, _datasource integer) RETURNS void
@@ -249,7 +249,7 @@ CREATE FUNCTION inserttrip(_name character varying, _tcode character varying, _r
         INSERT INTO trip_datasource(trip_id, datasource_id, code) VALUES (currval('trip_id_seq'), _datasource, _tcode);
     END;
     $$;
-COMMENT ON FUNCTION inserttrip (character varying, character varying, character varying, integer, integer) IS 'Insertion d\'un nouveau trip et de sa datasource associée. Le trip est directement rattaché à une route dont l\'id est récupéré grâce aux paramètres _rcode et _lvid.';
+COMMENT ON FUNCTION inserttrip (character varying, character varying, character varying, integer, integer) IS 'Insertion dun nouveau trip et de sa datasource associée. Le trip est directement rattaché à une route dont lid est récupéré grâce aux paramètres _rcode et _lvid.';
 
 
 CREATE FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date, _route_section_id integer, _end_date date) RETURNS void
@@ -263,7 +263,7 @@ CREATE FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer,
         INSERT INTO route_section(start_stop_id, end_stop_id, start_date, the_geom) VALUES (_start_stop_id, _end_stop_id, _start_date, _real_geom);
     END;
     $$;
-COMMENT ON FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date, _route_section_id integer, _end_date date) IS 'La mise à jour d\'une route_section est historisée. Cela implique la fermeture d\'une route_section (champ end_date prend une valeur) et la création de sa successeur avec un champ end_date vide.';
+COMMENT ON FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date, _route_section_id integer, _end_date date) IS 'La mise à jour dune route_section est historisée. Cela implique la fermeture dune route_section (champ end_date prend une valeur) et la création de sa successeur avec un champ end_date vide.';
 
 
 CREATE FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean) RETURNS void
@@ -280,7 +280,7 @@ CREATE FUNCTION updatestop(_stop_history_id integer, _date date, _name character
         INSERT INTO stop_history(stop_id, start_date, short_name, the_geom, accessibility) VALUES (_stop_id, _date, _name, _the_geom, _access);
     END;
     $$;
-COMMENT ON FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean) IS 'La mise à jour d\'un stop est historisée. Cela implique la fermeture de la version courante d\'un stop_history en appliquant une date au champ end_date puis en la création de son successeur avec un champ end_date vide.';
+COMMENT ON FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean) IS 'La mise à jour dun stop est historisée. Cela implique la fermeture de la version courante dun stop_history en appliquant une date au champ end_date puis en la création de son successeur avec un champ end_date vide.';
 
 
 CREATE FUNCTION insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer, _priority integer default 0)
