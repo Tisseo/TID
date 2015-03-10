@@ -34,6 +34,25 @@ CREATE TYPE line_version_status AS ENUM ('new', 'wip', 'published', 'test');
 CREATE TYPE calendar_operator AS ENUM ('+', '-', '&');
 
 -- Creation des tables, cles primaires et indexes
+CREATE TABLE accessibility_mode (
+    id serial PRIMARY KEY,
+    name character varying(30) NOT NULL
+);
+COMMENT ON TABLE accessibility_mode IS 'Mode d''accessibilite : pieton, UFR, vélos, ...';
+
+CREATE TABLE accessibility_type (
+    id serial PRIMARY KEY,
+    accessibility_mode_id integer NOT NULL,
+    calendar_id integer NOT NULL,
+    start_time integer,
+    end_time integer,
+    is_recursive boolean
+);
+COMMENT ON TABLE accessibility_type IS 'Mode d''accessibilite : pieton, UFR, vélos, ...';
+COMMENT ON COLUMN accessibility_type.start_time IS 'Temps en seconde apres minuit de la date. Peut depasser 23h59. Explicite l''heure de départ de l''innaccessibilité du calendrier';
+COMMENT ON COLUMN accessibility_type.end_time IS 'Temps en seconde apres minuit de la date. Peut depasser 23h59. Explicite l''heure de fin de l''innaccessibilité du calendrier';
+COMMENT ON COLUMN accessibility_type.is_recursive IS 'Si vrai, les heures de departs et fin s''appliquent tous les jours du calendier. Sinon, l''heure de depart s''applique au premier jour du calendrier et l''heure de fin au dernier';
+
 CREATE TABLE agency (
     id serial PRIMARY KEY,
     name character varying(30) NOT NULL,
@@ -326,6 +345,14 @@ COMMENT ON COLUMN poi_address.address IS 'Adresse postale de la localisation du 
 COMMENT ON COLUMN poi_address.is_entrance IS 'Indique sil la localisation est une entree du POI ou le barycentre du POI.';
 CREATE INDEX poi_address_poi_id_idx ON poi_address USING btree (poi_id);
 
+CREATE TABLE poi_address_accessibility (
+    id serial PRIMARY KEY,
+    accessibility_type_id integer NOT NULL,
+    poi_address_id integer NOT NULL
+    );
+COMMENT ON TABLE poi_address_accessibility IS 'Acccessibilite de l''objet.';
+
+
 CREATE TABLE poi_address_datasource (
     id serial PRIMARY KEY,
     poi_address_id integer NOT NULL,
@@ -436,13 +463,6 @@ COMMENT ON COLUMN stop_area.short_name IS 'Nom identique aux noms des arrets le 
 COMMENT ON COLUMN stop_area.long_name IS 'Par defaut, le long_name est identique aux noms des arrets le composant, il peut etre modifie pour developper les abbreviations du nom court.';
 COMMENT ON COLUMN stop_area.transfer_duration IS 'Temps en secondes de transfert entre deux arret de cette zone d''arrets.';
 
-CREATE TABLE stop (
-    id integer PRIMARY KEY,
-    stop_area_id integer NOT NULL,
-    master_stop_id integer
-);
-COMMENT ON TABLE stop IS 'Arret de bus ou de TAD, quai de tram ou de metro.';
-
 CREATE TABLE stop_area_datasource (
     id serial PRIMARY KEY,
     stop_area_id integer NOT NULL,
@@ -450,6 +470,27 @@ CREATE TABLE stop_area_datasource (
     code character varying(20)
 );
 COMMENT ON TABLE stop_area_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
+
+CREATE TABLE stop (
+    id integer PRIMARY KEY,
+    stop_area_id integer NOT NULL,
+    master_stop_id integer
+);
+COMMENT ON TABLE stop IS 'Arret de bus ou de TAD, quai de tram ou de metro.';
+
+CREATE TABLE stop_history (
+    id serial PRIMARY KEY,
+    stop_id integer NOT NULL,
+    start_date date NOT NULL,
+    end_date date,
+    short_name character varying(50) NOT NULL,
+    long_name character varying(255),
+    the_geom geometry(Point,3943) NOT NULL
+);
+ALTER TABLE public.stop_history OWNER TO endiv_owner;
+COMMENT ON TABLE stop_history IS 'Proprietes d''un arret. Un arret n''a qu''un historique dans le temps. Si une caracteristique cahnge, l''historique precedent est cloture et un nouveau est cree.';
+COMMENT ON COLUMN stop_history.short_name IS 'Nom de l''arret dans le referentiel Hastus. Pas de modification possible.';
+COMMENT ON COLUMN stop_history.long_name IS 'Champ inutile pour le moment. Laisser vide.';
 
 CREATE TABLE stop_datasource (
     id serial PRIMARY KEY,
@@ -461,21 +502,12 @@ COMMENT ON TABLE stop_datasource IS 'Reference de l''objet dans le referentiel d
 CREATE INDEX stop_datasource_code_idx ON stop_datasource USING btree (code);
 CREATE INDEX stop_datasource_stop_id_idx ON stop_datasource USING btree (stop_id);
 
-CREATE TABLE stop_history (
+CREATE TABLE stop_accessibility (
     id serial PRIMARY KEY,
-    stop_id integer NOT NULL,
-    start_date date NOT NULL,
-    end_date date,
-    short_name character varying(50) NOT NULL,
-    long_name character varying(255),
-    the_geom geometry(Point,3943) NOT NULL,
-    accessibility boolean
+    accessibility_type_id integer NOT NULL,
+    stop_id integer NOT NULL
 );
-ALTER TABLE public.stop_history OWNER TO endiv_owner;
-COMMENT ON TABLE stop_history IS 'Proprietes d''un arret. Un arret n''a qu''un historique dans le temps. Si une caracteristique cahnge, l''historique precedent est cloture et un nouveau est cree.';
-COMMENT ON COLUMN stop_history.short_name IS 'Nom de l''arret dans le referentiel Hastus. Pas de modification possible.';
-COMMENT ON COLUMN stop_history.long_name IS 'Champ inutile pour le moment. Laisser vide.';
-COMMENT ON COLUMN stop_history.accessibility IS 'Accessibilite de l''arret pour les UFR (fauteuil roulant) selon les releves du service accessibilite.';
+COMMENT ON TABLE stop_accessibility IS 'Acccessibilite de l''objet.';
 
 CREATE TABLE stop_time (
     id serial PRIMARY KEY,
@@ -497,14 +529,12 @@ CREATE TABLE transfer (
     duration integer NOT NULL,
     distance integer,
     the_geom geometry(Point,3943),
-    accessibility boolean,
-    description text
+    accessibility boolean
 );
 COMMENT ON TABLE transfer IS 'Correspondance entre deux arrets.';
 COMMENT ON COLUMN transfer.duration IS 'Temps de transfert en secondes.';
 COMMENT ON COLUMN transfer.distance IS 'Distance en metres de la correspondance.';
 COMMENT ON COLUMN transfer.the_geom IS 'Trace de la correspondance. Inutilise pour le moment.';
-COMMENT ON COLUMN transfer.accessibility IS 'Accessibilite de la correspondance. Inutilise pour le moment.';
 
 CREATE TABLE transfer_datasource (
     id serial PRIMARY KEY,
@@ -513,6 +543,13 @@ CREATE TABLE transfer_datasource (
     code character varying(20)
 );
 COMMENT ON TABLE transfer_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
+
+CREATE TABLE transfer_accessibility (
+    id serial PRIMARY KEY,
+    accessibility_type_id integer NOT NULL,
+    transfer_id integer NOT NULL
+);
+COMMENT ON TABLE transfer_accessibility IS 'Acccessibilite de l''objet.';
 
 CREATE TABLE transfer_not_exported (
     id serial PRIMARY KEY,
@@ -542,6 +579,23 @@ CREATE INDEX trip_route_id_calendar_idx ON trip USING btree (route_id) WHERE (tr
 CREATE INDEX trip_day_calendar_id_idx ON trip USING btree (day_calendar_id);
 CREATE INDEX trip_period_calendar_id_idx ON trip USING btree (period_calendar_id);
 
+CREATE TABLE trip_datasource (
+    id serial PRIMARY KEY,
+    trip_id integer NOT NULL,
+    datasource_id integer NOT NULL,
+    code character varying(20)
+);
+COMMENT ON TABLE trip_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
+CREATE INDEX trip_datasource_trip_id_idx ON trip_datasource USING btree (trip_id);
+CREATE INDEX trip_datasource_code_idx ON trip_datasource USING btree (code);
+
+CREATE TABLE trip_accessibility (
+    id serial PRIMARY KEY,
+    accessibility_type_id integer NOT NULL,
+    trip_id integer NOT NULL
+);
+COMMENT ON TABLE trip_accessibility IS 'Acccessibilite de l''objet.';
+
 CREATE TABLE trip_calendar (
     id serial PRIMARY KEY,
     grid_mask_type_id integer NOT NULL,
@@ -555,23 +609,21 @@ CREATE TABLE trip_calendar (
 );
 COMMENT ON TABLE trip_calendar IS 'Description des jours de circulation des services (trips) pour les fiches horaires. Table remplie par l''import Hastus FICHOR pour les lignes exploitees par Tisseo.';
 
-CREATE TABLE trip_datasource (
-    id serial PRIMARY KEY,
-    trip_id integer NOT NULL,
-    datasource_id integer NOT NULL,
-    code character varying(20)
-);
-COMMENT ON TABLE trip_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
-CREATE INDEX trip_datasource_trip_id_idx ON trip_datasource USING btree (trip_id);
-CREATE INDEX trip_datasource_code_idx ON trip_datasource USING btree (code);
-
 CREATE TABLE waypoint (
     id serial PRIMARY KEY
 );
 
-
 -- Creation des cles etrangeres
-
+ALTER TABLE ONLY poi_address_accessibility ADD CONSTRAINT poi_address_accessibility_accessibility_type_id_fk FOREIGN KEY (accessibility_type_id) REFERENCES accessibility_type(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY poi_address_accessibility ADD CONSTRAINT poi_address_accessibility_poi_address_id_fk FOREIGN KEY (poi_address_id) REFERENCES poi_address(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY stop_accessibility ADD CONSTRAINT stop_accessibility_accessibility_type_id_fk FOREIGN KEY (accessibility_type_id) REFERENCES accessibility_type(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY stop_accessibility ADD CONSTRAINT stop_accessibility_poi_address_id_fk FOREIGN KEY (stop_id) REFERENCES stop(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY trip_accessibility ADD CONSTRAINT trip_accessibility_accessibility_type_id_fk FOREIGN KEY (accessibility_type_id) REFERENCES accessibility_type(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY trip_accessibility ADD CONSTRAINT trip_accessibility_poi_address_id_fk FOREIGN KEY (trip_id) REFERENCES trip(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY transfer_accessibility ADD CONSTRAINT transfer_accessibility_accessibility_type_id_fk FOREIGN KEY (accessibility_type_id) REFERENCES accessibility_type(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY transfer_accessibility ADD CONSTRAINT transfer_accessibility_poi_address_id_fk FOREIGN KEY (transfer_id) REFERENCES transfer(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY accessibility_type ADD CONSTRAINT accessibility_type_accessibility_mode_id_fk FOREIGN KEY (accessibility_mode_id) REFERENCES accessibility_mode(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY accessibility_type ADD CONSTRAINT accessibility_type_calendar_id_fk FOREIGN KEY (calendar_id) REFERENCES calendar(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY route_datasource ADD CONSTRAINT route_datasource_datasource_id_fk FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY route_datasource ADD CONSTRAINT route_datasource_route_id_fk FOREIGN KEY (route_id) REFERENCES route(id) ON UPDATE RESTRICT ON DELETE CASCADE;
 ALTER TABLE ONLY stop_area ADD CONSTRAINT stop_area_city_id_fk FOREIGN KEY (city_id) REFERENCES city(id) ON UPDATE RESTRICT ON DELETE RESTRICT;

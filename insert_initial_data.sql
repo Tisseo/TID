@@ -1267,3 +1267,7 @@ INSERT INTO line_version_datasource (id, line_version_id, datasource_id, code) V
 INSERT INTO line_version_datasource (id, line_version_id, datasource_id, code) VALUES (108, 108, 3, 'amaier');
 INSERT INTO line_version_datasource (id, line_version_id, datasource_id, code) VALUES (109, 109, 3, 'amaier');
 SELECT pg_catalog.setval('line_version_datasource_id_seq', 110, true);
+
+INSERT INTO accessibility_mode (id, name) VALUES (1, 'UFR');
+INSERT INTO accessibility_mode (id, name) VALUES (2, 'Pietons');
+SELECT pg_catalog.setval('accessibility_mode_id_seq', 3, true);
