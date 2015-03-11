@@ -57,7 +57,7 @@ CREATE FUNCTION insertcalendar(_name character varying, _ccode character varying
 COMMENT ON FUNCTION insertcalendar (character varying, character varying, integer, calendar_type) IS 'insert record in tables calendar and calendar_datasource and return new calendar.id';
 
 
-CREATE FUNCTION insertcalendarelement(_calendar_id integer, _start_date date, _end_date date, _interval integer default NULL, _positive character varying default '+', _included_calendar_id integer default NULL) RETURNS integer 
+CREATE FUNCTION insertcalendarelement(_calendar_id integer, _start_date date, _end_date date, _interval integer default NULL, _positive calendar_operator default '+', _included_calendar_id integer default NULL) RETURNS integer 
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -67,7 +67,7 @@ CREATE FUNCTION insertcalendarelement(_calendar_id integer, _start_date date, _e
         RETURN _id;
     END;
     $$;
-COMMENT ON FUNCTION insertcalendarelement (integer, date, date, integer, character varying, integer) IS 'Insert record in table calendar_element and return new id';
+COMMENT ON FUNCTION insertcalendarelement (integer, date, date, integer, calendar_operator, integer) IS 'Insert record in table calendar_element and return new id';
 
 
 CREATE FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer,  _positive calendar_operator default '+') RETURNS void
@@ -199,12 +199,14 @@ CREATE FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode char
     $$;
 COMMENT ON FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode character varying, _scode character varying, _related_scode character varying, _lvid integer, _rank integer, _scheduled boolean, _hour integer, _is_first boolean, _is_last boolean) IS 'Insertion dune nouvelle entrée dans route_stop si elle nexiste pas déjà. Insertion dune nouvelle entrée stop_time. Dans le cas dinsertion dun route_stop, certaines valeurs changent en fonction du rang du route_stop dans litinéraire. Chaque route_stop est rattaché à une route_section sauf le dernier (doublon avec lavant dernier sinon). Les booléens pickup/dropoff prennent également des valeur différentes selon le rang du route_stop.';
 
-CREATE FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer, _srid integer default 27572) RETURNS void
+CREATE FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer, _code character varying, _insee character varying, _datasource integer, _srid integer default 27572) RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
         _stop_id integer;
         _stop_area_id integer;
+		_accessibility_type_id integer;
+		_calendar_id integer;
         _the_geom pgis.geometry(Point, 3943);
         _temp_geom character varying;
     BEGIN
@@ -218,11 +220,13 @@ CREATE FUNCTION insertstop(_date date, _name character varying, _x character var
             INSERT INTO waypoint(id) VALUES (nextval('waypoint_id_seq')) RETURNING waypoint.id INTO _stop_id;
             INSERT INTO stop(id, stop_area_id) VALUES (_stop_id, _stop_area_id);
             INSERT INTO stop_datasource(stop_id, datasource_id, code) VALUES (_stop_id, _datasource, _code);
-            INSERT INTO stop_history(stop_id, start_date, short_name, the_geom, accessibility) VALUES (_stop_id, _date, _name, _the_geom, _access);
+            INSERT INTO stop_history(stop_id, start_date, short_name, the_geom) VALUES (_stop_id, _date, _name, _the_geom);
+			
+			PERFORM setstopaccessibility(_stop_id, _access, _accessibility_mode_id, _code, _datasource);			
         END IF;
     END;
     $$;
-COMMENT ON FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _code character varying, _insee character varying, _datasource integer, _srid integer) IS 'Insertion de 4 nouvelles entrées : un waypoint et un stop qui possèderont le même ID, puis les stop_datasource et stop_history associés au nouveau stop. La géométrie du stop_history est construite depuis des valeurs x/y passées en paramètre. Ces valeurs sont issues dun SRID 27572 (sortie HASTUS) et la géométrie finale est passée en SRID 3943.';
+COMMENT ON FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer, _code character varying, _insee character varying, _datasource integer, _srid integer) IS 'Insertion de 4 nouvelles entrées : un waypoint et un stop qui possèderont le même ID, puis les stop_datasource et stop_history associés au nouveau stop. La géométrie du stop_history est construite depuis des valeurs x/y passées en paramètre. Ces valeurs sont issues dun SRID 27572 (sortie HASTUS) et la géométrie finale est passée en SRID 3943.';
 
 
 CREATE FUNCTION insertstoparea(_city_id integer, _name character varying, _datasource integer) RETURNS void
@@ -277,7 +281,9 @@ CREATE FUNCTION updatestop(_stop_history_id integer, _date date, _name character
         _temp_geom := 'POINT(' || _x || ' ' || _y || ')';
         _the_geom := pgis.ST_Transform(pgis.ST_GeomFromText(_temp_geom, 27572), 3943);
         UPDATE stop_history SET end_date = _date - interval '1 day' WHERE id = _stop_history_id RETURNING stop_id INTO _stop_id;
-        INSERT INTO stop_history(stop_id, start_date, short_name, the_geom, accessibility) VALUES (_stop_id, _date, _name, _the_geom, _access);
+        INSERT INTO stop_history(stop_id, start_date, short_name, the_geom) VALUES (_stop_id, _date, _name, _the_geom);
+		
+		-- si master_stop_id est null, update l'accessibilite
     END;
     $$;
 COMMENT ON FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean) IS 'La mise à jour dun stop est historisée. Cela implique la fermeture de la version courante dun stop_history en appliquant une date au champ end_date puis en la création de son successeur avec un champ end_date vide.';
@@ -301,9 +307,88 @@ CREATE FUNCTION insertlineversion(_line_id integer, _version integer, _start_dat
     DECLARE
         _line_version_id integer;
     BEGIN
+		UPDATE line_version SET end_date = current_date WHERE end_date IS NULL AND line_id = _line_id;
         INSERT INTO line_version (line_id, version, start_date, end_date, planned_end_date, child_line_id, name, forward_direction, backward_direction, bg_color, bg_hexa_color, fg_color, fg_hexa_color, carto_file, accessibility, air_conditioned, certified, comment, depot) VALUES (_line_id, _version, _start_date, _end_date, _planned_end_date, _child_line_id, _name, _forward_direction, _backward_direction, _bg_color, _bg_hexa_color, _fg_color, _fg_hexa_color, _carto_file, _accessibility, _air_conditioned, _certified, _comment, _depot) RETURNING line_version.id INTO _line_version_id;
         INSERT INTO line_version_datasource (line_version_id, datasource_id, code) VALUES (_line_version_id, _datasource, _code);
         RETURN _line_version_id;
     END;
     $$ LANGUAGE 'plpgsql';
 COMMENT ON FUNCTION insertlineversion (integer, integer, date, date, date, integer, character varying, character varying, character varying, character varying, character varying, character varying, character varying, text, boolean, boolean, boolean, text, character varying, integer, character varying) IS 'Insert record in tables line_version and line_version_datasource and return the new line_version.id';
+
+
+CREATE FUNCTION setstopaccessibility(_stop_id integer, _access boolean, _accessibility_mode_id integer, _code character varying, _datasource integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        _calendar_id integer;
+    BEGIN			
+		SELECT calendar_id INTO _calendar_id
+		FROM accessibility_type a
+		JOIN stop_accessibility s ON s.accessibility_type_id = a.id
+		WHERE a.accessibility_mode_id = _accessibility_mode_id
+		AND s.stop_id = _stop_id;
+		
+		IF _access THEN
+			IF _calendar_id IS NOT NULL THEN
+				UPDATE calendar_element
+				SET end_date = current_date
+				WHERE calendar_id = _calendar_id;			
+			END IF;
+		ELSE
+			IF _calendar_id IS NOT NULL THEN
+				UPDATE calendar_element
+				SET start_date = current_date,
+						end_date = date '2999-12-31'
+				WHERE calendar_id = _calendar_id;
+			ELSE
+				SELECT insertcalendar('Access_'|| _accessibility_mode_id, _code, _datasource, 'accessibilite')  INTO _calendar_id;
+				PERFORM insertcalendarelement(_calendar_id, current_date, date '2999-12-31');
+				INSERT INTO accessibility_type(accessibility_mode_id, calendar_id) VALUES (_accessibility_mode_id, currval('calendar_id_seq'));
+				INSERT INTO stop_accessibility(accessibility_type_id, stop_id) VALUES (currval('accessibility_type_id_seq'), _stop_id);			
+			END IF;
+		END IF;
+    END;
+    $$;
+COMMENT ON FUNCTION setstopaccessibility(_stop_id integer, _access boolean, _accessibility_mode_id integer, _code character varying, _datasource integer) IS 'Insert or update access(_access)  for an accessibility mode(_accessibility_mode_id) for the selected stop(_stop_id) and return the new stop_accessibility.id. _code is used,  if necessary, for the associated calendar.name ';
+
+
+CREATE FUNCTION stopisaccessible(_stop_id integer, _accessibility_mode_id integer, _date date default null)
+    RETURNS boolean AS $$
+    DECLARE
+        _calendar_id integer;
+		_calendar_element_id integer;
+		_accessibility_date date;
+		_result boolean;
+    BEGIN
+		IF _date IS NULL THEN
+			_accessibility_date := current_date;
+		ELSE
+			_accessibility_date := _date;		
+		END IF;
+		SELECT calendar_id INTO _calendar_id
+		FROM accessibility_type a
+		JOIN stop_accessibility s ON s.accessibility_type_id = a.id
+		WHERE a.accessibility_mode_id = _accessibility_mode_id
+		AND s.stop_id = _stop_id;
+		
+		_result := true;
+		IF _calendar_id IS NOT NULL THEN
+			SELECT id INTO _calendar_element_id
+			FROM calendar_element
+			WHERE calendar_id = _calendar_id
+			AND (start_date > _accessibility_date 
+			OR end_date <= _accessibility_date);
+			
+			IF _calendar_element_id IS NULL THEN
+				-- calendar element exists but not for this where clause
+				_result := false;
+			ELSE
+				_result := true;
+			END IF;
+		END IF;
+
+		RETURN _result;
+    END;
+    $$ LANGUAGE 'plpgsql';
+COMMENT ON FUNCTION stopisaccessible(_stop_id integer, _accessibility_mode_id integer, _date date) IS 'return true if _stop_id is accessible. Function tests next day accessibility';
+
