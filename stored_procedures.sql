@@ -222,7 +222,7 @@ CREATE FUNCTION insertstop(_date date, _name character varying, _x character var
             INSERT INTO stop_datasource(stop_id, datasource_id, code) VALUES (_stop_id, _datasource, _code);
             INSERT INTO stop_history(stop_id, start_date, short_name, the_geom) VALUES (_stop_id, _date, _name, _the_geom);
 			
-			PERFORM setstopaccessibility(_stop_id, _access, _accessibility_mode_id, _code, _datasource);			
+			PERFORM setstopaccessibility(_stop_id, _access, _accessibility_mode_id, _code, _datasource);
         END IF;
     END;
     $$;
@@ -270,13 +270,15 @@ CREATE FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer,
 COMMENT ON FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date, _route_section_id integer, _end_date date) IS 'La mise à jour dune route_section est historisée. Cela implique la fermeture dune route_section (champ end_date prend une valeur) et la création de sa successeur avec un champ end_date vide.';
 
 
-CREATE FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean) RETURNS void
+CREATE FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer,  _datasource integer) RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
         _stop_id integer;
         _temp_geom character varying;
         _the_geom pgis.geometry(Point, 3943);
+		_master_stop_id integer;
+		_code character varying;
     BEGIN
         _temp_geom := 'POINT(' || _x || ' ' || _y || ')';
         _the_geom := pgis.ST_Transform(pgis.ST_GeomFromText(_temp_geom, 27572), 3943);
@@ -284,9 +286,18 @@ CREATE FUNCTION updatestop(_stop_history_id integer, _date date, _name character
         INSERT INTO stop_history(stop_id, start_date, short_name, the_geom) VALUES (_stop_id, _date, _name, _the_geom);
 		
 		-- si master_stop_id est null, update l'accessibilite
+		SELECT master_stop_id INTO _master_stop_id FROM stop WHERE id = _stop_id;
+		IF _master_stop_id IS NULL THEN
+			SELECT code INTO _code FROM stop_datasource
+			WHERE datasource_id = _datasource
+			AND stop_id = _stop_id;
+			IF _code IS NOT NULL THEN		
+				PERFORM setstopaccessibility(_stop_id, _access, _accessibility_mode_id, _code, _datasource);
+			END IF;
+		END IF;
     END;
     $$;
-COMMENT ON FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean) IS 'La mise à jour dun stop est historisée. Cela implique la fermeture de la version courante dun stop_history en appliquant une date au champ end_date puis en la création de son successeur avec un champ end_date vide.';
+COMMENT ON FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer,  _datasource integer) IS 'La mise à jour dun stop est historisée. Cela implique la fermeture de la version courante dun stop_history en appliquant une date au champ end_date puis en la création de son successeur avec un champ end_date vide.';
 
 
 CREATE FUNCTION insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer, _priority integer default 0)
