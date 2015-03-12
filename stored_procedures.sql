@@ -327,48 +327,67 @@ CREATE FUNCTION insertlineversion(_line_id integer, _version integer, _start_dat
 COMMENT ON FUNCTION insertlineversion (integer, integer, date, date, date, integer, character varying, character varying, character varying, character varying, character varying, character varying, character varying, text, boolean, boolean, boolean, text, character varying, integer, character varying) IS 'Insert record in tables line_version and line_version_datasource and return the new line_version.id';
 
 
-CREATE FUNCTION setstopaccessibility(_stop_id integer, _access boolean, _accessibility_mode_id integer, _code character varying, _datasource integer) RETURNS void
+CREATE FUNCTION setstopaccessibility(_stop_id integer, _access boolean, _accessibility_mode_id integer, _code character varying, _datasource integer, _date date default null) RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
+		_accessibility_date date;
         _calendar_id integer;
+		_calendar_element_id integer;
     BEGIN			
+		IF _date IS NULL THEN
+			_accessibility_date := current_date;
+		ELSE
+			_accessibility_date := _date;		
+		END IF;
+
+		-- inaccessibility calendar for the selected stop ?
 		SELECT calendar_id INTO _calendar_id
 		FROM accessibility_type a
 		JOIN stop_accessibility s ON s.accessibility_type_id = a.id
-		WHERE a.accessibility_mode_id = _accessibility_mode_id
+		WHERE a.accessibility_mode_id = _accessibility_mode_id		
 		AND s.stop_id = _stop_id;
 		
+		IF _calendar_id IS NOT NULL THEN
+			-- inaccessibility for current date ?
+			SELECT id INTO _calendar_element_id
+			FROM calendar_element
+			WHERE calendar_id = _calendar_id
+			AND start_date <= _accessibility_date
+			AND end_date > _accessibility_date;
+		END IF;		
+		
 		IF _access THEN
-			IF _calendar_id IS NOT NULL THEN
+			IF _calendar_element_id IS NOT NULL THEN
+				-- close inaccessibility for the current date 
 				UPDATE calendar_element
-				SET end_date = current_date
-				WHERE calendar_id = _calendar_id;			
+				SET end_date = _accessibility_date
+				WHERE id = _calendar_element_id;			
 			END IF;
 		ELSE
 			IF _calendar_id IS NOT NULL THEN
-				UPDATE calendar_element
-				SET start_date = current_date,
-						end_date = date '2999-12-31'
-				WHERE calendar_id = _calendar_id;
+				IF  _calendar_element_id IS NULL THEN
+					PERFORM insertcalendarelement(_calendar_id, _accessibility_date, date '2999-12-31');
+				END IF;
 			ELSE
 				SELECT insertcalendar('Access_'|| _accessibility_mode_id, _code, _datasource, 'accessibilite')  INTO _calendar_id;
-				PERFORM insertcalendarelement(_calendar_id, current_date, date '2999-12-31');
+				PERFORM insertcalendarelement(_calendar_id, _accessibility_date, date '2999-12-31');
 				INSERT INTO accessibility_type(accessibility_mode_id, calendar_id) VALUES (_accessibility_mode_id, currval('calendar_id_seq'));
 				INSERT INTO stop_accessibility(accessibility_type_id, stop_id) VALUES (currval('accessibility_type_id_seq'), _stop_id);			
 			END IF;
 		END IF;
     END;
     $$;
-COMMENT ON FUNCTION setstopaccessibility(_stop_id integer, _access boolean, _accessibility_mode_id integer, _code character varying, _datasource integer) IS 'Insert or update access(_access)  for an accessibility mode(_accessibility_mode_id) for the selected stop(_stop_id) and return the new stop_accessibility.id. _code is used,  if necessary, for the associated calendar.name ';
+COMMENT ON FUNCTION setstopaccessibility(_stop_id integer, _access boolean, _accessibility_mode_id integer, _code character varying, _datasource integer, _date date) IS 'Insert or update access(_access)  for an accessibility mode(_accessibility_mode_id) for the selected stop(_stop_id) and return the new stop_accessibility.id. _code is used,  if necessary, for the associated calendar.name ';
 
 
 CREATE FUNCTION stopisaccessible(_stop_id integer, _accessibility_mode_id integer, _date date default null)
     RETURNS boolean AS $$
     DECLARE
-        _calendar_id integer;
-		_calendar_element_id integer;
 		_accessibility_date date;
+        _master_stop_id integer;
+		_calendar_id integer;
+		_calendar_element_id integer;
 		_result boolean;
     BEGIN
 		IF _date IS NULL THEN
@@ -376,6 +395,14 @@ CREATE FUNCTION stopisaccessible(_stop_id integer, _accessibility_mode_id intege
 		ELSE
 			_accessibility_date := _date;		
 		END IF;
+	
+		-- phantom stop case => master_stop_id holds accessibility
+		SELECT master_stop_id INTO _master_stop_id FROM stop WHERE id = _stop_id;
+		IF _master_stop_id IS NOT NULL THEN
+			SELECT stopisaccessible(_master_stop_id, _accessibility_mode_id, _date)  INTO _result;
+			RETURN _result;
+		END IF;
+			
 		SELECT calendar_id INTO _calendar_id
 		FROM accessibility_type a
 		JOIN stop_accessibility s ON s.accessibility_type_id = a.id
@@ -384,6 +411,7 @@ CREATE FUNCTION stopisaccessible(_stop_id integer, _accessibility_mode_id intege
 		
 		_result := true;
 		IF _calendar_id IS NOT NULL THEN
+			-- many calendar_elements ?
 			SELECT id INTO _calendar_element_id
 			FROM calendar_element
 			WHERE calendar_id = _calendar_id
