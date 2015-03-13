@@ -145,6 +145,23 @@ COMMENT ON TABLE comment IS 'Note sur un itineraire (route) ou un service (trip)
 COMMENT ON COLUMN comment.label IS 'Lettre servant a signer le commentaire.';
 COMMENT ON COLUMN comment.comment_text IS 'Description textuelle du commentaire.';
 
+CREATE TABLE color (
+    id serial PRIMARY KEY,
+    name character varying(255) NOT NULL,
+    html character varying(7) NOT NULL,
+    pantone_oc character varying(100),
+    hoxis character varying(100),
+    cmyk_cyan integer NOT NULL,
+    cmyk_magenta integer NOT NULL,
+    cmyk_yellow integer NOT NULL,
+    cmyk_black integer NOT NULL,
+    rgb_red integer NOT NULL,
+    rgb_green integer NOT NULL,
+    rgb_blue integer NOT NULL
+);
+COMMENT ON TABLE color IS 'Référentiel des couleurs de lignes.';
+COMMENT ON COLUMN color.html IS 'Comprend le caractère # au debut.';
+
 CREATE TABLE datasource (
     id serial PRIMARY KEY,
     name character varying(30) NOT NULL,
@@ -242,10 +259,8 @@ CREATE TABLE line_version (
     name character varying(255) NOT NULL,
     forward_direction character varying(255) NOT NULL,
     backward_direction character varying(255) NOT NULL,
-    bg_color character varying(20) DEFAULT 'blanc' NOT NULL ,
-    bg_hexa_color character varying(7) DEFAULT '#FFFFFF' NOT NULL,
-    fg_color character varying(20) DEFAULT 'noir' NOT NULL,
-    fg_hexa_color character varying(7) DEFAULT '#000000' NOT NULL,
+    bg_color_id integer NOT NULL,
+    fg_color_id integer NOT NULL,
     carto_file text,
     accessibility boolean ,
     air_conditioned boolean,
@@ -614,6 +629,8 @@ CREATE TABLE waypoint (
 );
 
 -- Creation des cles etrangeres
+ALTER TABLE ONLY line_version ADD CONSTRAINT line_version_bg_color_id_fk FOREIGN KEY (bg_color_id) REFERENCES color(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY line_version ADD CONSTRAINT line_version_fg_color_id_fk FOREIGN KEY (fg_color_id) REFERENCES color(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY poi_address_accessibility ADD CONSTRAINT poi_address_accessibility_accessibility_type_id_fk FOREIGN KEY (accessibility_type_id) REFERENCES accessibility_type(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY poi_address_accessibility ADD CONSTRAINT poi_address_accessibility_poi_address_id_fk FOREIGN KEY (poi_address_id) REFERENCES poi_address(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY stop_accessibility ADD CONSTRAINT stop_accessibility_accessibility_type_id_fk FOREIGN KEY (accessibility_type_id) REFERENCES accessibility_type(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
