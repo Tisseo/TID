@@ -284,7 +284,6 @@ CREATE TABLE modification (
     id serial PRIMARY KEY,
     description character varying(255),
     user_tid character varying(255),
-    modification_id integer,
     line_version_id integer,
     date date NOT NULL,
     resolved_in integer
