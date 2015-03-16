@@ -537,7 +537,7 @@ CREATE TABLE transfer (
     duration integer NOT NULL,
     distance integer,
 	long_name character varying(255),
-    the_geom geometry(Point,3943),
+    the_geom geometry(Point,3943)
 );
 COMMENT ON TABLE transfer IS 'Correspondance entre deux arrets.';
 COMMENT ON COLUMN transfer.duration IS 'Temps de transfert en secondes.';
