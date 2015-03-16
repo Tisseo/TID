@@ -103,28 +103,6 @@ COMMENT ON COLUMN calendar_element."interval" IS 'intervalle de repetition en ca
 COMMENT ON COLUMN calendar_element.included_calendar_id IS 'id du calendrier inclus';
 CREATE INDEX calendar_element_calendar_id_idx ON calendar_element USING btree (calendar_id);
 
-CREATE TABLE modification (
-    id serial PRIMARY KEY,
-    description character varying(255)
-);
-COMMENT ON TABLE modification IS 'Modification sur une line_version, soit initialisation soit en cours d exploitation.';
-
-CREATE TABLE modification_link (
-    id serial PRIMARY KEY,
-    modification_id integer,
-    line_version_id integer,
-    date date NOT NULL,
-    resolved_in integer
-);
-COMMENT ON TABLE modification_link IS 'Lien entre les modification de line_version et la line_version.';
-COMMENT ON COLUMN modification_link.date IS 'Date de la prise d effet de la modification.';
-COMMENT ON COLUMN modification_link.resolved_in IS 'Id de line_version ou cette modification a ete prise en compte. Si la modification n a jamais ete prise en compte, id de line_version durant laquelle le changement a ete releve.';
-COMMENT ON COLUMN modification_link.line_version_id IS 'Id de line_version durant laquelle le changement a ete releve.';
-CREATE INDEX modification_link_line_version_id_idx ON modification_link USING btree (line_version_id);
-CREATE INDEX modification_link_modification_id_idx ON modification_link USING btree (modification_id);
-CREATE INDEX modification_link_resolved_idx ON modification_link USING btree (resolved_in);
-
-
 CREATE TABLE city (
     id serial PRIMARY KEY,
     insee character varying(5) NOT NULL,
@@ -301,6 +279,22 @@ CREATE TABLE log (
     "user" character varying(30) NOT NULL
 );
 COMMENT ON TABLE log IS 'Trace de toutes les operations sur la base.';
+
+CREATE TABLE modification (
+    id serial PRIMARY KEY,
+    description character varying(255),
+    user_tid character varying(255),
+    modification_id integer,
+    line_version_id integer,
+    date date NOT NULL,
+    resolved_in integer
+);
+COMMENT ON TABLE modification IS 'Modification sur une line_version, soit initialisation soit en cours d exploitation.';
+COMMENT ON COLUMN modification.date IS 'Date de la prise d effet de la modification.';
+COMMENT ON COLUMN modification.resolved_in IS 'Id de line_version ou cette modification a ete prise en compte. Si la modification n a jamais ete prise en compte, id de line_version durant laquelle le changement a ete releve.';
+COMMENT ON COLUMN modification.line_version_id IS 'Id de line_version durant laquelle le changement a ete releve.';
+CREATE INDEX modification_line_version_id_idx ON modification USING btree (line_version_id);
+CREATE INDEX modification_resolved_idx ON modification USING btree (resolved_in);
 
 CREATE TABLE non_concurrency (
     priority_line_id integer NOT NULL,
@@ -700,9 +694,8 @@ ALTER TABLE ONLY grid_link_calendar_mask_type ADD CONSTRAINT grid_link_calendar_
 ALTER TABLE ONLY grid_calendar ADD CONSTRAINT grid_calendar_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY datasource ADD CONSTRAINT datasource_id_agency_fk FOREIGN KEY (agency_id) REFERENCES agency(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY city ADD CONSTRAINT city_main_stop_area_id_fk FOREIGN KEY (main_stop_area_id) REFERENCES stop_area(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY modification_link ADD CONSTRAINT modification_link_modification_id_fk FOREIGN KEY (modification_id) REFERENCES modification(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY modification_link ADD CONSTRAINT modification_link_resolved_in_fk FOREIGN KEY (resolved_in) REFERENCES modification(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY modification_link ADD CONSTRAINT modification_link_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY modification ADD CONSTRAINT modification_link_resolved_in_fk FOREIGN KEY (resolved_in) REFERENCES modification(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY modification ADD CONSTRAINT modification_link_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY trip ADD CONSTRAINT trip_day_calendar_id_fk FOREIGN KEY (day_calendar_id) REFERENCES calendar(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY trip ADD CONSTRAINT trip_period_calendar_id_fk FOREIGN KEY (period_calendar_id) REFERENCES calendar(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY calendar_element ADD CONSTRAINT calendar_element_calendar_id_fk FOREIGN KEY (calendar_id) REFERENCES calendar(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
