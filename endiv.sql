@@ -283,7 +283,7 @@ COMMENT ON TABLE log IS 'Trace de toutes les operations sur la base.';
 CREATE TABLE modification (
     id serial PRIMARY KEY,
     description character varying(255),
-    user_tid character varying(255),
+    author character varying(255),
     line_version_id integer,
     date date NOT NULL,
     resolved_in integer
