@@ -74,9 +74,13 @@ CREATE TABLE calendar (
     id serial PRIMARY KEY,
     name character varying(50) NOT NULL,
     "calendar_type" calendar_type,
-    line_version_id integer
+    line_version_id integer,
+	computed_start_date date,
+	computed_end_date date
 );
 COMMENT ON TABLE calendar IS 'Le calendrier d''application des services en production. Il est lui-meme compose de calendar_element.';
+COMMENT ON COLUMN calendar.computed_start_date IS 'Propriete calculee correspondant a la date de debut d''application du calendrier ';
+COMMENT ON COLUMN calendar.computed_end_date IS 'Propriete calculee correspondant a la date de fin d''application du calendrier';
 CREATE INDEX calendar_line_version_id_idx ON calendar USING btree (line_version_id);
 
 CREATE TABLE calendar_datasource (
