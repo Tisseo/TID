@@ -94,9 +94,10 @@ COMMENT ON TABLE calendar_datasource IS 'Reference de l''objet dans le referenti
 CREATE TABLE calendar_element (
     id serial PRIMARY KEY,
     calendar_id integer NOT NULL,
+    rank integer NOT NULL,
     start_date date,
     end_date date,
-    positive calendar_operator NOT NULL,
+    operator calendar_operator NOT NULL,
     "interval" integer,
     included_calendar_id integer,
     CHECK (start_date <= end_date)
