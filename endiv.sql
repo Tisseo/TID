@@ -103,7 +103,7 @@ CREATE TABLE calendar_element (
     CHECK (start_date <= end_date)
 );
 COMMENT ON TABLE calendar_element IS 'Element composant le calendrier. Il a comme champs les bornes, l''agencement avec d''autres calendar-element, un intervalle de repetition en cas de calendrier recurrent (lundi), et peut inclure un calendrier.';
-COMMENT ON COLUMN calendar_element.positive IS 'agencement des calendar_element d''un meme calendrier : ajout, soustraction, intersection avec les precedents';
+COMMENT ON COLUMN calendar_element.operator IS 'agencement des calendar_element d''un meme calendrier : ajout, soustraction, intersection avec les precedents';
 COMMENT ON COLUMN calendar_element."interval" IS 'intervalle de repetition en cas de calendrier recurrent (lundi)';
 COMMENT ON COLUMN calendar_element.included_calendar_id IS 'id du calendrier inclus';
 CREATE INDEX calendar_element_calendar_id_idx ON calendar_element USING btree (calendar_id);
