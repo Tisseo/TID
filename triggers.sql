@@ -27,14 +27,14 @@ CREATE FUNCTION add_exceptions() RETURNS TRIGGER
                 -- check the exception_type exists: no: create automatic comment | yes: create a comment with exception_type attributes
                 SELECT * FROM exception_type WHERE grid_calendar_pattern = _gc_pattern AND trip_calendar_pattern = _tc_pattern INTO _exception_type;
                 IF _exception_type IS NULL THEN
-                    UPDATE trip SET comment_id = _auto_comment_id FROM trip AS t JOIN route AS r ON r.id = t.route_id JOIN trip_calendar AS tc ON tc.id = t.trip_calendar_id WHERE r.line_version_id = _line_version_id AND tc.id = _trip_calendar_id;
+                    UPDATE trip SET comment_id = _auto_comment_id WHERE id IN (SELECT t.id FROM trip AS t JOIN route AS r ON r.id = t.route_id JOIN trip_calendar AS tc ON tc.id = t.trip_calendar_id WHERE r.line_version_id = _line_version_id AND t.trip_calendar_id = _trip_calendar_id);
                 ELSE
                     -- Check comment associated to exception_type already exists, if it doesn't create it
                     SELECT c.id FROM comment c WHERE c.comment_text = _exception_type.comment_text AND c.label = _exception_type.label INTO _comment_id;
                     IF _comment_id IS NULL THEN
                         INSERT INTO comment(label, comment_text) VALUES(_exception_type.label, _exception_type.comment_text) RETURNING id INTO _comment_id;
                     END IF;
-                    UPDATE trip SET comment_id = _comment_id FROM trip AS t JOIN route AS r ON r.id = t.route_id JOIN trip_calendar AS tc ON tc.id = t.trip_calendar_id WHERE r.line_version_id = _line_version_id AND tc.id = _trip_calendar_id;
+                    UPDATE trip SET comment_id = _comment_id WHERE id IN (SELECT t.id FROM trip AS t JOIN route AS r ON r.id = t.route_id JOIN trip_calendar AS tc ON tc.id = t.trip_calendar_id WHERE r.line_version_id = _line_version_id AND tc.id = _trip_calendar_id);
                 END IF; 
             END IF;
        END LOOP;
@@ -45,3 +45,19 @@ COMMENT ON FUNCTION add_exceptions() IS 'Detect exceptions and insert comments i
 
 CREATE TRIGGER add_exceptions AFTER INSERT ON grid_link_calendar_mask_type
 FOR EACH ROW EXECUTE PROCEDURE add_exceptions();
+
+CREATE FUNCTION delete_exceptions() RETURNS TRIGGER
+    LANGUAGE plpgsql
+    AS $$
+    BEGIN
+        -- Detach related trips from their comments (using grid_calendar_id and grid_mask_type_id)
+        UPDATE trip SET comment_id = NULL WHERE id IN (SELECT t.id FROM trip AS t JOIN route AS r ON r.id = t.route_id JOIN trip_calendar AS tc ON tc.id = t.trip_calendar_id JOIN grid_mask_type AS gmt ON gmt.id = tc.grid_mask_type_id JOIN line_version AS lv ON lv.id = r.line_version_id JOIN grid_calendar AS gc ON gc.line_version_id = lv.id WHERE gmt.id = OLD.grid_mask_type_id AND gc.id = OLD.grid_calendar_id);
+        -- Delete unused comments
+        DELETE FROM comment WHERE id NOT IN (SELECT distinct(comment_id) FROM route) AND id NOT IN (SELECT distinct(comment_id) FROM trip);
+        RETURN OLD;
+    END;
+    $$;
+COMMENT ON FUNCTION delete_exceptions() IS 'Detach commented trips related to the deleted glcmt because there is no more exception needed.';
+
+CREATE TRIGGER delete_exceptions BEFORE DELETE ON grid_link_calendar_mask_type
+FOR EACH ROW EXECUTE PROCEDURE delete_exceptions();
