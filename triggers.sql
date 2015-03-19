@@ -53,7 +53,7 @@ CREATE FUNCTION delete_exceptions() RETURNS TRIGGER
         -- Detach related trips from their comments (using grid_calendar_id and grid_mask_type_id)
         UPDATE trip SET comment_id = NULL WHERE id IN (SELECT t.id FROM trip AS t JOIN route AS r ON r.id = t.route_id JOIN trip_calendar AS tc ON tc.id = t.trip_calendar_id JOIN grid_mask_type AS gmt ON gmt.id = tc.grid_mask_type_id JOIN line_version AS lv ON lv.id = r.line_version_id JOIN grid_calendar AS gc ON gc.line_version_id = lv.id WHERE gmt.id = OLD.grid_mask_type_id AND gc.id = OLD.grid_calendar_id);
         -- Delete unused comments
-        DELETE FROM comment WHERE id NOT IN (SELECT distinct(comment_id) FROM route) AND id NOT IN (SELECT distinct(comment_id) FROM trip);
+        DELETE FROM comment WHERE id NOT IN (SELECT distinct(comment_id) FROM route WHERE comment_id IS NOT NULL) AND id NOT IN (SELECT distinct(comment_id) FROM trip WHERE comment_id IS NOT NULL);
         RETURN OLD;
     END;
     $$;
