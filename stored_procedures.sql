@@ -1,4 +1,4 @@
-SET statement_timeout = 0;
+﻿SET statement_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SET check_function_bodies = false;
@@ -57,20 +57,282 @@ CREATE FUNCTION insertcalendar(_name character varying, _ccode character varying
 COMMENT ON FUNCTION insertcalendar (character varying, character varying, integer, calendar_type) IS 'insert record in tables calendar and calendar_datasource and return new calendar.id';
 
 
-CREATE FUNCTION insertcalendarelement(_calendar_id integer, _start_date date, _end_date date, _interval integer default NULL, _operator calendar_operator default '+', _included_calendar_id integer default NULL) RETURNS integer 
+
+CREATE TYPE date_pair AS (start_date date, end_date date);
+
+-- _start_date, _end_date could be NULL (if no applicable dates)
+-- previous_bounds could be also a NULL pair
+CREATE FUNCTION atomicdatecomputation (_start_date date, _end_date date, _rank integer, _operator calendar_operator, previous_bounds date_pair) RETURNS date_pair
+	LANGUAGE plpgsql
+	AS $$
+	DECLARE
+		_computed_date_pair date_pair;
+	BEGIN
+		CASE _operator
+			WHEN "+" THEN -- Date muse be added
+				IF _start_date IS NULL THEN
+					-- We assume that if _start_date is NULL _end_date is also NULL
+					_computed_date_pair := previous_bounds;
+				ELSE
+					IF previous_bounds.start_date IS NULL THEN
+						_computed_date_pair.start_date := _start_date;
+						_computed_date_pair.end_date := _end_date;
+					ELSE
+						IF _start_date < previous_bounds.start_date
+							_computed_date_pair.start_date := _start_date
+						ELSE
+							_computed_date_pair.start_date := previous_bounds.start_date
+						END IF;						 
+						IF _end_date > previous_bounds.end_date
+							_computed_date_pair.end_date := _end_date
+						ELSE
+							_computed_date_pair.end_date := previous_bounds.end_date
+						END IF;
+					END IF;
+				END IF;
+			WHEN "&" THEN -- Must calculate union
+				IF _start_date IS NULL THEN
+					-- We assume that if _start_date is NULL _end_date is also NULL
+					_computed_date_pair.start_date := NULL;
+					_computed_date_pair.end_date := NULL;
+				ELSE
+					IF previous_bounds.start_date IS NULL THEN
+						_computed_date_pair.start_date := NULL;
+						_computed_date_pair.end_date := NULL;
+					ELSE
+						IF _start_date > previous_bounds.start_date
+							_computed_date_pair.start_date := _start_date
+						ELSE
+							_computed_date_pair.start_date := previous_bounds.start_date
+						END IF;						 
+						IF _end_date < previous_bounds.end_date
+							_computed_date_pair.end_date := _end_date
+						ELSE
+							_computed_date_pair.end_date := previous_bounds.end_date
+						END IF;
+						-- Check if intersect two distinct calendars
+						IF _computed_date_pair.start_date > _computed_date_pair.end_date THEN
+							_computed_date_pair.start_date := NULL;
+							_computed_date_pair.end_date := NULL;							
+						END IF;
+					END IF;
+				END IF;			
+			WHEN "-" THEN -- Date must be subs
+				IF _start_date IS NULL OR previous_bounds.start_date IS NULL THEN
+					-- Substract something NULL don't change object
+					-- Substract something to a NULL object left him NULL
+					_computed_date_pair := previous_bounds;
+				ELSE
+					IF _start_date <= previous_bounds.start_date
+						_computed_date_pair.start_date := _end_date
+					ELSE
+						_computed_date_pair.start_date := previous_bounds.start_date
+					END IF;						 
+					IF _end_date >= previous_bounds.end_date
+						_computed_date_pair.end_date := _start_date
+					ELSE
+						_computed_date_pair.end_date := previous_bounds.end_date
+					END IF;
+					-- If operation result is negative set it to NULL
+					IF _computed_date_pair.start_date > _computed_date_pair.end_date THEN
+						_computed_date_pair.start_date := NULL;
+						_computed_date_pair.end_date := NULL;							
+					END IF;
+				END IF;
+		END CASE;
+		RETURN _computed_date_pair;
+	END;
+	$$;
+COMMENT ON FUNCTION atomicdatecomputation (_start_date date, date, integer, calendar_operator, date_pair) IS 'Apply "operator" operation (with calendar element args) on a previous start/end couple. Result could be a pair of null if no date intersect or empty calendar';
+	
+
+-- If rank is null, we are in a calendar element deletion case
+CREATE FUNCTION computecalendarsstartend (_calendar_id integer, _start_date date, _end_date date, _rank integer, _operator calendar_operator) RETURNS date_pair 
+	LANGUAGE plpgsql
+	AS $$
+	DECLARE
+		_cal record;
+		_computed_date_pair date_pair;
+		_cal_elt_rank_found boolean;
+		_cal_elt_number integer;
+	BEGIN
+		RAISE DEBUG 'Calculate calendar %', _calendar_id;
+		_cal_elt_rank_found := FALSE;
+		_cal_elt_number := 0;
+		BEGIN
+			-- If there is not any calendar element in this calendar then we don't go in the loop.
+			FOR _cal IN 
+				SELECT id, operator, start_date, end_date, rank FROM calendar_element WHERE _calendar_id = included_calendar_id ORDER BY rank
+			LOOP
+				-- Note that we use start_date & end_date of a calendar element with an included calendar_id
+				-- It is working only because we always duplicate computed_start_date/ computed_end_date of a calendar in all calendar element witch include it !
+				RAISE DEBUG 'CalElt % : start = %, end = %, operator = %, rank = %', _cal.id, _cal.start_date, _cal.end_date, _cal.operator, _cal.rank;			
+				-- First we need to remember the first date bounds
+				IF _cal_elt_number = 0 THEN -- Must be true for _cal.rank = 1
+					_computed_date_pair.start_date := _start_date;
+					_computed_date_pair.end_date := _end_date;
+				ELSE
+					-- Second (_rank>1) we need to calculate new bounds
+					IF _cal.rank = _rank THEN -- Note that _rank could be null (calendar deletion use case)
+						_cal_elt_rank_found := TRUE;
+						-- In that case we MUST use the new start/end dates (because the current one could be false until COMMIT)
+						SELECT atomicdatecomputation(_start_date, _end_date, _operator, _rank, _computed_date_pair) INTO _computed_date_pair;
+					ELSE
+						SELECT atomicdatecomputation(_cal.start_date, _cal.end_date, _cal.operator, _cal.rank, _computed_date_pair) INTO _computed_date_pair;
+					END IF;
+				END IF;
+				_cal_elt_number := _cal_elt_number + 1;
+			END LOOP;
+			-- If we are on first recursion level, there is no cal_elt record with the provided rank (the one all that stuff must add)
+			-- But we need to take it into account for finish computation
+			IF NOT _cal_elt_rank_found THEN
+				-- If _rank is null, current calendar element is being deleted.
+				-- In that case the calculation (of the current calendar) is simply finished
+				IF _rank IS NOT NULL THEN
+					IF _cal_elt_number = 0 THEN
+						-- There is 0 elts in this calendar : calculation is trivial
+						_computed_date_pair.start_date := _start_date;
+						_computed_date_pair.end_date := _end_date;
+					ELSE
+						-- There is already calendar elements but the current one is new
+						SELECT atomicdatecomputation(_start_date, _end_date, _rank, _operator, _computed_date_pair) INTO _computed_date_pair;
+					END IF;
+				END IF;
+			END IF;
+			UPDATE calendar SET computed_start_date = _computed_date_pair.start_date, computed_end_date = _computed_date_pair.end_date WHERE id = _calendar_id;
+		EXCEPTION WHEN raise_exception THEN
+			RAISE EXCEPTION '% %An atomic calendar operation failed for calendar %',SQLERRM , chr(10), _included_calendar_id;
+		END;
+		RETURN _computed_date_pair;		
+	END;
+    $$;
+COMMENT ON FUNCTION computecalendarsstartend(integer, date, date, integer, calendar_operator) IS 'Calculate start/end computed dates of a calendar. Result could be a pair of null if no date intersect or empty calendar';
+    
+
+CREATE FUNCTION propagateparentcalendarsstartend (_calendar_id integer, _start_date date default null, _end_date date default null, _rank integer default null, _operator calendar_operator default null) RETURNS void 
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+		_cal record;
+		_computed_date_pair date_pair;
+    BEGIN
+		BEGIN
+			-- Calculate new start/end computed date for current calendar
+			SELECT * FROM computecalendarsstartend(_calendar_id, _start_date, _end_date, _rank, _operator) INTO _computed_date_pair;
+			-- Launch same operation an all parent calendars (could have none)
+			-- Infinite recursion must not happen because we previously check it with 'detectcalendarinclusionloop' function
+			FOR _cal IN 
+				SELECT calendar_id, rank, operator FROM calendar_element WHERE _calendar_id = included_calendar_id
+			LOOP
+				-- To calculate the parent calendar, we need to pass (not commited yet) new start/end date of updated calendar_element (and rand to found it)
+				-- operator is passed because of the not already added calendar element (first call of this recursive function)
+				PERFORM propagateparentcalendarsstartend(_cal.calendar_id, _computed_date_pair.start_date, _computed_date_pair.end_date, _cal.rank, _cal.operator);
+			END LOOP;
+		EXCEPTION WHEN raise_exception THEN
+			RAISE EXCEPTION '% %Parent calendar element = %',SQLERRM , chr(10), _included_calendar_id;
+		END;
+    END;
+    $$;
+COMMENT ON FUNCTION propagateparentcalendarsstartend(integer, date, date, integer, calendar_operator) IS 'This recursive function launch computecalendarsstartend and call himself on an all parents calendar';
+
+
+
+CREATE FUNCTION insertcalendarelement(_calendar_id integer, _start_date date default NULL, _end_date date default NULL, _interval integer default NULL, _operator calendar_operator default '+', _included_calendar_id integer default NULL) RETURNS integer 
     LANGUAGE plpgsql
     AS $$
     DECLARE
         _id integer;
-    BEGIN
-        INSERT INTO calendar_element(calendar_id, start_date, end_date, positive, interval, included_calendar_id) VALUES(_calendar_id, _start_date, _end_date, _operator, _interval, _included_calendar_id) RETURNING id INTO _id;
+		_rank integer;
+		_real_start_date date;
+		_real_end_date date;
+		_included_cal record;
+    BEGIN		
+		IF _included_calendar_id IS NOT NULL THEN
+			-- Integrity control : a calendar element with an included_calendar_id could not have start_date & end_date provided
+			IF _start_date IS NOT NULL OR _end_date IS NOT NULL THEN
+				RAISE EXCEPTION 'A calendar element with an included_calendar_id could not have start_date & end_date provided !';
+			END IF;
+			-- Abort creation if calendar creation will create an inclusion loop
+			BEGIN
+				PERFORM detectcalendarinclusionloop(_included_calendar_id, _calendar_id);
+			EXCEPTION WHEN raise_exception THEN
+				RAISE EXCEPTION '% %Cannot insert calendar. It will create an inclusion loop !',SQLERRM , chr(10);
+			END;
+			-- We need to extract start/end date from included calendar
+			SELECT computed_start_date, computed_end_date FROM calendar WHERE id = _calendar_id INTO _included_cal;
+			IF _included_cal.computed_start_date IS NULL OR _included_cal.computed_end_date IS NULL THEN
+				RAISE NOTICE 'You are trying to use an empty calendar as an included calendar';
+			END IF;
+			_real_start_date := _included_cal.computed_start_date;
+			_real_end_date := _included_cal.computed_end_date;
+		ELSE
+			IF _start_date IS NULL OR _end_date IS NULL THEN
+				RAISE EXCEPTION 'You must provide start_date+end_date or included calendar !';
+			END IF;
+			_real_start_date := _start_date;
+			_real_end_date := _end_date;
+		END IF;
+		-- At this point if _real_start_date or _real_end_date are null we know that there is an empty calendar underneath
+		
+		-- Second, calculate the rank of element
+		SELECT count(*) FROM calendar_element WHERE calendar_id = _calendar_id INTO _rank;
+		_rank := _rank + 1;
+		-- Third, recalculate calendar start/end computed dates and recursively for all calendars that include this one
+		BEGIN
+			-- The new calendar_element is not already inserted so we need to pass information about it on sub routines
+			PERFORM propagateparentcalendarsstartend(_calendar_id, _real_start_date, _real_end_date, _rank, _operator);
+		EXCEPTION WHEN raise_exception THEN
+				RAISE EXCEPTION '% %Cannot insert calendar. It broke start stop rule somewhere !',SQLERRM , chr(10);
+		END;
+		-- Finally, we can commit transaction and insert calendar
+        INSERT INTO calendar_element(calendar_id, rank, start_date, end_date, operator, interval, included_calendar_id) VALUES(_calendar_id, _rank, _real_start_date, _real_end_date, _operator, _interval, _included_calendar_id) RETURNING id INTO _id;
         RETURN _id;
     END;
     $$;
-COMMENT ON FUNCTION insertcalendarelement (integer, date, date, integer, calendar_operator, integer) IS 'Insert record in table calendar_element and return new id';
+COMMENT ON FUNCTION insertcalendarelement (integer, date, date, integer, calendar_operator, integer) IS 'Insert record in table calendar_element and return new id. Will RAISE if insertion cause start > end of a linked calendar. Trig a recalculation of parent calendars computed start stop date';
 
 
-CREATE FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer,  _operator calendar_operator default '+') RETURNS void
+
+CREATE FUNCTION deletecalendarelement(_calendar_id integer) RETURNS void 
+    LANGUAGE plpgsql
+    AS $$
+    BEGIN
+        PERFORM propagateparentcalendarsstartend(_calendar_id);
+		DELETE FROM calendar_element WHERE id = _calendar_id;
+    END;
+    $$;
+COMMENT ON FUNCTION deletecalendarelement (integer) IS 'Delete record in table calendar_element. Trig a recalculation of parent calendars computed start stop date';
+
+
+
+CREATE FUNCTION detectcalendarinclusionloop (_included_calendar_id integer, _first_calendar_id integer) RETURNS void 
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+	_cal record;
+    BEGIN
+		RAISE DEBUG 'LOOP cal = %', _included_calendar_id;
+		-- Recursion stop condition : the loop is done
+		IF _included_calendar_id = _first_calendar_id THEN
+			RAISE EXCEPTION 'DETECT LOOP INCLUSION %--- stack trace ---',chr(10);
+		END IF;
+		BEGIN
+			-- Check all cal elt of the calendar of id "_included_calendar_id" 
+			FOR _cal IN
+				SELECT included_calendar_id AS id FROM calendar_element WHERE calendar_id = _included_calendar_id AND included_calendar_id IS NOT NULL
+			LOOP
+				PERFORM detectcalendarinclusionloop(_cal.id, _first_calendar_id);
+			END LOOP;
+		EXCEPTION WHEN raise_exception THEN			
+			RAISE EXCEPTION '% %Parent calendar element = %',SQLERRM , chr(10), _included_calendar_id;
+		END;
+    END;
+    $$;
+COMMENT ON FUNCTION detectcalendarinclusionloop(integer, integer) IS 'This recursive function can detect loop inclusion. Will raise and trace calendar loop.';
+
+
+
+CREATE FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer,  _positive calendar_operator default '+') RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -95,13 +357,13 @@ CREATE FUNCTION insertcalendar(_tcode character varying, _rcode character varyin
             INSERT INTO calendar(name, calendar_type, line_version_id) VALUES (_name, 'periode', _lvid);
             INSERT INTO calendar_datasource(calendar_id, code, datasource_id) VALUES (currval('calendar_id_seq'), _tcode, _datasource);
             UPDATE trip SET period_calendar_id =  currval('calendar_id_seq') WHERE id = _trip_id;
-            INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(currval('calendar_id_seq'), _date, _date, _operator);
+            INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(currval('calendar_id_seq'), _date, _date, _positive);
         ELSE
-            INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(_calendar_id, _date, _date, _operator);
+            INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(_calendar_id, _date, _date, _positive);
         END IF;
     END;
     $$;
-COMMENT ON FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer, _operator calendar_operator) IS 'Insertion selon condition de nouvelles entrées calendar, calendar_datasource et calendar_element plus mise à jour dune entrée trip associée à ces nouveaux calendriers. Si le calendrier rattaché au trip existe déjà lors de lappel de cette fonction, elle effectuera une simple insertion dune entrée calendar_element.';
+COMMENT ON FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer, _positive calendar_operator) IS 'Insertion selon condition de nouvelles entrées calendar, calendar_datasource et calendar_element plus mise à jour dune entrée trip associée à ces nouveaux calendriers. Si le calendrier rattaché au trip existe déjà lors de lappel de cette fonction, elle effectuera une simple insertion dune entrée calendar_element.';
 
 CREATE TYPE address AS (address character varying, the_geom character varying, is_entrance boolean);
 
@@ -255,22 +517,6 @@ CREATE FUNCTION inserttrip(_name character varying, _tcode character varying, _r
     $$;
 COMMENT ON FUNCTION inserttrip (character varying, character varying, character varying, integer, integer) IS 'Insertion dun nouveau trip et de sa datasource associée. Le trip est directement rattaché à une route dont lid est récupéré grâce aux paramètres _rcode et _lvid.';
 
-CREATE FUNCTION mergetrips(_trips integer[], _trip_calendar_id integer, _datasource_id integer) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-    DECLARE
-        _trip_parent_id integer;
-    BEGIN
-        -- create a new trip_parent using first trip in array
-        INSERT INTO trip(name, route_id, trip_calendar_id) SELECT name || '_FH', route_id, _trip_calendar_id FROM trip WHERE id = _trips[1] RETURNING id INTO _trip_parent_id;
-        INSERT INTO trip_datasource(trip_id, datasource_id, code) VALUES(_trip_parent_id, _datasource_id, 'FH');
-        -- duplicate all stop_time linked to the first trip and link them to the new _trip_parent_id
-        INSERT INTO stop_time(route_stop_id, trip_id, departure_time, arrival_time) SELECT route_stop_id, _trip_parent_id, departure_time, arrival_time FROM stop_time WHERE trip_id = _trips[1];
-        -- update all _trips by linking them to the new _trip_parent_id and deleting their trip_calendar_id
-        UPDATE trip SET(trip_calendar_id, trip_parent_id) = (NULL, _trip_parent_id) WHERE id = ANY(_trips);
-    END;
-    $$;
-COMMENT ON FUNCTION mergetrips (_trips integer[], _trip_calendar_id integer, _datasource_id integer) IS 'Merge duplicated trips by creating a new one attached to a specific _trip_calendar_id. The trip_calendar days pattern is the sum of all patterns of each trip which will be merged.';
 
 CREATE FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date, _route_section_id integer, _end_date date) RETURNS void
     LANGUAGE plpgsql
