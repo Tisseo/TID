@@ -4,7 +4,7 @@ SET standard_conforming_strings = on;
 SET check_function_bodies = false;
 SET client_min_messages = warning;
 
-CREATE FUNCTION cleanimport() RETURNS void
+CREATE OR REPLACE FUNCTION cleanimport() RETURNS void
     LANGUAGE plpgsql
     AS $$
     BEGIN
@@ -30,7 +30,7 @@ CREATE FUNCTION cleanimport() RETURNS void
 COMMENT ON FUNCTION cleanimport() IS 'Fonction de debug, suppression des données relatives aux imports HASTUS.';
 
 
-CREATE FUNCTION cleanpoi() RETURNS void
+CREATE OR REPLACE FUNCTION cleanpoi() RETURNS void
     LANGUAGE plpgsql
     AS $$
     BEGIN
@@ -43,7 +43,7 @@ CREATE FUNCTION cleanpoi() RETURNS void
 COMMENT ON FUNCTION cleanpoi() IS 'Fonction de suppression des données POI, appelée à chaque nouvel import provenant de la base SIG.';
 
 
-CREATE FUNCTION insertcalendar(_name character varying, _ccode character varying, _datasource integer, _calendar_type calendar_type default 'periode') RETURNS integer 
+CREATE OR REPLACE FUNCTION insertcalendar(_name character varying, _ccode character varying, _datasource integer, _calendar_type calendar_type default 'periode') RETURNS integer 
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -62,7 +62,7 @@ CREATE TYPE date_pair AS (start_date date, end_date date);
 
 -- _start_date, _end_date could be NULL (if no applicable dates)
 -- previous_bounds could be also a NULL pair
-CREATE FUNCTION atomicdatecomputation (_start_date date, _end_date date, _rank integer, _operator calendar_operator, previous_bounds date_pair) RETURNS date_pair
+CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date date, _rank integer, _operator calendar_operator, previous_bounds date_pair) RETURNS date_pair
 	LANGUAGE plpgsql
 	AS $$
 	DECLARE
@@ -147,7 +147,7 @@ COMMENT ON FUNCTION atomicdatecomputation (_start_date date, date, integer, cale
 	
 
 -- If rank is null, we are in a calendar element deletion case
-CREATE FUNCTION computecalendarsstartend (_calendar_id integer, _start_date date, _end_date date, _rank integer, _operator calendar_operator) RETURNS date_pair 
+CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _start_date date, _end_date date, _rank integer, _operator calendar_operator) RETURNS date_pair 
 	LANGUAGE plpgsql
 	AS $$
 	DECLARE
@@ -209,7 +209,7 @@ CREATE FUNCTION computecalendarsstartend (_calendar_id integer, _start_date date
 COMMENT ON FUNCTION computecalendarsstartend(integer, date, date, integer, calendar_operator) IS 'Calculate start/end computed dates of a calendar. Result could be a pair of null if no date intersect or empty calendar';
     
 
-CREATE FUNCTION propagateparentcalendarsstartend (_calendar_id integer, _start_date date default null, _end_date date default null, _rank integer default null, _operator calendar_operator default null) RETURNS void 
+CREATE OR REPLACE FUNCTION propagateparentcalendarsstartend (_calendar_id integer, _start_date date default null, _end_date date default null, _rank integer default null, _operator calendar_operator default null) RETURNS void 
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -237,7 +237,7 @@ COMMENT ON FUNCTION propagateparentcalendarsstartend(integer, date, date, intege
 
 
 
-CREATE FUNCTION insertcalendarelement(_calendar_id integer, _start_date date default NULL, _end_date date default NULL, _interval integer default NULL, _operator calendar_operator default '+', _included_calendar_id integer default NULL) RETURNS integer 
+CREATE OR REPLACE FUNCTION insertcalendarelement(_calendar_id integer, _start_date date default NULL, _end_date date default NULL, _interval integer default NULL, _operator calendar_operator default '+', _included_calendar_id integer default NULL) RETURNS integer 
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -293,7 +293,7 @@ COMMENT ON FUNCTION insertcalendarelement (integer, date, date, integer, calenda
 
 
 
-CREATE FUNCTION deletecalendarelement(_calendar_id integer) RETURNS void 
+CREATE OR REPLACE FUNCTION deletecalendarelement(_calendar_id integer) RETURNS void 
     LANGUAGE plpgsql
     AS $$
     BEGIN
@@ -305,7 +305,7 @@ COMMENT ON FUNCTION deletecalendarelement (integer) IS 'Delete record in table c
 
 
 
-CREATE FUNCTION detectcalendarinclusionloop (_included_calendar_id integer, _first_calendar_id integer) RETURNS void 
+CREATE OR REPLACE FUNCTION detectcalendarinclusionloop (_included_calendar_id integer, _first_calendar_id integer) RETURNS void 
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -332,7 +332,7 @@ COMMENT ON FUNCTION detectcalendarinclusionloop(integer, integer) IS 'This recur
 
 
 
-CREATE FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer,  _operator calendar_operator default '+') RETURNS void
+CREATE OR REPLACE FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer,  _operator calendar_operator default '+') RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -367,7 +367,7 @@ COMMENT ON FUNCTION insertcalendar(_tcode character varying, _rcode character va
 
 CREATE TYPE address AS (address character varying, the_geom character varying, is_entrance boolean);
 
-CREATE FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, addresses address[]) RETURNS void
+CREATE OR REPLACE FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, addresses address[]) RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -400,7 +400,7 @@ CREATE FUNCTION insertpoi(_name character varying, _city_id integer, _type chara
 COMMENT ON FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, addresses address[]) IS 'Insertion de nouvelles entrées poi, poi_datasource et si passées en paramètre, poi_adress. Les poi_adress sont passées dans le tableau addresses qui contient des types address (le type address est un type technique contenant les champs nécessaires à linsertion dune entrée poi_address). Ainsi toutes les entrées poi_address seront associées à la donnée poi nouvellement créée.';
 
 
-CREATE FUNCTION insertroute(_lvid integer, _way character varying, _name character varying, _direction character varying, _code character varying, _datasource integer) RETURNS void
+CREATE OR REPLACE FUNCTION insertroute(_lvid integer, _way character varying, _name character varying, _direction character varying, _code character varying, _datasource integer) RETURNS void
     LANGUAGE plpgsql
     AS $$
     BEGIN
@@ -411,7 +411,7 @@ CREATE FUNCTION insertroute(_lvid integer, _way character varying, _name charact
 COMMENT ON FUNCTION insertroute (integer, character varying, character varying, character varying, character varying, integer) IS 'Insert record in tables route and route_datasource.';
 
 
-CREATE FUNCTION insertroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date) RETURNS void
+CREATE OR REPLACE FUNCTION insertroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date) RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -424,7 +424,7 @@ CREATE FUNCTION insertroutesection(_start_stop_id integer, _end_stop_id integer,
 COMMENT ON FUNCTION insertroutesection (integer, integer, character varying, date) IS 'Insert record in table route_section.';
 
 
-CREATE FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode character varying, _scode character varying, _related_scode character varying, _lvid integer, _rank integer, _scheduled boolean, _hour integer, _is_first boolean, _is_last boolean) RETURNS void
+CREATE OR REPLACE FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode character varying, _scode character varying, _related_scode character varying, _lvid integer, _rank integer, _scheduled boolean, _hour integer, _is_first boolean, _is_last boolean) RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -461,7 +461,7 @@ CREATE FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode char
     $$;
 COMMENT ON FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode character varying, _scode character varying, _related_scode character varying, _lvid integer, _rank integer, _scheduled boolean, _hour integer, _is_first boolean, _is_last boolean) IS 'Insertion dune nouvelle entrée dans route_stop si elle nexiste pas déjà. Insertion dune nouvelle entrée stop_time. Dans le cas dinsertion dun route_stop, certaines valeurs changent en fonction du rang du route_stop dans litinéraire. Chaque route_stop est rattaché à une route_section sauf le dernier (doublon avec lavant dernier sinon). Les booléens pickup/dropoff prennent également des valeur différentes selon le rang du route_stop.';
 
-CREATE FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer, _code character varying, _insee character varying, _datasource integer, _srid integer default 27572) RETURNS void
+CREATE OR REPLACE FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer, _code character varying, _insee character varying, _datasource integer, _srid integer default 27572) RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -491,7 +491,7 @@ CREATE FUNCTION insertstop(_date date, _name character varying, _x character var
 COMMENT ON FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer, _code character varying, _insee character varying, _datasource integer, _srid integer) IS 'Insertion de 4 nouvelles entrées : un waypoint et un stop qui possèderont le même ID, puis les stop_datasource et stop_history associés au nouveau stop. La géométrie du stop_history est construite depuis des valeurs x/y passées en paramètre. Ces valeurs sont issues dun SRID 27572 (sortie HASTUS) et la géométrie finale est passée en SRID 3943.';
 
 
-CREATE FUNCTION insertstoparea(_city_id integer, _name character varying, _datasource integer) RETURNS void
+CREATE OR REPLACE FUNCTION insertstoparea(_city_id integer, _name character varying, _datasource integer) RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -504,7 +504,7 @@ CREATE FUNCTION insertstoparea(_city_id integer, _name character varying, _datas
 COMMENT ON FUNCTION insertstoparea (integer, character varying, integer) IS 'Insertion dune entrée stop_area et de sa datasource associée.';
 
 
-CREATE FUNCTION inserttrip(_name character varying, _tcode character varying, _rcode character varying, _lvid integer, _datasource integer) RETURNS void
+CREATE OR REPLACE FUNCTION inserttrip(_name character varying, _tcode character varying, _rcode character varying, _lvid integer, _datasource integer) RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -517,7 +517,7 @@ CREATE FUNCTION inserttrip(_name character varying, _tcode character varying, _r
     $$;
 COMMENT ON FUNCTION inserttrip (character varying, character varying, character varying, integer, integer) IS 'Insertion dun nouveau trip et de sa datasource associée. Le trip est directement rattaché à une route dont lid est récupéré grâce aux paramètres _rcode et _lvid.';
 
-CREATE FUNCTION mergetrips(_trips integer[], _trip_calendar_id integer, _datasource_id integer) RETURNS void
+CREATE OR REPLACE FUNCTION mergetrips(_trips integer[], _trip_calendar_id integer, _datasource_id integer) RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -535,7 +535,7 @@ CREATE FUNCTION mergetrips(_trips integer[], _trip_calendar_id integer, _datasou
 COMMENT ON FUNCTION mergetrips (_trips integer[], _trip_calendar_id integer, _datasource_id integer) IS 'Merge duplicated trips by creating a new one attached to a specific _trip_calendar_id. The trip_calendar days pattern is the sum of all patterns of each trip which will be merged.';
 
 
-CREATE FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date, _route_section_id integer, _end_date date) RETURNS void
+CREATE OR REPLACE FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date, _route_section_id integer, _end_date date) RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -549,7 +549,7 @@ CREATE FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer,
 COMMENT ON FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date, _route_section_id integer, _end_date date) IS 'La mise à jour dune route_section est historisée. Cela implique la fermeture dune route_section (champ end_date prend une valeur) et la création de sa successeur avec un champ end_date vide.';
 
 
-CREATE FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer,  _datasource integer) RETURNS void
+CREATE OR REPLACE FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer,  _datasource integer) RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -579,7 +579,7 @@ CREATE FUNCTION updatestop(_stop_history_id integer, _date date, _name character
 COMMENT ON FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer,  _datasource integer) IS 'La mise à jour dun stop est historisée. Cela implique la fermeture de la version courante dun stop_history en appliquant une date au champ end_date puis en la création de son successeur avec un champ end_date vide.';
 
 
-CREATE FUNCTION insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer, _priority integer default 0)
+CREATE OR REPLACE FUNCTION insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer, _priority integer default 0)
     RETURNS integer AS $$
     DECLARE
         _line_id integer;
@@ -592,7 +592,7 @@ CREATE FUNCTION insertline(_number character varying, _physical_mode_id integer,
 COMMENT ON FUNCTION insertline (character varying, integer, character varying, integer, integer) IS 'Insert record in tables line and line_datasource and return the new line.id';
 
 
-CREATE FUNCTION insertlineversion(_line_id integer, _version integer, _start_date date, _end_date date, _planned_end_date date, _child_line_id integer, _name character varying, _forward_direction character varying, _backward_direction character varying, _bg_color character varying, _bg_hexa_color character varying, _fg_color character varying, _fg_hexa_color character varying, _carto_file text, _accessibility boolean, _air_conditioned boolean, _certified boolean, _comment text, _depot character varying, _datasource integer, _code character varying)
+CREATE OR REPLACE FUNCTION insertlineversion(_line_id integer, _version integer, _start_date date, _end_date date, _planned_end_date date, _child_line_id integer, _name character varying, _forward_direction character varying, _backward_direction character varying, _bg_color character varying, _bg_hexa_color character varying, _fg_color character varying, _fg_hexa_color character varying, _carto_file text, _accessibility boolean, _air_conditioned boolean, _certified boolean, _comment text, _depot character varying, _datasource integer, _code character varying)
     RETURNS integer AS $$
     DECLARE
         _line_version_id integer;
@@ -606,7 +606,7 @@ CREATE FUNCTION insertlineversion(_line_id integer, _version integer, _start_dat
 COMMENT ON FUNCTION insertlineversion (integer, integer, date, date, date, integer, character varying, character varying, character varying, character varying, character varying, character varying, character varying, text, boolean, boolean, boolean, text, character varying, integer, character varying) IS 'Insert record in tables line_version and line_version_datasource and return the new line_version.id';
 
 
-CREATE FUNCTION setstopaccessibility(_stop_id integer, _access boolean, _accessibility_mode_id integer, _code character varying, _datasource integer, _date date default null) RETURNS void
+CREATE OR REPLACE FUNCTION setstopaccessibility(_stop_id integer, _access boolean, _accessibility_mode_id integer, _code character varying, _datasource integer, _date date default null) RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -660,7 +660,7 @@ CREATE FUNCTION setstopaccessibility(_stop_id integer, _access boolean, _accessi
 COMMENT ON FUNCTION setstopaccessibility(_stop_id integer, _access boolean, _accessibility_mode_id integer, _code character varying, _datasource integer, _date date) IS 'Insert or update access(_access)  for an accessibility mode(_accessibility_mode_id) for the selected stop(_stop_id) and return the new stop_accessibility.id. _code is used,  if necessary, for the associated calendar.name ';
 
 
-CREATE FUNCTION stopisaccessible(_stop_id integer, _accessibility_mode_id integer, _date date default null)
+CREATE OR REPLACE FUNCTION stopisaccessible(_stop_id integer, _accessibility_mode_id integer, _date date default null)
     RETURNS boolean AS $$
     DECLARE
 		_accessibility_date date;
