@@ -161,7 +161,7 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 		_cal_elt_rank_found boolean;
 		_cal_elt_number integer;
 	BEGIN
-		RAISE WARNING 'Calculate calendar %', _calendar_id;
+		RAISE WARNING 'Calculate calendar %, _rank = %', _calendar_id, _rank;
 		_cal_elt_rank_found := FALSE;
 		_cal_elt_number := 0;
 		BEGIN
@@ -174,15 +174,17 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 				RAISE WARNING 'CalElt % : start = %, end = %, operator = %, rank = %', _cal.id, _cal.start_date, _cal.end_date, _cal.operator, _cal.rank;			
 				-- First we need to remember the first date bounds
 				IF _cal_elt_number = 0 THEN -- Must be true for _cal.rank = 1
-					_computed_date_pair.start_date := _start_date;
-					_computed_date_pair.end_date := _end_date;
+					_computed_date_pair.start_date := _cal.start_date;
+					_computed_date_pair.end_date := _cal.end_date;
 				ELSE
 					-- Second (_rank>1) we need to calculate new bounds
-					IF _cal.rank = _rank THEN -- Note that _rank could be null (calendar deletion use case)
+					IF _cal.rank = _rank THEN -- Note that _rank could be null (calendar deletion use case)					
+						RAISE WARNING 'This is the element of rank %', _cal.rank;
 						_cal_elt_rank_found := TRUE;
 						-- In that case we MUST use the new start/end dates (because the current one could be false until COMMIT)
 						SELECT * FROM atomicdatecomputation(_start_date, _end_date, _operator,  _computed_date_pair) INTO _computed_date_pair;
 					ELSE
+						RAISE WARNING 'Element of rank %', _cal.rank;
 						SELECT * FROM atomicdatecomputation(_cal.start_date, _cal.end_date, _cal.operator, _computed_date_pair) INTO _computed_date_pair;
 					END IF;
 				END IF;
