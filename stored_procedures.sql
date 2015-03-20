@@ -156,7 +156,7 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 		_cal_elt_rank_found boolean;
 		_cal_elt_number integer;
 	BEGIN
-		RAISE DEBUG 'Calculate calendar %', _calendar_id;
+		RAISE WARNING 'Calculate calendar %', _calendar_id;
 		_cal_elt_rank_found := FALSE;
 		_cal_elt_number := 0;
 		BEGIN
@@ -166,7 +166,7 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 			LOOP
 				-- Note that we use start_date & end_date of a calendar element with an included calendar_id
 				-- It is working only because we always duplicate computed_start_date/ computed_end_date of a calendar in all calendar element witch include it !
-				RAISE DEBUG 'CalElt % : start = %, end = %, operator = %, rank = %', _cal.id, _cal.start_date, _cal.end_date, _cal.operator, _cal.rank;			
+				RAISE WARNING 'CalElt % : start = %, end = %, operator = %, rank = %', _cal.id, _cal.start_date, _cal.end_date, _cal.operator, _cal.rank;			
 				-- First we need to remember the first date bounds
 				IF _cal_elt_number = 0 THEN -- Must be true for _cal.rank = 1
 					_computed_date_pair.start_date := _start_date;
@@ -176,9 +176,9 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 					IF _cal.rank = _rank THEN -- Note that _rank could be null (calendar deletion use case)
 						_cal_elt_rank_found := TRUE;
 						-- In that case we MUST use the new start/end dates (because the current one could be false until COMMIT)
-						SELECT atomicdatecomputation(_start_date, _end_date, _operator, _rank, _computed_date_pair) INTO _computed_date_pair;
+						SELECT * FROM atomicdatecomputation(_start_date, _end_date, _operator, _rank, _computed_date_pair) INTO _computed_date_pair;
 					ELSE
-						SELECT atomicdatecomputation(_cal.start_date, _cal.end_date, _cal.operator, _cal.rank, _computed_date_pair) INTO _computed_date_pair;
+						SELECT * FROM atomicdatecomputation(_cal.start_date, _cal.end_date, _cal.operator, _cal.rank, _computed_date_pair) INTO _computed_date_pair;
 					END IF;
 				END IF;
 				_cal_elt_number := _cal_elt_number + 1;
@@ -186,16 +186,18 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 			-- If we are on first recursion level, there is no cal_elt record with the provided rank (the one all that stuff must add)
 			-- But we need to take it into account for finish computation
 			IF NOT _cal_elt_rank_found THEN
+				RAISE WARNING 'Calendar element of rank % not found in calendar % (_cal_elt_number = %)', _rank, _calendar_id, _cal_elt_number;
 				-- If _rank is null, current calendar element is being deleted.
 				-- In that case the calculation (of the current calendar) is simply finished
 				IF _rank IS NOT NULL THEN
 					IF _cal_elt_number = 0 THEN
+						RAISE WARNING 'First calendar element ! We set date to (%, %)', _start_date, _end_date;
 						-- There is 0 elts in this calendar : calculation is trivial
 						_computed_date_pair.start_date := _start_date;
 						_computed_date_pair.end_date := _end_date;
 					ELSE
 						-- There is already calendar elements but the current one is new
-						SELECT atomicdatecomputation(_start_date, _end_date, _rank, _operator, _computed_date_pair) INTO _computed_date_pair;
+						SELECT * FROM atomicdatecomputation(_start_date, _end_date, _rank, _operator, _computed_date_pair) INTO _computed_date_pair;
 					END IF;
 				END IF;
 			END IF;
@@ -259,10 +261,8 @@ CREATE OR REPLACE FUNCTION insertcalendarelement(_calendar_id integer, _start_da
 				RAISE EXCEPTION '% %Cannot insert calendar. It will create an inclusion loop !',SQLERRM , chr(10);
 			END;
 			-- We need to extract start/end date from included calendar
-			SELECT computed_start_date, computed_end_date FROM calendar WHERE id = _calendar_id INTO _included_cal;
-			IF _included_cal.computed_start_date IS NULL OR _included_cal.computed_end_date IS NULL THEN
-				RAISE NOTICE 'You are trying to use an empty calendar as an included calendar';
-			END IF;
+			SELECT computed_start_date, computed_end_date FROM calendar WHERE id = _included_calendar_id INTO _included_cal;
+			-- Note that dates could be NULL
 			_real_start_date := _included_cal.computed_start_date;
 			_real_end_date := _included_cal.computed_end_date;
 		ELSE
@@ -277,6 +277,8 @@ CREATE OR REPLACE FUNCTION insertcalendarelement(_calendar_id integer, _start_da
 		-- Second, calculate the rank of element
 		SELECT count(*) FROM calendar_element WHERE calendar_id = _calendar_id INTO _rank;
 		_rank := _rank + 1;
+		
+		RAISE WARNING 'We insert a new element of rank %, date are (%, %)', _rank, _real_start_date, _real_end_date;
 		-- Third, recalculate calendar start/end computed dates and recursively for all calendars that include this one
 		BEGIN
 			-- The new calendar_element is not already inserted so we need to pass information about it on sub routines
