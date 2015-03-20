@@ -128,12 +128,12 @@ CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date da
 					_computed_date_pair := previous_bounds;
 				ELSE
 					IF _start_date <= previous_bounds.start_date THEN
-						_computed_date_pair.start_date := _end_date;
+						_computed_date_pair.start_date := _end_date; -- TODO : plus un jour
 					ELSE
 						_computed_date_pair.start_date := previous_bounds.start_date;
 					END IF;						 
 					IF _end_date >= previous_bounds.end_date THEN
-						_computed_date_pair.end_date := _start_date;
+						_computed_date_pair.end_date := _start_date; -- TODO : moins un jour
 					ELSE
 						_computed_date_pair.end_date := previous_bounds.end_date;
 					END IF;

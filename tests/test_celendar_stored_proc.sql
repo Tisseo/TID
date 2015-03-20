@@ -5,7 +5,9 @@ INSERT INTO calendar (id, name, calendar_type) VALUES (4,'cal 4','brique') ;
 SELECT pg_catalog.setval('calendar_id_seq', 5, true);
 
 SELECT insertcalendarelement(3,'2015-01-01','2015-02-01',NULL, '+'); -- ca marche
-SELECT insertcalendarelement(3,'2015-02-01','2015-03-01',NULL, '+'); -- ca marche
+SELECT insertcalendarelement(3,'2015-02-01','2015-03-01',NULL, '+'); -- ca marche : '2015-01-01', '2015-03-01'
+SELECT insertcalendarelement(3,'2015-02-15','2015-12-01',NULL, '-'); -- ca marche : '2015-01-01', '2015-02-14'
+SELECT insertcalendarelement(3,'2015-01-15','2015-03-01',NULL, '&'); -- ca marche : '2015-01-15', '2015-02-14'
 -- Ici le calendrier 3 doit contenir '2015-01-01','2015-03-01'
 
 SELECT insertcalendarelement(1,NULL,NULL,NULL, '+', 3); -- ca marche
