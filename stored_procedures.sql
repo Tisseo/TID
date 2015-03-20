@@ -332,7 +332,7 @@ COMMENT ON FUNCTION detectcalendarinclusionloop(integer, integer) IS 'This recur
 
 
 
-CREATE FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer,  _positive calendar_operator default '+') RETURNS void
+CREATE FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer,  _operator calendar_operator default '+') RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -357,13 +357,13 @@ CREATE FUNCTION insertcalendar(_tcode character varying, _rcode character varyin
             INSERT INTO calendar(name, calendar_type, line_version_id) VALUES (_name, 'periode', _lvid);
             INSERT INTO calendar_datasource(calendar_id, code, datasource_id) VALUES (currval('calendar_id_seq'), _tcode, _datasource);
             UPDATE trip SET period_calendar_id =  currval('calendar_id_seq') WHERE id = _trip_id;
-            INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(currval('calendar_id_seq'), _date, _date, _positive);
+            INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(currval('calendar_id_seq'), _date, _date, _operator);
         ELSE
-            INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(_calendar_id, _date, _date, _positive);
+            INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(_calendar_id, _date, _date, _operator);
         END IF;
     END;
     $$;
-COMMENT ON FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer, _positive calendar_operator) IS 'Insertion selon condition de nouvelles entrées calendar, calendar_datasource et calendar_element plus mise à jour dune entrée trip associée à ces nouveaux calendriers. Si le calendrier rattaché au trip existe déjà lors de lappel de cette fonction, elle effectuera une simple insertion dune entrée calendar_element.';
+COMMENT ON FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer, _operator calendar_operator) IS 'Insertion selon condition de nouvelles entrées calendar, calendar_datasource et calendar_element plus mise à jour dune entrée trip associée à ces nouveaux calendriers. Si le calendrier rattaché au trip existe déjà lors de lappel de cette fonction, elle effectuera une simple insertion dune entrée calendar_element.';
 
 CREATE TYPE address AS (address character varying, the_geom character varying, is_entrance boolean);
 
@@ -516,6 +516,23 @@ CREATE FUNCTION inserttrip(_name character varying, _tcode character varying, _r
     END;
     $$;
 COMMENT ON FUNCTION inserttrip (character varying, character varying, character varying, integer, integer) IS 'Insertion dun nouveau trip et de sa datasource associée. Le trip est directement rattaché à une route dont lid est récupéré grâce aux paramètres _rcode et _lvid.';
+
+CREATE FUNCTION mergetrips(_trips integer[], _trip_calendar_id integer, _datasource_id integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        _trip_parent_id integer;
+    BEGIN
+        -- create a new trip_parent using first trip in array
+        INSERT INTO trip(name, route_id, trip_calendar_id) SELECT name || '_FH', route_id, _trip_calendar_id FROM trip WHERE id = _trips[1] RETURNING id INTO _trip_parent_id;
+        INSERT INTO trip_datasource(trip_id, datasource_id, code) VALUES(_trip_parent_id, _datasource_id, 'FH');
+        -- duplicate all stop_time linked to the first trip and link them to the new _trip_parent_id
+        INSERT INTO stop_time(route_stop_id, trip_id, departure_time, arrival_time) SELECT route_stop_id, _trip_parent_id, departure_time, arrival_time FROM stop_time WHERE trip_id = _trips[1];
+        -- update all _trips by linking them to the new _trip_parent_id and deleting their trip_calendar_id
+        UPDATE trip SET(trip_calendar_id, trip_parent_id) = (NULL, _trip_parent_id) WHERE id = ANY(_trips);
+    END;
+    $$;
+COMMENT ON FUNCTION mergetrips (_trips integer[], _trip_calendar_id integer, _datasource_id integer) IS 'Merge duplicated trips by creating a new one attached to a specific _trip_calendar_id. The trip_calendar days pattern is the sum of all patterns of each trip which will be merged.';
 
 
 CREATE FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date, _route_section_id integer, _end_date date) RETURNS void
