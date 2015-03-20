@@ -62,14 +62,16 @@ CREATE TYPE date_pair AS (start_date date, end_date date);
 
 -- _start_date, _end_date could be NULL (if no applicable dates)
 -- previous_bounds could be also a NULL pair
-CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date date, _rank integer, _operator calendar_operator, previous_bounds date_pair) RETURNS date_pair
+CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date date, _operator calendar_operator, previous_bounds date_pair) RETURNS date_pair
 	LANGUAGE plpgsql
 	AS $$
 	DECLARE
 		_computed_date_pair date_pair;
 	BEGIN
+		RAISE WARNING 'Operate this : (%,%) % (%,%)',previous_bounds.start_date,previous_bounds.end_date,_operator,_start_date,_end_date;		
 		CASE _operator
-			WHEN "+" THEN -- Date muse be added
+			WHEN '+'::calendar_operator THEN -- Date muse be added
+				RAISE WARNING 'Addition';
 				IF _start_date IS NULL THEN
 					-- We assume that if _start_date is NULL _end_date is also NULL
 					_computed_date_pair := previous_bounds;
@@ -78,19 +80,20 @@ CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date da
 						_computed_date_pair.start_date := _start_date;
 						_computed_date_pair.end_date := _end_date;
 					ELSE
-						IF _start_date < previous_bounds.start_date
-							_computed_date_pair.start_date := _start_date
+						IF _start_date < previous_bounds.start_date THEN
+							_computed_date_pair.start_date := _start_date;
 						ELSE
-							_computed_date_pair.start_date := previous_bounds.start_date
+							_computed_date_pair.start_date := previous_bounds.start_date;
 						END IF;						 
-						IF _end_date > previous_bounds.end_date
-							_computed_date_pair.end_date := _end_date
+						IF _end_date > previous_bounds.end_date THEN
+							_computed_date_pair.end_date := _end_date;
 						ELSE
-							_computed_date_pair.end_date := previous_bounds.end_date
+							_computed_date_pair.end_date := previous_bounds.end_date;
 						END IF;
 					END IF;
 				END IF;
-			WHEN "&" THEN -- Must calculate union
+			WHEN '&'::calendar_operator THEN -- Must calculate intersection
+				RAISE WARNING 'Intersection';
 				IF _start_date IS NULL THEN
 					-- We assume that if _start_date is NULL _end_date is also NULL
 					_computed_date_pair.start_date := NULL;
@@ -100,15 +103,15 @@ CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date da
 						_computed_date_pair.start_date := NULL;
 						_computed_date_pair.end_date := NULL;
 					ELSE
-						IF _start_date > previous_bounds.start_date
-							_computed_date_pair.start_date := _start_date
+						IF _start_date > previous_bounds.start_date THEN
+							_computed_date_pair.start_date := _start_date;
 						ELSE
-							_computed_date_pair.start_date := previous_bounds.start_date
+							_computed_date_pair.start_date := previous_bounds.start_date;
 						END IF;						 
-						IF _end_date < previous_bounds.end_date
-							_computed_date_pair.end_date := _end_date
+						IF _end_date < previous_bounds.end_date THEN
+							_computed_date_pair.end_date := _end_date;
 						ELSE
-							_computed_date_pair.end_date := previous_bounds.end_date
+							_computed_date_pair.end_date := previous_bounds.end_date;
 						END IF;
 						-- Check if intersect two distinct calendars
 						IF _computed_date_pair.start_date > _computed_date_pair.end_date THEN
@@ -117,21 +120,22 @@ CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date da
 						END IF;
 					END IF;
 				END IF;			
-			WHEN "-" THEN -- Date must be subs
+			WHEN '-'::calendar_operator THEN -- Date must be subs
+				RAISE WARNING 'Substraction';
 				IF _start_date IS NULL OR previous_bounds.start_date IS NULL THEN
 					-- Substract something NULL don't change object
 					-- Substract something to a NULL object left him NULL
 					_computed_date_pair := previous_bounds;
 				ELSE
-					IF _start_date <= previous_bounds.start_date
-						_computed_date_pair.start_date := _end_date
+					IF _start_date <= previous_bounds.start_date THEN
+						_computed_date_pair.start_date := _end_date;
 					ELSE
-						_computed_date_pair.start_date := previous_bounds.start_date
+						_computed_date_pair.start_date := previous_bounds.start_date;
 					END IF;						 
-					IF _end_date >= previous_bounds.end_date
-						_computed_date_pair.end_date := _start_date
+					IF _end_date >= previous_bounds.end_date THEN
+						_computed_date_pair.end_date := _start_date;
 					ELSE
-						_computed_date_pair.end_date := previous_bounds.end_date
+						_computed_date_pair.end_date := previous_bounds.end_date;
 					END IF;
 					-- If operation result is negative set it to NULL
 					IF _computed_date_pair.start_date > _computed_date_pair.end_date THEN
@@ -140,10 +144,11 @@ CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date da
 					END IF;
 				END IF;
 		END CASE;
+		RAISE WARNING 'Result (%,%)',_computed_date_pair.start_date,_computed_date_pair.end_date;
 		RETURN _computed_date_pair;
 	END;
 	$$;
-COMMENT ON FUNCTION atomicdatecomputation (_start_date date, date, integer, calendar_operator, date_pair) IS 'Apply "operator" operation (with calendar element args) on a previous start/end couple. Result could be a pair of null if no date intersect or empty calendar';
+COMMENT ON FUNCTION atomicdatecomputation (_start_date date, date, calendar_operator, date_pair) IS 'Apply "operator" operation (with calendar element args) on a previous start/end couple. Result could be a pair of null if no date intersect or empty calendar';
 	
 
 -- If rank is null, we are in a calendar element deletion case
@@ -162,7 +167,7 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 		BEGIN
 			-- If there is not any calendar element in this calendar then we don't go in the loop.
 			FOR _cal IN 
-				SELECT id, operator, start_date, end_date, rank FROM calendar_element WHERE _calendar_id = included_calendar_id ORDER BY rank
+				SELECT id, operator, start_date, end_date, rank FROM calendar_element WHERE calendar_id = _calendar_id ORDER BY rank
 			LOOP
 				-- Note that we use start_date & end_date of a calendar element with an included calendar_id
 				-- It is working only because we always duplicate computed_start_date/ computed_end_date of a calendar in all calendar element witch include it !
@@ -176,9 +181,9 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 					IF _cal.rank = _rank THEN -- Note that _rank could be null (calendar deletion use case)
 						_cal_elt_rank_found := TRUE;
 						-- In that case we MUST use the new start/end dates (because the current one could be false until COMMIT)
-						SELECT * FROM atomicdatecomputation(_start_date, _end_date, _operator, _rank, _computed_date_pair) INTO _computed_date_pair;
+						SELECT * FROM atomicdatecomputation(_start_date, _end_date, _operator,  _computed_date_pair) INTO _computed_date_pair;
 					ELSE
-						SELECT * FROM atomicdatecomputation(_cal.start_date, _cal.end_date, _cal.operator, _cal.rank, _computed_date_pair) INTO _computed_date_pair;
+						SELECT * FROM atomicdatecomputation(_cal.start_date, _cal.end_date, _cal.operator, _computed_date_pair) INTO _computed_date_pair;
 					END IF;
 				END IF;
 				_cal_elt_number := _cal_elt_number + 1;
@@ -197,7 +202,7 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 						_computed_date_pair.end_date := _end_date;
 					ELSE
 						-- There is already calendar elements but the current one is new
-						SELECT * FROM atomicdatecomputation(_start_date, _end_date, _rank, _operator, _computed_date_pair) INTO _computed_date_pair;
+						SELECT * FROM atomicdatecomputation(_start_date, _end_date, _operator, _computed_date_pair) INTO _computed_date_pair;
 					END IF;
 				END IF;
 			END IF;
