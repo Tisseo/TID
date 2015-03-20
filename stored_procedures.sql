@@ -357,9 +357,9 @@ CREATE FUNCTION insertcalendar(_tcode character varying, _rcode character varyin
             INSERT INTO calendar(name, calendar_type, line_version_id) VALUES (_name, 'periode', _lvid);
             INSERT INTO calendar_datasource(calendar_id, code, datasource_id) VALUES (currval('calendar_id_seq'), _tcode, _datasource);
             UPDATE trip SET period_calendar_id =  currval('calendar_id_seq') WHERE id = _trip_id;
-            INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(currval('calendar_id_seq'), _date, _date, _operator);
+            INSERT INTO calendar_element(calendar_id, start_date, end_date, operator) VALUES(currval('calendar_id_seq'), _date, _date, _operator);
         ELSE
-            INSERT INTO calendar_element(calendar_id, start_date, end_date, positive) VALUES(_calendar_id, _date, _date, _operator);
+            INSERT INTO calendar_element(calendar_id, start_date, end_date, operator) VALUES(_calendar_id, _date, _date, _operator);
         END IF;
     END;
     $$;
