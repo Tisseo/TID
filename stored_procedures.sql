@@ -329,7 +329,7 @@ CREATE OR REPLACE FUNCTION deletecalendarelement(_calendar_id integer) RETURNS v
 			UPDATE calendar_element SET rank = _new_rank WHERE id = _cal_elt.id;
 		END LOOP;
 		-- Finally we delete the element
-		DELETE FROM calendar_element WHERE id = _calendar_id;		
+		DELETE FROM calendar_element WHERE id = _calendar_id;	
     END;
     $$;
 COMMENT ON FUNCTION deletecalendarelement (integer) IS 'Delete record in table calendar_element. Trig a recalculation of parent calendars computed start stop date';
@@ -388,9 +388,9 @@ CREATE OR REPLACE FUNCTION insertcalendar(_tcode character varying, _rcode chara
             INSERT INTO calendar(name, calendar_type, line_version_id) VALUES (_name, 'periode', _lvid);
             INSERT INTO calendar_datasource(calendar_id, code, datasource_id) VALUES (currval('calendar_id_seq'), _tcode, _datasource);
             UPDATE trip SET period_calendar_id =  currval('calendar_id_seq') WHERE id = _trip_id;
-            INSERT INTO calendar_element(calendar_id, start_date, end_date, operator) VALUES(currval('calendar_id_seq'), _date, _date, _operator);
+			PERFORM insertcalendarelement(currval('calendar_id_seq'), _date, _date, _operator);
         ELSE
-            INSERT INTO calendar_element(calendar_id, start_date, end_date, operator) VALUES(_calendar_id, _date, _date, _operator);
+			PERFORM insertcalendarelement(_calendar_id, _date, _date, _operator);
         END IF;
     END;
     $$;
