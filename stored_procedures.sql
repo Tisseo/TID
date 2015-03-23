@@ -222,7 +222,7 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 		-- If we want delete this element : don't take it into account for calculation
 		IF _currentElementDeletion THEN
 			_rank_to_ignore := _rank;
-			RAISE WARNING 'This is DELETION : rank to ignore = %', _rank;
+			-- RAISE DEBUG 'This is DELETION : rank to ignore = %', _rank;
 		END IF;
 		BEGIN
 			-- If there is not any calendar element in this calendar then we don't go in the loop.
@@ -231,7 +231,7 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 			LOOP
 				-- Note that we use start_date & end_date of a calendar element with an included calendar_id
 				-- It is working only because we always duplicate computed_start_date/ computed_end_date of a calendar in all calendar element witch include it !
-				RAISE WARNING 'CalElt % : start = %, end = %, operator = %, rank = %', _cal.id, _cal.start_date, _cal.end_date, _cal.operator, _cal.rank;			
+				-- RAISE DEBUG 'CalElt % : start = %, end = %, operator = %, rank = %', _cal.id, _cal.start_date, _cal.end_date, _cal.operator, _cal.rank;			
 				-- First we need to remember the first date bounds
 				IF _cal_elt_number = 0 THEN -- Must be true for _cal.rank = 1
 					_computed_date_pair.start_date := _cal.start_date;
@@ -253,7 +253,7 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 			-- If we are on first recursion level, there is no cal_elt record with the provided rank (the one all that stuff must add)
 			-- But we need to take it into account for finish computation
 			IF NOT _cal_elt_rank_found AND NOT _currentElementDeletion THEN
-				RAISE WARNING 'Calendar element of rank % not found in calendar % (_cal_elt_number = %)', _rank, _calendar_id, _cal_elt_number;
+				-- RAISE DEBUG 'Calendar element of rank % not found in calendar % (_cal_elt_number = %)', _rank, _calendar_id, _cal_elt_number;
 				-- If _rank is null, current calendar element is being deleted.
 				-- In that case the calculation (of the current calendar) is simply finished
 				IF _rank IS NOT NULL THEN
