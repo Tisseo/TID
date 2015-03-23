@@ -276,7 +276,7 @@ CREATE OR REPLACE FUNCTION insertcalendarelement(_calendar_id integer, _start_da
 			END;
 			-- We need to extract start/end date from included calendar
 			SELECT computed_start_date, computed_end_date, calendar_type FROM calendar WHERE id = _included_calendar_id INTO _included_cal;
-			IF calendar_type = 'accessibilite'::calendar_type THEN
+			IF _included_cal.calendar_type = 'accessibilite'::calendar_type THEN
 				RAISE EXCEPTION '"accessibilite" calendars cannot be included into any calendar !';
 			END IF;
 			-- Note that dates could be NULL
