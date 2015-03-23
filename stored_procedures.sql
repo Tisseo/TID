@@ -239,6 +239,8 @@ CREATE OR REPLACE FUNCTION propagateparentcalendarsstartend (_calendar_id intege
 			FOR _cal IN 
 				SELECT calendar_id, rank, operator FROM calendar_element WHERE _calendar_id = included_calendar_id
 			LOOP
+				-- Need to update current calendar element with new calculated values
+				UPDATE calendar_element SET start_date = _computed_date_pair.start_date, end_date = _computed_date_pair.end_date WHERE id = _cal.id;
 				-- To calculate the parent calendar, we need to pass (not commited yet) new start/end date of updated calendar_element (and rand to found it)
 				-- operator is passed because of the not already added calendar element (first call of this recursive function)
 				-- We set currentElementDeletion, because just want to update fields, ignoring no calendar
