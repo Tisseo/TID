@@ -267,7 +267,7 @@ CREATE OR REPLACE FUNCTION insertcalendarelement(_calendar_id integer, _start_da
 			-- Integrity control : a calendar element with an included_calendar_id could not have start_date & end_date provided
 			IF _start_date IS NOT NULL OR _end_date IS NOT NULL THEN
 				RAISE EXCEPTION 'A calendar element with an included_calendar_id could not have start_date & end_date provided !';
-			END IF;
+			END IF;			
 			-- Abort creation if calendar creation will create an inclusion loop
 			BEGIN
 				PERFORM detectcalendarinclusionloop(_included_calendar_id, _calendar_id);
@@ -275,7 +275,10 @@ CREATE OR REPLACE FUNCTION insertcalendarelement(_calendar_id integer, _start_da
 				RAISE EXCEPTION '% %Cannot insert calendar. It will create an inclusion loop !',SQLERRM , chr(10);
 			END;
 			-- We need to extract start/end date from included calendar
-			SELECT computed_start_date, computed_end_date FROM calendar WHERE id = _included_calendar_id INTO _included_cal;
+			SELECT computed_start_date, computed_end_date, calendar_type FROM calendar WHERE id = _included_calendar_id INTO _included_cal;
+			IF calendar_type = 'accessibilite'::calendar_type THEN
+				RAISE EXCEPTION '"accessibilite" calendars cannot be included into any calendar !';
+			END IF;
 			-- Note that dates could be NULL
 			_real_start_date := _included_cal.computed_start_date;
 			_real_end_date := _included_cal.computed_end_date;
@@ -345,7 +348,7 @@ CREATE OR REPLACE FUNCTION detectcalendarinclusionloop (_included_calendar_id in
 		RAISE DEBUG 'LOOP cal = %', _included_calendar_id;
 		-- Recursion stop condition : the loop is done
 		IF _included_calendar_id = _first_calendar_id THEN
-			RAISE EXCEPTION 'DETECT LOOP INCLUSION %--- stack trace ---',chr(10);
+			RAISE EXCEPTION 'DETECT LOOP INCLUSION %--- Loop inclusion ---',chr(10);
 		END IF;
 		BEGIN
 			-- Check all cal elt of the calendar of id "_included_calendar_id" 
@@ -644,6 +647,7 @@ CREATE OR REPLACE FUNCTION setstopaccessibility(_stop_id integer, _access boolea
 		_accessibility_date date;
         _calendar_id integer;
 		_calendar_element_id integer;
+		_cal_elt record;
     BEGIN			
 		IF _date IS NULL THEN
 			_accessibility_date := current_date;
@@ -660,19 +664,23 @@ CREATE OR REPLACE FUNCTION setstopaccessibility(_stop_id integer, _access boolea
 		
 		IF _calendar_id IS NOT NULL THEN
 			-- inaccessibility for current date ?
-			SELECT id INTO _calendar_element_id
+			SELECT * INTO _cal_elt
 			FROM calendar_element
 			WHERE calendar_id = _calendar_id
 			AND start_date <= _accessibility_date
 			AND end_date > _accessibility_date;
-		END IF;		
+			
+			_calendar_element_id := _cal_elt.id;
+		END IF;
 		
 		IF _access THEN
 			IF _calendar_element_id IS NOT NULL THEN
 				-- close inaccessibility for the current date 
 				UPDATE calendar_element
 				SET end_date = _accessibility_date
-				WHERE id = _calendar_element_id;			
+				WHERE id = _calendar_element_id;
+				-- We just change the end_date : we must recalculate computed date of calendar
+				PERFORM computecalendarsstartend (_calendar_id, _cal_elt.start_date, _accessibility_date, _cal_elt.rank, _cal_elt.operator, FALSE);
 			END IF;
 		ELSE
 			IF _calendar_id IS NOT NULL THEN
