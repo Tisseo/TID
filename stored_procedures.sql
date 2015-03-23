@@ -253,7 +253,7 @@ COMMENT ON FUNCTION propagateparentcalendarsstartend(integer, integer, boolean, 
 
 
 
-CREATE OR REPLACE FUNCTION insertcalendarelement(_calendar_id integer, _start_date date default NULL, _end_date date default NULL, _interval integer default NULL, _operator calendar_operator default '+', _included_calendar_id integer default NULL) RETURNS integer 
+CREATE OR REPLACE FUNCTION insertcalendarelement(_calendar_id integer, _start_date date default NULL, _end_date date default NULL, _interval integer default 1, _operator calendar_operator default '+', _included_calendar_id integer default NULL) RETURNS integer 
     LANGUAGE plpgsql
     AS $$
     DECLARE

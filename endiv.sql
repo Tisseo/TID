@@ -98,7 +98,7 @@ CREATE TABLE calendar_element (
     start_date date,
     end_date date,
     operator calendar_operator NOT NULL,
-    "interval" integer,
+    "interval" integer NOT NULL default 1,
     included_calendar_id integer,
     CHECK (start_date <= end_date)
 );
