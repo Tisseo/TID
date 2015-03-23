@@ -237,7 +237,7 @@ CREATE OR REPLACE FUNCTION propagateparentcalendarsstartend (_calendar_id intege
 			-- Launch same operation an all parent calendars (could have none)
 			-- Infinite recursion must not happen because we previously check it with 'detectcalendarinclusionloop' function
 			FOR _cal IN 
-				SELECT calendar_id, rank, operator FROM calendar_element WHERE _calendar_id = included_calendar_id
+				SELECT id, calendar_id, rank, operator FROM calendar_element WHERE _calendar_id = included_calendar_id
 			LOOP
 				-- Need to update current calendar element with new calculated values
 				UPDATE calendar_element SET start_date = _computed_date_pair.start_date, end_date = _computed_date_pair.end_date WHERE id = _cal.id;
