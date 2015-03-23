@@ -128,12 +128,12 @@ CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date da
 					_computed_date_pair := previous_bounds;
 				ELSE
 					IF _start_date <= previous_bounds.start_date THEN
-						_computed_date_pair.start_date := _end_date; -- TODO : plus un jour
+						_computed_date_pair.start_date := _end_date + interval '1' day;
 					ELSE
 						_computed_date_pair.start_date := previous_bounds.start_date;
 					END IF;						 
 					IF _end_date >= previous_bounds.end_date THEN
-						_computed_date_pair.end_date := _start_date; -- TODO : moins un jour
+						_computed_date_pair.end_date := _start_date - interval '1' day;
 					ELSE
 						_computed_date_pair.end_date := previous_bounds.end_date;
 					END IF;
@@ -199,6 +199,9 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 				IF _rank IS NOT NULL THEN
 					IF _cal_elt_number = 0 THEN
 						RAISE WARNING 'First calendar element ! We set date to (%, %)', _start_date, _end_date;
+						IF _operator != '+'::calendar_operator THEN
+							RAISE EXCEPTION 'First calendar_element must always have an operator + ';
+						END IF;
 						-- There is 0 elts in this calendar : calculation is trivial
 						_computed_date_pair.start_date := _start_date;
 						_computed_date_pair.end_date := _end_date;
@@ -210,7 +213,7 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 			END IF;
 			UPDATE calendar SET computed_start_date = _computed_date_pair.start_date, computed_end_date = _computed_date_pair.end_date WHERE id = _calendar_id;
 		EXCEPTION WHEN raise_exception THEN
-			RAISE EXCEPTION '% %An atomic calendar operation failed for calendar %',SQLERRM , chr(10), _included_calendar_id;
+			RAISE EXCEPTION '% %An atomic calendar operation failed for calendar %',SQLERRM , chr(10), _calendar_id;
 		END;
 		RETURN _computed_date_pair;		
 	END;
@@ -238,7 +241,7 @@ CREATE OR REPLACE FUNCTION propagateparentcalendarsstartend (_calendar_id intege
 				PERFORM propagateparentcalendarsstartend(_cal.calendar_id, _computed_date_pair.start_date, _computed_date_pair.end_date, _cal.rank, _cal.operator);
 			END LOOP;
 		EXCEPTION WHEN raise_exception THEN
-			RAISE EXCEPTION '% %Parent calendar element = %',SQLERRM , chr(10), _included_calendar_id;
+			RAISE EXCEPTION '% %Parent calendar element = %',SQLERRM , chr(10), _calendar_id;
 		END;
     END;
     $$;
