@@ -21,3 +21,5 @@ SELECT insertcalendarelement(1,'2014-01-01','2017-01-01',NULL, '+'); -- ca march
 -- SELECT insertcalendarelement(3,'2015-02-09','2015-02-22',NULL, '+', 1); -- ca pête comme prevu
 -- doit RAISE : "A calendar element with an included_calendar_id could not have start_date & end_date provided"
 
+SELECT deletecalendarelement(3); -- ca marche : doit virer le second cal elt du calendrier 3 et mettre à jour les rank des éléments précédents
+

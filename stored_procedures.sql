@@ -152,7 +152,7 @@ COMMENT ON FUNCTION atomicdatecomputation (_start_date date, date, calendar_oper
 	
 
 -- If rank is null, we are in a calendar element deletion case
-CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _start_date date, _end_date date, _rank integer, _operator calendar_operator) RETURNS date_pair 
+CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _start_date date, _end_date date, _rank integer, _operator calendar_operator, _currentElementDeletion boolean) RETURNS date_pair 
 	LANGUAGE plpgsql
 	AS $$
 	DECLARE
@@ -160,14 +160,20 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 		_computed_date_pair date_pair;
 		_cal_elt_rank_found boolean;
 		_cal_elt_number integer;
+		_rank_to_ignore integer;
 	BEGIN
 		RAISE WARNING 'Calculate calendar %, _rank = %', _calendar_id, _rank;
 		_cal_elt_rank_found := FALSE;
 		_cal_elt_number := 0;
+		_rank_to_ignore := 0; -- There is never rank = 0 (start at 1)
+		-- If we want delete this element : don't take it into account for calculation
+		IF _currentElementDeletion THEN
+			_rank_to_ignore := _rank;
+		END IF;
 		BEGIN
 			-- If there is not any calendar element in this calendar then we don't go in the loop.
 			FOR _cal IN 
-				SELECT id, operator, start_date, end_date, rank FROM calendar_element WHERE calendar_id = _calendar_id ORDER BY rank
+				SELECT id, operator, start_date, end_date, rank FROM calendar_element WHERE calendar_id = _calendar_id AND rank != _rank_to_ignore ORDER BY rank
 			LOOP
 				-- Note that we use start_date & end_date of a calendar element with an included calendar_id
 				-- It is working only because we always duplicate computed_start_date/ computed_end_date of a calendar in all calendar element witch include it !
@@ -178,7 +184,7 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 					_computed_date_pair.end_date := _cal.end_date;
 				ELSE
 					-- Second (_rank>1) we need to calculate new bounds
-					IF _cal.rank = _rank THEN -- Note that _rank could be null (calendar deletion use case)					
+					IF _cal.rank = _rank THEN 				
 						RAISE WARNING 'This is the element of rank %', _cal.rank;
 						_cal_elt_rank_found := TRUE;
 						-- In that case we MUST use the new start/end dates (because the current one could be false until COMMIT)
@@ -192,7 +198,7 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 			END LOOP;
 			-- If we are on first recursion level, there is no cal_elt record with the provided rank (the one all that stuff must add)
 			-- But we need to take it into account for finish computation
-			IF NOT _cal_elt_rank_found THEN
+			IF NOT _cal_elt_rank_found AND NOT _currentElementDeletion THEN
 				RAISE WARNING 'Calendar element of rank % not found in calendar % (_cal_elt_number = %)', _rank, _calendar_id, _cal_elt_number;
 				-- If _rank is null, current calendar element is being deleted.
 				-- In that case the calculation (of the current calendar) is simply finished
@@ -218,10 +224,10 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 		RETURN _computed_date_pair;		
 	END;
     $$;
-COMMENT ON FUNCTION computecalendarsstartend(integer, date, date, integer, calendar_operator) IS 'Calculate start/end computed dates of a calendar. Result could be a pair of null if no date intersect or empty calendar';
+COMMENT ON FUNCTION computecalendarsstartend(integer, date, date, integer, calendar_operator, boolean) IS 'Calculate start/end computed dates of a calendar. Result could be a pair of null if no date intersect or empty calendar';
     
 
-CREATE OR REPLACE FUNCTION propagateparentcalendarsstartend (_calendar_id integer, _start_date date default null, _end_date date default null, _rank integer default null, _operator calendar_operator default null) RETURNS void 
+CREATE OR REPLACE FUNCTION propagateparentcalendarsstartend (_calendar_id integer, _rank integer, _currentElementDeletion boolean, _start_date date default null, _end_date date default null, _operator calendar_operator default null) RETURNS void 
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -230,7 +236,7 @@ CREATE OR REPLACE FUNCTION propagateparentcalendarsstartend (_calendar_id intege
     BEGIN
 		BEGIN
 			-- Calculate new start/end computed date for current calendar
-			SELECT * FROM computecalendarsstartend(_calendar_id, _start_date, _end_date, _rank, _operator) INTO _computed_date_pair;
+			SELECT * FROM computecalendarsstartend(_calendar_id, _start_date, _end_date, _rank, _operator, _currentElementDeletion) INTO _computed_date_pair;
 			-- Launch same operation an all parent calendars (could have none)
 			-- Infinite recursion must not happen because we previously check it with 'detectcalendarinclusionloop' function
 			FOR _cal IN 
@@ -238,14 +244,15 @@ CREATE OR REPLACE FUNCTION propagateparentcalendarsstartend (_calendar_id intege
 			LOOP
 				-- To calculate the parent calendar, we need to pass (not commited yet) new start/end date of updated calendar_element (and rand to found it)
 				-- operator is passed because of the not already added calendar element (first call of this recursive function)
-				PERFORM propagateparentcalendarsstartend(_cal.calendar_id, _computed_date_pair.start_date, _computed_date_pair.end_date, _cal.rank, _cal.operator);
+				-- We set currentElementDeletion, because just want to update fields, ignoring no calendar
+				PERFORM propagateparentcalendarsstartend(_cal.calendar_id, _cal.rank, FALSE, _computed_date_pair.start_date, _computed_date_pair.end_date, _cal.operator);
 			END LOOP;
 		EXCEPTION WHEN raise_exception THEN
 			RAISE EXCEPTION '% %Parent calendar element = %',SQLERRM , chr(10), _calendar_id;
 		END;
     END;
     $$;
-COMMENT ON FUNCTION propagateparentcalendarsstartend(integer, date, date, integer, calendar_operator) IS 'This recursive function launch computecalendarsstartend and call himself on an all parents calendar';
+COMMENT ON FUNCTION propagateparentcalendarsstartend(integer, integer, boolean, date, date, calendar_operator) IS 'This recursive function launch computecalendarsstartend and call himself on an all parents calendar';
 
 
 
@@ -292,7 +299,7 @@ CREATE OR REPLACE FUNCTION insertcalendarelement(_calendar_id integer, _start_da
 		-- Third, recalculate calendar start/end computed dates and recursively for all calendars that include this one
 		BEGIN
 			-- The new calendar_element is not already inserted so we need to pass information about it on sub routines
-			PERFORM propagateparentcalendarsstartend(_calendar_id, _real_start_date, _real_end_date, _rank, _operator);
+			PERFORM propagateparentcalendarsstartend(_calendar_id, _rank, FALSE, _real_start_date, _real_end_date, _operator);
 		EXCEPTION WHEN raise_exception THEN
 				RAISE EXCEPTION '% %Cannot insert calendar. It broke start stop rule somewhere !',SQLERRM , chr(10);
 		END;
@@ -305,12 +312,27 @@ COMMENT ON FUNCTION insertcalendarelement (integer, date, date, integer, calenda
 
 
 
-CREATE OR REPLACE FUNCTION deletecalendarelement(_calendar_id integer) RETURNS void 
+CREATE OR REPLACE FUNCTION deletecalendarelement(_calendar_id integer) RETURNS void
     LANGUAGE plpgsql
     AS $$
+	DECLARE
+		_rank integer;
+		_new_rank integer;
+		_cal_elt record;
     BEGIN
-        PERFORM propagateparentcalendarsstartend(_calendar_id);
-		DELETE FROM calendar_element WHERE id = _calendar_id;
+		-- Get rank of deleted element
+		SELECT rank FROM calendar_element WHERE calendar_id = _calendar_id INTO _rank;
+		-- Update calendars depending of the current one
+        PERFORM propagateparentcalendarsstartend(_calendar_id,_rank,TRUE);
+		-- Decrease rank of all element up to the current one
+		FOR _cal_elt IN 
+			SELECT id, rank FROM calendar_element WHERE calendar_id = _calendar_id AND rank > _rank
+		LOOP
+			_new_rank := _cal_elt.rank - 1;
+			UPDATE calendar_element SET rank = _new_rank WHERE id = _cal_elt.id;
+		END LOOP;
+		-- Finally we delete the element
+		DELETE FROM calendar_element WHERE id = _calendar_id;		
     END;
     $$;
 COMMENT ON FUNCTION deletecalendarelement (integer) IS 'Delete record in table calendar_element. Trig a recalculation of parent calendars computed start stop date';
