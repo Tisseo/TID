@@ -85,7 +85,7 @@ SELECT insertcalendarelement(2,NULL,NULL,1, '-', 1);
 
 -- suppression rang 2 du calendrier 2
 SELECT deletecalendarelement(2);
--- la suppression devrait être interdite ===> KO
+-- la suppression devrait être interdite ===> OK
 -- ERREUR : Lorsqu'un calendrier a deux éléments, un '+' suivi d'un '-', la suppression du rang 1 '+' fonctionne. Il reste alors un seul élément '-'.
 
 

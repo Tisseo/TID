@@ -56,7 +56,63 @@ CREATE OR REPLACE FUNCTION insertcalendar(_name character varying, _ccode charac
     $$;
 COMMENT ON FUNCTION insertcalendar (character varying, character varying, integer, calendar_type) IS 'insert record in tables calendar and calendar_datasource and return new calendar.id';
 
+CREATE OR REPLACE FUNCTION applybitmask(_source_bit_mask bit varying, _new_bit_mask bit varying, _bounds_start_date date, _bounds_end_date date, _operator calendar_operator) RETURNS bit varying
+LANGUAGE plpgsql
+	AS $$
+	DECLARE
+		_resulting_bit_mask bit varying;
+	BEGIN
+		CASE _operator
+			WHEN '+'::calendar_operator THEN -- Date muse be added
+				_resulting_bit_mask := _source_bit_mask | _new_bit_mask;
+			WHEN '&'::calendar_operator THEN -- Must calculate intersection
+				_resulting_bit_mask := _source_bit_mask & _new_bit_mask;
+			WHEN '-'::calendar_operator THEN -- Date must be subs
+				_resulting_bit_mask := _source_bit_mask & (~_new_bit_mask);
+		END CASE;
+		RETURN _resulting_bit_mask;
+	END;
+	$$;
+COMMENT ON FUNCTION applybitmask (bit varying, bit varying, date, date, calendar_operator) IS 'Return resulting bitmask applying new bitmask on previous bitmask according to operator';
 
+
+CREATE OR REPLACE FUNCTION getcalendarelementbitmask (_calendar_element calendar_element%rowtype, _start_date date, _end_date date, _mask_length integer) RETURNS bit varying
+LANGUAGE plpgsql
+	AS $$
+	DECLARE
+		_bit_mask bit varying;
+	BEGIN
+		_bit_mask := 0::bit(_mask_length);
+		
+		RETURN _bit_mask;
+	END;
+	$$;
+COMMENT ON FUNCTION getcalendarelementbitmask (calendar_element%rowtype, date, date) IS 'Return active days calendar element bitmask between provided dates bounds';
+
+CREATE OR REPLACE FUNCTION getcalendarbitmask (_calendar_id integer, _start_date date, _end_date date) RETURNS bit varying
+LANGUAGE plpgsql
+	AS $$
+	DECLARE
+		_cumuled_bit_mask bit varying;
+		_new_bit_mask bit varying;
+		_mask_length integer;
+		_cal_elt calendar_element%rowtype;
+	BEGIN
+		-- First create a 0000000... mask
+		select date_part('day', age(_start_date, _end_date) ) INTO _mask_length;		
+		_cumuled_bit_mask := 0::bit(_mask_length);
+		
+		FOR _cal_elt IN 
+			SELECT * FROM calendar_element WHERE calendar_id = _calendar_id ORDER BY rank
+		LOOP
+			_new_bit_mask := getcalendarelementbitmask(_cal_elt, _start_date, _end_date);
+			select applybitmask(_cumuled_bit_mask, _new_bit_mask, _start_date, _end_date, _mask_length) INTO _cumuled_bit_mask;
+		END LOOP;
+		
+		RETURN _cumuled_bit_mask;
+	END;
+	$$;
+COMMENT ON FUNCTION getcalendarbitmask (integer, date, date) IS 'Return active days calendar bitmask between provided dates bounds';
 
 CREATE TYPE date_pair AS (start_date date, end_date date);
 
@@ -117,7 +173,7 @@ CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date da
 							_computed_date_pair.end_date := NULL;							
 						END IF;
 					END IF;
-				END IF;			
+				END IF;
 			WHEN '-'::calendar_operator THEN -- Date must be subs
 				IF _start_date IS NULL OR previous_bounds.start_date IS NULL THEN
 					-- Substract something NULL don't change object
@@ -145,7 +201,7 @@ CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date da
 		RETURN _computed_date_pair;
 	END;
 	$$;
-COMMENT ON FUNCTION atomicdatecomputation (_start_date date, date, calendar_operator, date_pair) IS 'Apply "operator" operation (with calendar element args) on a previous start/end couple. Result could be a pair of null if no date intersect or empty calendar';
+COMMENT ON FUNCTION atomicdatecomputation (date, date, calendar_operator, date_pair) IS 'Apply "operator" operation (with calendar element args) on a previous start/end couple. Result could be a pair of null if no date intersect or empty calendar';
 	
 
 -- If rank is null, we are in a calendar element deletion case
@@ -321,9 +377,18 @@ CREATE OR REPLACE FUNCTION deletecalendarelement(_calendar_id integer) RETURNS v
 		_rank integer;
 		_new_rank integer;
 		_cal_elt record;
+		_operator calendar_operator;
     BEGIN
 		-- Get rank of deleted element
 		SELECT rank FROM calendar_element WHERE calendar_id = _calendar_id INTO _rank;
+		IF _rank = 1 THEN
+			SELECT operator FROM calendar_element WHERE calendar_id = _calendar_id AND rank = 2 INTO _operator;
+			IF FOUND THEN
+				IF _operator != '+'::calendar_operator THEN
+					RAISE EXCEPTION 'You cannot delete this rank 1 calendar because rank 2 calendar is not of "+" operator';
+				END IF;
+			END IF;
+		END IF;
 		-- Update calendars depending of the current one
         PERFORM propagateparentcalendarsstartend(_calendar_id,_rank,TRUE);
 		-- Decrease rank of all element up to the current one
