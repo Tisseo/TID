@@ -68,10 +68,9 @@ CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date da
 	DECLARE
 		_computed_date_pair date_pair;
 	BEGIN
-		RAISE WARNING 'Operate this : (%,%) % (%,%)',previous_bounds.start_date,previous_bounds.end_date,_operator,_start_date,_end_date;		
+		-- RAISE DEBUG 'Operate this : (%,%) % (%,%)',previous_bounds.start_date,previous_bounds.end_date,_operator,_start_date,_end_date;		
 		CASE _operator
 			WHEN '+'::calendar_operator THEN -- Date muse be added
-				RAISE WARNING 'Addition';
 				IF _start_date IS NULL THEN
 					-- We assume that if _start_date is NULL _end_date is also NULL
 					_computed_date_pair := previous_bounds;
@@ -93,7 +92,6 @@ CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date da
 					END IF;
 				END IF;
 			WHEN '&'::calendar_operator THEN -- Must calculate intersection
-				RAISE WARNING 'Intersection';
 				IF _start_date IS NULL THEN
 					-- We assume that if _start_date is NULL _end_date is also NULL
 					_computed_date_pair.start_date := NULL;
@@ -121,7 +119,6 @@ CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date da
 					END IF;
 				END IF;			
 			WHEN '-'::calendar_operator THEN -- Date must be subs
-				RAISE WARNING 'Substraction';
 				IF _start_date IS NULL OR previous_bounds.start_date IS NULL THEN
 					-- Substract something NULL don't change object
 					-- Substract something to a NULL object left him NULL
@@ -144,7 +141,7 @@ CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date da
 					END IF;
 				END IF;
 		END CASE;
-		RAISE WARNING 'Result (%,%)',_computed_date_pair.start_date,_computed_date_pair.end_date;
+		-- RAISE DEBUG 'Result (%,%)',_computed_date_pair.start_date,_computed_date_pair.end_date;
 		RETURN _computed_date_pair;
 	END;
 	$$;
@@ -162,7 +159,7 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 		_cal_elt_number integer;
 		_rank_to_ignore integer;
 	BEGIN
-		RAISE WARNING 'Calculate calendar %, _rank = %', _calendar_id, _rank;
+		-- RAISE DEBUG 'Calculate calendar %, _rank = %', _calendar_id, _rank;
 		_cal_elt_rank_found := FALSE;
 		_cal_elt_number := 0;
 		_rank_to_ignore := 0; -- There is never rank = 0 (start at 1)
@@ -177,7 +174,7 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 			LOOP
 				-- Note that we use start_date & end_date of a calendar element with an included calendar_id
 				-- It is working only because we always duplicate computed_start_date/ computed_end_date of a calendar in all calendar element witch include it !
-				RAISE WARNING 'CalElt % : start = %, end = %, operator = %, rank = %', _cal.id, _cal.start_date, _cal.end_date, _cal.operator, _cal.rank;			
+				-- RAISE DEBUG 'CalElt % : start = %, end = %, operator = %, rank = %', _cal.id, _cal.start_date, _cal.end_date, _cal.operator, _cal.rank;			
 				-- First we need to remember the first date bounds
 				IF _cal_elt_number = 0 THEN -- Must be true for _cal.rank = 1
 					_computed_date_pair.start_date := _cal.start_date;
@@ -185,12 +182,12 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 				ELSE
 					-- Second (_rank>1) we need to calculate new bounds
 					IF _cal.rank = _rank THEN 				
-						RAISE WARNING 'This is the element of rank %', _cal.rank;
+						-- RAISE DEBUG 'This is the element of rank %', _cal.rank;
 						_cal_elt_rank_found := TRUE;
 						-- In that case we MUST use the new start/end dates (because the current one could be false until COMMIT)
 						SELECT * FROM atomicdatecomputation(_start_date, _end_date, _operator,  _computed_date_pair) INTO _computed_date_pair;
 					ELSE
-						RAISE WARNING 'Element of rank %', _cal.rank;
+						-- RAISE DEBUG 'Element of rank %', _cal.rank;
 						SELECT * FROM atomicdatecomputation(_cal.start_date, _cal.end_date, _cal.operator, _computed_date_pair) INTO _computed_date_pair;
 					END IF;
 				END IF;
@@ -199,12 +196,12 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 			-- If we are on first recursion level, there is no cal_elt record with the provided rank (the one all that stuff must add)
 			-- But we need to take it into account for finish computation
 			IF NOT _cal_elt_rank_found AND NOT _currentElementDeletion THEN
-				RAISE WARNING 'Calendar element of rank % not found in calendar % (_cal_elt_number = %)', _rank, _calendar_id, _cal_elt_number;
+				-- RAISE DEBUG 'Calendar element of rank % not found in calendar % (_cal_elt_number = %)', _rank, _calendar_id, _cal_elt_number;
 				-- If _rank is null, current calendar element is being deleted.
 				-- In that case the calculation (of the current calendar) is simply finished
 				IF _rank IS NOT NULL THEN
 					IF _cal_elt_number = 0 THEN
-						RAISE WARNING 'First calendar element ! We set date to (%, %)', _start_date, _end_date;
+						-- RAISE DEBUG 'First calendar element ! We set date to (%, %)', _start_date, _end_date;
 						IF _operator != '+'::calendar_operator THEN
 							RAISE EXCEPTION 'First calendar_element must always have an operator + ';
 						END IF;
@@ -295,7 +292,7 @@ CREATE OR REPLACE FUNCTION insertcalendarelement(_calendar_id integer, _start_da
 		SELECT count(*) FROM calendar_element WHERE calendar_id = _calendar_id INTO _rank;
 		_rank := _rank + 1;
 		
-		RAISE WARNING 'We insert a new element of rank %, date are (%, %)', _rank, _real_start_date, _real_end_date;
+		-- RAISE DEBUG 'We insert a new element of rank %, date are (%, %)', _rank, _real_start_date, _real_end_date;
 		-- Third, recalculate calendar start/end computed dates and recursively for all calendars that include this one
 		BEGIN
 			-- The new calendar_element is not already inserted so we need to pass information about it on sub routines
