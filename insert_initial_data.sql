@@ -1961,3 +1961,15 @@ SELECT insertcalendarelement (153,NULL,NULL,1,'-',152) ;
 SELECT insertcalendarelement (153,'2015-05-02','2015-05-02',1,'-',NULL) ;
 SELECT insertcalendarelement (154,'2015-02-18','2015-02-18',1,'+',NULL) ;
 
+INSERT INTO exception_type (id serial PRIMARY KEY, label character varying(5), exception_text character varying(255), grid_calendar_pattern character varying(7), trip_calendar_pattern character varying(7));
+INSERT INTO exception_type (1,'m', 'Uniquement le mercredi', '1111100', '0010000');
+INSERT INTO exception_type (2,'m', 'Uniquement le mercredi', '1111110', '0010000');
+INSERT INTO exception_type (3,'m', 'Uniquement le mercredi', '1111111', '0010000');
+INSERT INTO exception_type (4,'e', 'Sauf le mercredi', '1111100', '1101100');
+INSERT INTO exception_type (5,'e', 'Sauf le mercredi', '1111110', '1101110');
+INSERT INTO exception_type (6,'e', 'Sauf le mercredi', '1111111', '1101111');
+INSERT INTO exception_type (7,'v', 'Uniquement le vendredi', '1111100', '0000100');
+INSERT INTO exception_type (8,'v', 'Uniquement le vendredi', '1111110', '0000100');
+INSERT INTO exception_type (9,'v', 'Uniquement le vendredi', '1111111', '0000100');
+INSERT INTO exception_type (10,'vs', 'Uniquement le vendredi et le samedi', '1111110', '0000110');
+INSERT INTO exception_type (11,'vs', 'Uniquement le vendredi et le samedi', '1111111', '0000110');
