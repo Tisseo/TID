@@ -50,8 +50,7 @@ SELECT insertcalendarelement(1,'2015-08-01','2015-12-31',1, '+');
 
 -- vidage cal 1
 SELECT deletecalendarelement(3);
--- le calendrier 1 doit retrouver des computed_date à NULL, la calendrier 2 doit valoir '2015-01-01','2015-12-31' ===> KO
--- ERREUR, aucune mise à jour effectuée
+-- le calendrier 1 doit retrouver des computed_date à NULL, la calendrier 2 doit valoir '2015-01-01','2015-12-31' ===> OK
 
 
 -- A2. Passage à NULL des computed_date puis suppression d'élément négatif
@@ -68,8 +67,7 @@ SELECT insertcalendarelement(2,'2015-01-01','2015-12-31',1, '-');
 
 -- suppression rang 2 du calendrier 2
 SELECT deletecalendarelement(2);
--- la suppression doit engendrer un recalcul du calendrier 2. On attend des computed_date à '2015-01-01','2015-01-01' ===> KO
--- ERREUR : Les computed_date du calendrier 2 restent à NULL
+-- la suppression doit engendrer un recalcul du calendrier 2. On attend des computed_date à '2015-01-01','2015-01-01' ===> OK
 
 
 -- A3. Suppression d'élément de telle sorte qu'un élément '-' arrive au premier rang
@@ -86,7 +84,6 @@ SELECT insertcalendarelement(2,NULL,NULL,1, '-', 1);
 -- suppression rang 2 du calendrier 2
 SELECT deletecalendarelement(2);
 -- la suppression devrait être interdite ===> OK
--- ERREUR : Lorsqu'un calendrier a deux éléments, un '+' suivi d'un '-', la suppression du rang 1 '+' fonctionne. Il reste alors un seul élément '-'.
 
 
 

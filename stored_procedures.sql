@@ -222,6 +222,7 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 		-- If we want delete this element : don't take it into account for calculation
 		IF _currentElementDeletion THEN
 			_rank_to_ignore := _rank;
+			RAISE WARNING 'This is DELETION : rank to ignore = %', _rank;
 		END IF;
 		BEGIN
 			-- If there is not any calendar element in this calendar then we don't go in the loop.
@@ -230,7 +231,7 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 			LOOP
 				-- Note that we use start_date & end_date of a calendar element with an included calendar_id
 				-- It is working only because we always duplicate computed_start_date/ computed_end_date of a calendar in all calendar element witch include it !
-				-- RAISE DEBUG 'CalElt % : start = %, end = %, operator = %, rank = %', _cal.id, _cal.start_date, _cal.end_date, _cal.operator, _cal.rank;			
+				RAISE WARNING 'CalElt % : start = %, end = %, operator = %, rank = %', _cal.id, _cal.start_date, _cal.end_date, _cal.operator, _cal.rank;			
 				-- First we need to remember the first date bounds
 				IF _cal_elt_number = 0 THEN -- Must be true for _cal.rank = 1
 					_computed_date_pair.start_date := _cal.start_date;
@@ -252,7 +253,7 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 			-- If we are on first recursion level, there is no cal_elt record with the provided rank (the one all that stuff must add)
 			-- But we need to take it into account for finish computation
 			IF NOT _cal_elt_rank_found AND NOT _currentElementDeletion THEN
-				-- RAISE DEBUG 'Calendar element of rank % not found in calendar % (_cal_elt_number = %)', _rank, _calendar_id, _cal_elt_number;
+				RAISE WARNING 'Calendar element of rank % not found in calendar % (_cal_elt_number = %)', _rank, _calendar_id, _cal_elt_number;
 				-- If _rank is null, current calendar element is being deleted.
 				-- In that case the calculation (of the current calendar) is simply finished
 				IF _rank IS NOT NULL THEN
@@ -370,19 +371,19 @@ COMMENT ON FUNCTION insertcalendarelement (integer, date, date, integer, calenda
 
 
 
-CREATE OR REPLACE FUNCTION deletecalendarelement(_calendar_id integer) RETURNS void
+CREATE OR REPLACE FUNCTION deletecalendarelement(_calendar_element_id integer) RETURNS void
     LANGUAGE plpgsql
     AS $$
 	DECLARE
-		_rank integer;
 		_new_rank integer;
+		_other_cal_elt record;
 		_cal_elt record;
 		_operator calendar_operator;
     BEGIN
 		-- Get rank of deleted element
-		SELECT rank FROM calendar_element WHERE calendar_id = _calendar_id INTO _rank;
-		IF _rank = 1 THEN
-			SELECT operator FROM calendar_element WHERE calendar_id = _calendar_id AND rank = 2 INTO _operator;
+		SELECT rank, calendar_id FROM calendar_element WHERE id = _calendar_element_id INTO _cal_elt;
+		IF _cal_elt.rank = 1 THEN
+			SELECT operator FROM calendar_element WHERE calendar_id = _cal_elt.calendar_id AND rank = 2 INTO _operator;
 			IF FOUND THEN
 				IF _operator != '+'::calendar_operator THEN
 					RAISE EXCEPTION 'You cannot delete this rank 1 calendar because rank 2 calendar is not of "+" operator';
@@ -390,16 +391,16 @@ CREATE OR REPLACE FUNCTION deletecalendarelement(_calendar_id integer) RETURNS v
 			END IF;
 		END IF;
 		-- Update calendars depending of the current one
-        PERFORM propagateparentcalendarsstartend(_calendar_id,_rank,TRUE);
+        PERFORM propagateparentcalendarsstartend(_cal_elt.calendar_id, _cal_elt.rank, TRUE);
 		-- Decrease rank of all element up to the current one
-		FOR _cal_elt IN 
-			SELECT id, rank FROM calendar_element WHERE calendar_id = _calendar_id AND rank > _rank
+		FOR _other_cal_elt IN 
+			SELECT id, rank FROM calendar_element WHERE calendar_id = _cal_elt.calendar_id AND rank > _cal_elt.rank
 		LOOP
-			_new_rank := _cal_elt.rank - 1;
-			UPDATE calendar_element SET rank = _new_rank WHERE id = _cal_elt.id;
+			_new_rank := _other_cal_elt.rank - 1;
+			UPDATE calendar_element SET rank = _new_rank WHERE id = _other_cal_elt.id;
 		END LOOP;
 		-- Finally we delete the element
-		DELETE FROM calendar_element WHERE id = _calendar_id;	
+		DELETE FROM calendar_element WHERE id = _calendar_element_id;
     END;
     $$;
 COMMENT ON FUNCTION deletecalendarelement (integer) IS 'Delete record in table calendar_element. Trig a recalculation of parent calendars computed start stop date';
