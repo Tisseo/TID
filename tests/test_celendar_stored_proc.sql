@@ -23,3 +23,28 @@ SELECT insertcalendarelement(1,'2014-01-01','2017-01-01',NULL, '+'); -- ca march
 
 SELECT deletecalendarelement(3); -- ca marche : doit virer le second cal elt du calendrier 3 et mettre à jour les rank des éléments précédents
 
+
+-- TEST ANTOINE
+-- A1. Ajout d'un calendrier vide comme élément d'un calendrier existant.
+
+-- création calendriers
+INSERT INTO calendar (id, name, calendar_type) VALUES (1,'je suis vide','periode') ;
+INSERT INTO calendar (id, name, calendar_type) VALUES (2,'je vais etre rempli','periode') ;
+SELECT pg_catalog.setval('calendar_id_seq', 3, true);
+
+-- remplissages cal 2 (le cal 1 reste vide)
+SELECT insertcalendarelement(2,'2015-01-01','2015-12-31',NULL, '+'); 
+SELECT insertcalendarelement(2,NULL,NULL,NULL, '-', 1);
+-- on vérifie que le calendar_element inséré a bien des dates début et fin à NULL ===> OK
+
+-- remplissage cal 1
+SELECT insertcalendarelement(1,'2015-08-01','2015-12-31',NULL, '+');
+-- le calendar 2 doit donc valoir '2015-01-01'=>'2015-07-31' ===> OK
+-- ATTENTION, start_date et end_date de calendar_element (rank 2 pour cal 2) ne sont pas mises à jour ; elles restent à NULL.
+
+-- vidage cal 1
+SELECT deletecalendarelement(3);
+-- le calendrier 1 doit retrouver des computed_date à NULL, la calendrier 2 doit valoir '2015-01-01','2015-12-31' ===> KO
+-- ERREUR, aucune mise à jour effectuée
+
+
