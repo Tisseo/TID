@@ -768,7 +768,7 @@ INSERT INTO physical_mode (id, name, type) VALUES (3, 'Bus', 'Bus');
 INSERT INTO physical_mode (id, name, type) VALUES (4, 'TAD', 'Bus');
 INSERT INTO physical_mode (id, name, type) VALUES (5, 'Train', 'Train');
 INSERT INTO physical_mode (id, name, type) VALUES (7, 'Autocar', 'Autocar');
-SELECT pg_catalog.setval('physical_mode_id_seq', 8, true);
+SELECT pg_catalog.setval('physical_mode_id_seq', 8, false);
 
 INSERT INTO line (id, number, physical_mode_id, priority) VALUES (1, '1', 3, 3);
 INSERT INTO line (id, number, physical_mode_id, priority) VALUES (2, '2', 3, 3);
@@ -879,7 +879,7 @@ INSERT INTO line (id, number, physical_mode_id, priority) VALUES (106, '78s', 3,
 INSERT INTO line (id, number, physical_mode_id, priority) VALUES (107, 'VILLE', 3, 2);
 INSERT INTO line (id, number, physical_mode_id, priority) VALUES (108, 'CIMTR', 3, 2);
 INSERT INTO line (id, number, physical_mode_id, priority) VALUES (109, '87', 3, 3);
-SELECT pg_catalog.setval('line_id_seq', 110, true);
+SELECT pg_catalog.setval('line_id_seq', 110, false);
 
 INSERT INTO color (id, name, html, pantone_oc, hoxis, cmyk_cyan, cmyk_magenta, cmyk_yellow, cmyk_black, rgb_red, rgb_green, rgb_blue) VALUES(1,'Marron Foncé','#563f00','4625C',5478,0,60,100,79,86,63,0);
 INSERT INTO color (id, name, html, pantone_oc, hoxis, cmyk_cyan, cmyk_magenta, cmyk_yellow, cmyk_black, rgb_red, rgb_green, rgb_blue) VALUES(2,'Bleu Clair','#26ceff','299C',5299,85,19,0,0,38,206,255);
@@ -1009,7 +1009,7 @@ INSERT INTO line_version (fg_color_id, id, line_id, version, start_date, end_dat
 INSERT INTO line_version (fg_color_id, id, line_id, version, start_date, end_date, planned_end_date, child_line_id, name, backward_direction, forward_direction, bg_color_id, carto_file, accessibility, air_conditioned, comment, depot) VALUES (16,107, 107, 1, '2014-09-30', NULL, '2015-06-30', NULL, 'Navette Centre Ville', 'Navette Centre Ville', '', 5, 'yenapas.png', true, true, 'offre initiale', 'atlanta');
 INSERT INTO line_version (fg_color_id, id, line_id, version, start_date, end_date, planned_end_date, child_line_id, name, backward_direction, forward_direction, bg_color_id, carto_file, accessibility, air_conditioned, comment, depot) VALUES (16,108, 108, 1, '2014-09-30', NULL, '2015-06-30', NULL, 'Navette Cimetières', 'Navette Cimetières', '', 2, 'yenapas.png', true, true, 'offre initiale', 'atlanta');
 INSERT INTO line_version (fg_color_id, id, line_id, version, start_date, end_date, planned_end_date, child_line_id, name, backward_direction, forward_direction, bg_color_id, carto_file, accessibility, air_conditioned, comment, depot) VALUES (16,109, 109, 1, '2014-09-30', NULL, '2015-06-30', NULL, 'Cité Scolaire Rive-Gauche / Cugnaux Henry Gladi', 'Cité Scolaire Rive-Gauche', 'Cugnaux Henry Gladi', 12, 'yenapas.png', true, true, 'offre initiale', 'atlanta');
-SELECT pg_catalog.setval('line_version_id_seq', 110, true);
+SELECT pg_catalog.setval('line_version_id_seq', 110, false);
 
 
 INSERT INTO grid_calendar(id, line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (1,97,'Lundi à vendredi','true','true','true','true','true','false','false');
@@ -1028,7 +1028,7 @@ INSERT INTO grid_calendar(id, line_version_id, name, monday, tuesday, wednesday,
 INSERT INTO grid_calendar(id, line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (14,34,'Samedi','false','false','false','false','false','true','false');
 INSERT INTO grid_calendar(id, line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (15,34,'Dimanche et jours fériés','false','false','false','false','false','false','true');
 INSERT INTO grid_calendar(id, line_version_id, name, monday, tuesday, wednesday, thursday, friday, saturday, sunday) VALUES (16,34,'Lundi à vendredi en vacances scolaires','true','true','true','true','true','false','false');
-SELECT pg_catalog.setval('grid_calendar_id_seq', 17, true);
+SELECT pg_catalog.setval('grid_calendar_id_seq', 17, false);
 
 INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (1,2,3,'true');
 INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (2,5,3,'true');
@@ -1064,7 +1064,7 @@ INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id
 INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (32,15,9,'true');
 INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (33,15,10,'true');
 INSERT INTO grid_link_calendar_mask_type(id, grid_calendar_id, grid_mask_type_id, active) VALUES (34,16,5,'true');
-SELECT pg_catalog.setval('grid_link_calendar_mask_type_id_seq', 35, true);
+SELECT pg_catalog.setval('grid_link_calendar_mask_type_id_seq', 35, false);
 
 INSERT INTO line_datasource (id, line_id, datasource_id, code) VALUES (1, 1, 1, '01');
 INSERT INTO line_datasource (id, line_id, datasource_id, code) VALUES (2, 2, 1, '02');
@@ -1175,7 +1175,7 @@ INSERT INTO line_datasource (id, line_id, datasource_id, code) VALUES (106, 106,
 INSERT INTO line_datasource (id, line_id, datasource_id, code) VALUES (107, 107, 1, '28');
 INSERT INTO line_datasource (id, line_id, datasource_id, code) VALUES (108, 108, 2, '');
 INSERT INTO line_datasource (id, line_id, datasource_id, code) VALUES (109, 109, 1, '87');
-SELECT pg_catalog.setval('line_datasource_id_seq', 110, true);
+SELECT pg_catalog.setval('line_datasource_id_seq', 110, false);
 
 INSERT INTO line_version_datasource (id, line_version_id, datasource_id, code) VALUES (1, 1, 3, 'amaier');
 INSERT INTO line_version_datasource (id, line_version_id, datasource_id, code) VALUES (2, 2, 3, 'amaier');
@@ -1286,11 +1286,24 @@ INSERT INTO line_version_datasource (id, line_version_id, datasource_id, code) V
 INSERT INTO line_version_datasource (id, line_version_id, datasource_id, code) VALUES (107, 107, 3, 'amaier');
 INSERT INTO line_version_datasource (id, line_version_id, datasource_id, code) VALUES (108, 108, 3, 'amaier');
 INSERT INTO line_version_datasource (id, line_version_id, datasource_id, code) VALUES (109, 109, 3, 'amaier');
-SELECT pg_catalog.setval('line_version_datasource_id_seq', 110, true);
+SELECT pg_catalog.setval('line_version_datasource_id_seq', 110, false);
 
 INSERT INTO accessibility_mode (id, name) VALUES (1, 'UFR');
 INSERT INTO accessibility_mode (id, name) VALUES (2, 'Pietons');
-SELECT pg_catalog.setval('accessibility_mode_id_seq', 3, true);
+SELECT pg_catalog.setval('accessibility_mode_id_seq', 3, false);
+
+INSERT INTO exception_type (1,'m', 'Uniquement le mercredi', '1111100', '0010000');
+INSERT INTO exception_type (2,'m', 'Uniquement le mercredi', '1111110', '0010000');
+INSERT INTO exception_type (3,'m', 'Uniquement le mercredi', '1111111', '0010000');
+INSERT INTO exception_type (4,'e', 'Sauf le mercredi', '1111100', '1101100');
+INSERT INTO exception_type (5,'e', 'Sauf le mercredi', '1111110', '1101110');
+INSERT INTO exception_type (6,'e', 'Sauf le mercredi', '1111111', '1101111');
+INSERT INTO exception_type (7,'v', 'Uniquement le vendredi', '1111100', '0000100');
+INSERT INTO exception_type (8,'v', 'Uniquement le vendredi', '1111110', '0000100');
+INSERT INTO exception_type (9,'v', 'Uniquement le vendredi', '1111111', '0000100');
+INSERT INTO exception_type (10,'vs', 'Uniquement le vendredi et le samedi', '1111110', '0000110');
+INSERT INTO exception_type (11,'vs', 'Uniquement le vendredi et le samedi', '1111111', '0000110');
+SELECT pg_catalog.setval('exception_type_id_seq', 12, false);
 
 INSERT INTO calendar (id, name, calendar_type) VALUES (1,'TAD 106 9/10/12','periode') ;
 INSERT INTO calendar (id, name, calendar_type) VALUES (2,'Z Vac Toussaint','brique') ;
@@ -1446,7 +1459,7 @@ INSERT INTO calendar (id, name, calendar_type) VALUES (151,'B 2015 nuit normal',
 INSERT INTO calendar (id, name, calendar_type) VALUES (152,'A 2015 nuit allégé','mixte') ;
 INSERT INTO calendar (id, name, calendar_type) VALUES (153,'A 2015 nuit normal','mixte') ;
 INSERT INTO calendar (id, name, calendar_type) VALUES (154,'ZZ Access 17240 17241 18/02/2015 -> 18/02/2015','accessibilite') ;
-SELECT pg_catalog.setval('calendar_id_seq', 155, true);
+SELECT pg_catalog.setval('calendar_id_seq', 155, false);
 
 SELECT insertcalendarelement (2,'2014-10-20','2014-11-02',1,'+',NULL) ;
 SELECT insertcalendarelement (2,'2015-10-19','2015-11-01',1,'+',NULL) ;
@@ -1961,15 +1974,3 @@ SELECT insertcalendarelement (153,NULL,NULL,1,'-',152) ;
 SELECT insertcalendarelement (153,'2015-05-02','2015-05-02',1,'-',NULL) ;
 SELECT insertcalendarelement (154,'2015-02-18','2015-02-18',1,'+',NULL) ;
 
-INSERT INTO exception_type (id serial PRIMARY KEY, label character varying(5), exception_text character varying(255), grid_calendar_pattern character varying(7), trip_calendar_pattern character varying(7));
-INSERT INTO exception_type (1,'m', 'Uniquement le mercredi', '1111100', '0010000');
-INSERT INTO exception_type (2,'m', 'Uniquement le mercredi', '1111110', '0010000');
-INSERT INTO exception_type (3,'m', 'Uniquement le mercredi', '1111111', '0010000');
-INSERT INTO exception_type (4,'e', 'Sauf le mercredi', '1111100', '1101100');
-INSERT INTO exception_type (5,'e', 'Sauf le mercredi', '1111110', '1101110');
-INSERT INTO exception_type (6,'e', 'Sauf le mercredi', '1111111', '1101111');
-INSERT INTO exception_type (7,'v', 'Uniquement le vendredi', '1111100', '0000100');
-INSERT INTO exception_type (8,'v', 'Uniquement le vendredi', '1111110', '0000100');
-INSERT INTO exception_type (9,'v', 'Uniquement le vendredi', '1111111', '0000100');
-INSERT INTO exception_type (10,'vs', 'Uniquement le vendredi et le samedi', '1111110', '0000110');
-INSERT INTO exception_type (11,'vs', 'Uniquement le vendredi et le samedi', '1111111', '0000110');
