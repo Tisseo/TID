@@ -83,47 +83,126 @@ LANGUAGE plpgsql
 	DECLARE
 		_bit_mask bit varying;
 		_bit_mask_text text;
+		_tmp_text text;
 		_start_diff integer;
 		_end_diff integer;
 		_cal_lenght integer;
+		_cal_displayed_lenght integer;
+		_iterator integer;
+		_interval_counter integer;
 	BEGIN
-		RAISE WARNING 'mask bounds = (%,%) , cal = (%,%)',_start_date,_end_date,_cal_start_date,_cal_end_date;
+		-- RAISE DEBUG 'mask bounds = (%,%) , cal = (%,%)',_start_date,_end_date,_cal_start_date,_cal_end_date;
 		-- Ignore out of bounds masks
 		IF _end_date >= _cal_start_date AND _start_date <= _cal_end_date THEN
 			IF _cal_included_calendar_id IS NOT NULL THEN
 				_bit_mask := getcalendarbitmask(_cal_included_calendar_id, _start_date, _end_date);
 			ELSE
-				select date_part('day', age(_cal_start_date, _start_date) ) INTO _start_diff;
-				select date_part('day', age(_end_date, _cal_end_date) ) INTO _end_diff;
-				select date_part('day', age(_cal_end_date, _cal_start_date) ) INTO _cal_lenght;
-				_cal_lenght := _cal_lenght + 1;
-				RAISE WARNING 'start_diff = %, end_diff = % , cal_lenght = %',_start_diff,_end_diff,_cal_lenght;
+				_start_diff := _cal_start_date - _start_date;
+				_end_diff := _end_date - _cal_end_date;
+				_cal_lenght := _cal_end_date - _cal_start_date + 1;
+				-- RAISE DEBUG 'start_diff = %, end_diff = % , cal_lenght = %, _cal_interval = %',_start_diff,_end_diff,_cal_lenght,_cal_interval;
 				IF _start_diff >= 0 THEN
 					-- In this case _cal_start_date will be the first active date (and we need to fill left with 0)
 					IF _end_diff > 0 THEN
-						-- In this case _cal_end_date will be the last active date (and we need to fill right with 0)				
-						_bit_mask_text := lpad('0',_end_diff,'0');
-						_bit_mask_text := lpad(_bit_mask_text,_cal_lenght,'1');				
-						_bit_mask_text := lpad(_bit_mask_text, _mask_length,'0');					
+						-- In this case _cal_end_date will be the last active date (and we need to fill right with 0)
+						_bit_mask_text := lpad('0',_end_diff,'0');										
+						IF _cal_interval > 1 THEN
+							_iterator := 0;
+							_interval_counter := _cal_interval;
+							_tmp_text := '';
+							WHILE _iterator < _cal_lenght
+							LOOP
+								IF _interval_counter = _cal_interval THEN
+									_tmp_text := _tmp_text || '1';
+									_interval_counter := 0;
+								ELSE
+									_tmp_text := _tmp_text || '0';
+								END IF;
+								_interval_counter := _interval_counter + 1;
+								_iterator := _iterator + 1;
+								RAISE WARNING 'tmp_text = %',_tmp_text;			
+							END LOOP;
+							_bit_mask_text := _tmp_text || _bit_mask_text;
+						ELSE
+							_bit_mask_text := lpad(_bit_mask_text,_cal_lenght,'1');
+						END IF;		
+						_bit_mask_text := lpad(_bit_mask_text, _mask_length,'0');				
 					ELSE
 						-- In this case we trunk cal mask before the end
-						_bit_mask_text := lpad('1',_cal_lenght + _end_diff,'1');				
+						IF _cal_interval > 1 THEN
+							_iterator := 0;
+							_interval_counter := _cal_interval;
+							_bit_mask_text := '';
+							_cal_displayed_lenght := _cal_lenght + _end_diff;
+							WHILE _iterator < _cal_displayed_lenght
+							LOOP
+								IF _interval_counter = _cal_interval THEN
+									_bit_mask_text := _bit_mask_text || '1';
+									_interval_counter := 0;
+								ELSE
+									_bit_mask_text := _bit_mask_text || '0';
+								END IF;
+								_interval_counter := _interval_counter + 1;
+								_iterator := _iterator + 1;			
+							END LOOP;
+						ELSE
+							_bit_mask_text := lpad('1',_cal_lenght + _end_diff,'1');
+						END IF;		
 						_bit_mask_text := lpad(_bit_mask_text, _mask_length,'0');	
 					END IF;
 				ELSE
 					-- In this case we need to calculate first active day with a modulo
 					IF _end_diff > 0 THEN
-						-- In this case we will need to set some 0 at the end			
+						-- In this case we will need to set some 0 at the end
 						_bit_mask_text := lpad('0', - _start_diff,'0');
-						_bit_mask_text := lpad(_bit_mask_text,_mask_length,'1');					
+						IF _cal_interval > 1 THEN
+							_iterator := 0;
+							_interval_counter := _cal_interval - (_start_date - _cal_start_date)%_cal_interval;
+							_tmp_text := '';
+							_cal_displayed_lenght := _cal_lenght - _end_diff;
+							-- RAISE DEBUG '_cal_displayed_lenght = %, _interval_counter = %',_cal_displayed_lenght, _interval_counter;
+							WHILE _iterator < _cal_displayed_lenght
+							LOOP
+								IF _interval_counter = _cal_interval THEN
+									_tmp_text := _tmp_text || '1';
+									_interval_counter := 0;
+								ELSE
+									_tmp_text := _tmp_text || '0';
+								END IF;
+								_interval_counter := _interval_counter + 1;
+								_iterator := _iterator + 1;
+							END LOOP;
+							_bit_mask_text := _tmp_text || _bit_mask_text;
+						ELSE							
+							_bit_mask_text := lpad(_bit_mask_text,_mask_length,'1');						
+						END IF;					
 					ELSE
-						_bit_mask_text := lpad('1',_mask_length,'1');				
+						IF _cal_interval > 1 THEN
+							_iterator := 0;
+							_interval_counter := _cal_interval - (_start_date - _cal_start_date)%_cal_interval;
+							_bit_mask_text := '';
+							_cal_displayed_lenght := _cal_lenght + _end_diff + _start_diff;
+							-- RAISE DEBUG '2 _cal_displayed_lenght = %, _interval_counter = %',_cal_displayed_lenght, _interval_counter;
+							WHILE _iterator < _cal_displayed_lenght
+							LOOP
+								IF _interval_counter = _cal_interval THEN
+									_bit_mask_text := _bit_mask_text || '1';
+									_interval_counter := 0;
+								ELSE
+									_bit_mask_text := _bit_mask_text || '0';
+								END IF;
+								_interval_counter := _interval_counter + 1;
+								_iterator := _iterator + 1;
+							END LOOP;
+						ELSE
+							_bit_mask_text := lpad('1',_mask_length,'1');
+						END IF;				
 					END IF;
 				END IF;
 				_bit_mask := (_bit_mask_text)::bit varying;
 			END IF;
 		END IF;
-		RAISE WARNING '_bit_mask = %',_bit_mask;
+		-- RAISE DEBUG '_bit_mask = %',_bit_mask;
 		RETURN _bit_mask;
 	END;
 	$$;
@@ -139,16 +218,13 @@ LANGUAGE plpgsql
 		_cal_elt record;
 	BEGIN
 		-- First create a 0000000... mask
-		select date_part('day', age(_end_date, _start_date) ) INTO _mask_length;
-		_mask_length := _mask_length + 1;
-		RAISE WARNING 'mask length is %', _mask_length;
+		_mask_length := (_end_date - _start_date )+ 1;
 		_cumuled_bit_mask := lpad('0', _mask_length,'0')::bit varying;
-		RAISE WARNING 'mask = %', _cumuled_bit_mask;
+		-- RAISE DEBUG 'mask length is %', _mask_length;
 		
 		FOR _cal_elt IN 
 			SELECT * FROM calendar_element WHERE calendar_id = _calendar_id ORDER BY rank
 		LOOP
-			RAISE WARNING '_cal_elt = %', _cal_elt.id;
 			_new_bit_mask := getcalendarelementbitmask(_start_date, _end_date, _mask_length, _cal_elt.included_calendar_id, _cal_elt.start_date, _cal_elt.end_date, _cal_elt.interval);
 			select applybitmask(_cumuled_bit_mask, _new_bit_mask, _start_date, _end_date, _cal_elt.operator) INTO _cumuled_bit_mask;
 		END LOOP;
