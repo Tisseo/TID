@@ -580,9 +580,9 @@ CREATE OR REPLACE FUNCTION insertcalendar(_tcode character varying, _rcode chara
             INSERT INTO calendar(name, calendar_type, line_version_id) VALUES (_name, 'periode', _lvid);
             INSERT INTO calendar_datasource(calendar_id, code, datasource_id) VALUES (currval('calendar_id_seq'), _tcode, _datasource);
             UPDATE trip SET period_calendar_id =  currval('calendar_id_seq') WHERE id = _trip_id;
-			PERFORM insertcalendarelement(currval('calendar_id_seq'), _date, _date, _operator);
+			PERFORM insertcalendarelement(currval('calendar_id_seq')::integer, _date, _date, 1, _operator);
         ELSE
-			PERFORM insertcalendarelement(_calendar_id, _date, _date, _operator);
+			PERFORM insertcalendarelement(_calendar_id, _date, _date, 1, _operator);
         END IF;
     END;
     $$;
