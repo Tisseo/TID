@@ -1292,17 +1292,17 @@ INSERT INTO accessibility_mode (id, name) VALUES (1, 'UFR');
 INSERT INTO accessibility_mode (id, name) VALUES (2, 'Pietons');
 SELECT pg_catalog.setval('accessibility_mode_id_seq', 3, false);
 
-INSERT INTO exception_type (1,'m', 'Uniquement le mercredi', '1111100', '0010000');
-INSERT INTO exception_type (2,'m', 'Uniquement le mercredi', '1111110', '0010000');
-INSERT INTO exception_type (3,'m', 'Uniquement le mercredi', '1111111', '0010000');
-INSERT INTO exception_type (4,'e', 'Sauf le mercredi', '1111100', '1101100');
-INSERT INTO exception_type (5,'e', 'Sauf le mercredi', '1111110', '1101110');
-INSERT INTO exception_type (6,'e', 'Sauf le mercredi', '1111111', '1101111');
-INSERT INTO exception_type (7,'v', 'Uniquement le vendredi', '1111100', '0000100');
-INSERT INTO exception_type (8,'v', 'Uniquement le vendredi', '1111110', '0000100');
-INSERT INTO exception_type (9,'v', 'Uniquement le vendredi', '1111111', '0000100');
-INSERT INTO exception_type (10,'vs', 'Uniquement le vendredi et le samedi', '1111110', '0000110');
-INSERT INTO exception_type (11,'vs', 'Uniquement le vendredi et le samedi', '1111111', '0000110');
+INSERT INTO exception_type VALUES (1,'m', 'Uniquement le mercredi', '1111100', '0010000');
+INSERT INTO exception_type VALUES (2,'m', 'Uniquement le mercredi', '1111110', '0010000');
+INSERT INTO exception_type VALUES (3,'m', 'Uniquement le mercredi', '1111111', '0010000');
+INSERT INTO exception_type VALUES (4,'e', 'Sauf le mercredi', '1111100', '1101100');
+INSERT INTO exception_type VALUES (5,'e', 'Sauf le mercredi', '1111110', '1101110');
+INSERT INTO exception_type VALUES (6,'e', 'Sauf le mercredi', '1111111', '1101111');
+INSERT INTO exception_type VALUES (7,'v', 'Uniquement le vendredi', '1111100', '0000100');
+INSERT INTO exception_type VALUES (8,'v', 'Uniquement le vendredi', '1111110', '0000100');
+INSERT INTO exception_type VALUES (9,'v', 'Uniquement le vendredi', '1111111', '0000100');
+INSERT INTO exception_type VALUES (10,'vs', 'Uniquement le vendredi et le samedi', '1111110', '0000110');
+INSERT INTO exception_type VALUES (11,'vs', 'Uniquement le vendredi et le samedi', '1111111', '0000110');
 SELECT pg_catalog.setval('exception_type_id_seq', 12, false);
 
 INSERT INTO calendar (id, name, calendar_type) VALUES (1,'TAD 106 9/10/12','periode') ;
