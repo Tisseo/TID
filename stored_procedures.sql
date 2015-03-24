@@ -90,36 +90,40 @@ LANGUAGE plpgsql
 		RAISE WARNING 'mask bounds = (%,%) , cal = (%,%)',_start_date,_end_date,_cal_start_date,_cal_end_date;
 		-- Ignore out of bounds masks
 		IF _end_date >= _cal_start_date AND _start_date <= _cal_end_date THEN
-			select date_part('day', age(_cal_start_date, _start_date) ) INTO _start_diff;
-			select date_part('day', age(_end_date, _cal_end_date) ) INTO _end_diff;
-			select date_part('day', age(_cal_end_date, _cal_start_date) ) INTO _cal_lenght;
-			_cal_lenght := _cal_lenght + 1;
-			RAISE WARNING 'start_diff = %, end_diff = % , cal_lenght = %',_start_diff,_end_diff,_cal_lenght;
-			IF _start_diff >= 0 THEN
-				-- In this case _cal_start_date will be the first active date (and we need to fill left with 0)
-				IF _end_diff > 0 THEN
-					-- In this case _cal_end_date will be the last active date (and we need to fill right with 0)				
-					_bit_mask_text := lpad('0',_end_diff,'0');
-					_bit_mask_text := lpad(_bit_mask_text,_cal_lenght,'1');				
-					_bit_mask_text := lpad(_bit_mask_text, _mask_length,'0');					
-				ELSE
-					-- In this case we trunk cal mask before the end
-					_bit_mask_text := lpad('1',_cal_lenght + _end_diff,'1');				
-					_bit_mask_text := lpad(_bit_mask_text, _mask_length,'0');	
-				END IF;
+			IF _cal_included_calendar_id IS NOT NULL THEN
+				_bit_mask := getcalendarbitmask(_cal_included_calendar_id, _start_date, _end_date);
 			ELSE
-				-- In this case we need to calculate first active day with a modulo
-				IF _end_diff > 0 THEN
-					-- In this case we will need to set some 0 at the end			
-					_bit_mask_text := lpad('0', - _start_diff,'0');
-					_bit_mask_text := lpad(_bit_mask_text,_mask_length,'1');					
+				select date_part('day', age(_cal_start_date, _start_date) ) INTO _start_diff;
+				select date_part('day', age(_end_date, _cal_end_date) ) INTO _end_diff;
+				select date_part('day', age(_cal_end_date, _cal_start_date) ) INTO _cal_lenght;
+				_cal_lenght := _cal_lenght + 1;
+				RAISE WARNING 'start_diff = %, end_diff = % , cal_lenght = %',_start_diff,_end_diff,_cal_lenght;
+				IF _start_diff >= 0 THEN
+					-- In this case _cal_start_date will be the first active date (and we need to fill left with 0)
+					IF _end_diff > 0 THEN
+						-- In this case _cal_end_date will be the last active date (and we need to fill right with 0)				
+						_bit_mask_text := lpad('0',_end_diff,'0');
+						_bit_mask_text := lpad(_bit_mask_text,_cal_lenght,'1');				
+						_bit_mask_text := lpad(_bit_mask_text, _mask_length,'0');					
+					ELSE
+						-- In this case we trunk cal mask before the end
+						_bit_mask_text := lpad('1',_cal_lenght + _end_diff,'1');				
+						_bit_mask_text := lpad(_bit_mask_text, _mask_length,'0');	
+					END IF;
 				ELSE
-					_bit_mask_text := lpad('1',_mask_length,'1');				
+					-- In this case we need to calculate first active day with a modulo
+					IF _end_diff > 0 THEN
+						-- In this case we will need to set some 0 at the end			
+						_bit_mask_text := lpad('0', - _start_diff,'0');
+						_bit_mask_text := lpad(_bit_mask_text,_mask_length,'1');					
+					ELSE
+						_bit_mask_text := lpad('1',_mask_length,'1');				
+					END IF;
 				END IF;
+				_bit_mask := (_bit_mask_text)::bit varying;
 			END IF;
-			_bit_mask := (_bit_mask_text)::bit varying;
 		END IF;
-		RAISE WARNING '_bit_mask_text = %, _bit_mask = %',_bit_mask_text,_bit_mask;
+		RAISE WARNING '_bit_mask = %',_bit_mask;
 		RETURN _bit_mask;
 	END;
 	$$;
