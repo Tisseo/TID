@@ -76,19 +76,42 @@ LANGUAGE plpgsql
 COMMENT ON FUNCTION applybitmask (bit varying, bit varying, date, date, calendar_operator) IS 'Return resulting bitmask applying new bitmask on previous bitmask according to operator';
 
 
-CREATE OR REPLACE FUNCTION getcalendarelementbitmask (_calendar_element calendar_element%rowtype, _start_date date, _end_date date, _mask_length integer) RETURNS bit varying
+CREATE OR REPLACE FUNCTION getcalendarelementbitmask (_start_date date, _end_date date, _mask_length integer, _cal_included_calendar_id integer, _cal_start_date date, _cal_end_date date, _cal_period integer) RETURNS bit varying
 LANGUAGE plpgsql
 	AS $$
 	DECLARE
 		_bit_mask bit varying;
+		_start_diff integer;
+		_end_diff integer;
 	BEGIN
 		_bit_mask := 0::bit(_mask_length);
-		
+		-- Ignore out of bounds masks
+		IF _end_date >= _calendar_element.start_date AND _start_date <= _calendar_element.end_date THEN
+			select date_part('day', age(_end_date, _start_date) ) INTO _mask_length;
+			select date_part('day', age(_end_date, _start_date) ) INTO _mask_length;
+			IF _calendar_element.start_date > _start_date THEN
+				-- In this case we will need to set some 0 at the beginning
+				IF _calendar_element.end_date < _end_date THEN
+					-- In this case we will need to set some 0 at the end
+					
+				ELSE
+				
+				END IF;
+			ELSE
+				-- don't know how to do that :-)
+				IF _calendar_element.end_date < _end_date THEN
+					-- In this case we will need to set some 0 at the end
+				ELSE
+				
+				END IF;
+			END IF;
+		END IF;
 		RETURN _bit_mask;
 	END;
 	$$;
-COMMENT ON FUNCTION getcalendarelementbitmask (calendar_element%rowtype, date, date) IS 'Return active days calendar element bitmask between provided dates bounds';
+COMMENT ON FUNCTION getcalendarelementbitmask (date, date, integer, integer, date, date, integer) IS 'Return active days calendar element bitmask between provided dates bounds';
 
+DROP FUNCTION getcalendarbitmask (_calendar_id integer, _start_date date, _end_date date);
 CREATE OR REPLACE FUNCTION getcalendarbitmask (_calendar_id integer, _start_date date, _end_date date) RETURNS bit varying
 LANGUAGE plpgsql
 	AS $$
@@ -96,23 +119,25 @@ LANGUAGE plpgsql
 		_cumuled_bit_mask bit varying;
 		_new_bit_mask bit varying;
 		_mask_length integer;
-		_cal_elt calendar_element%rowtype;
+		_cal_elt record;
 	BEGIN
 		-- First create a 0000000... mask
-		select date_part('day', age(_start_date, _end_date) ) INTO _mask_length;		
-		_cumuled_bit_mask := 0::bit(_mask_length);
+		select date_part('day', age(_end_date, _start_date) ) INTO _mask_length;
+		RAISE WARNING 'mask length is %', _mask_length;
+		_cumuled_bit_mask := lpad('0', _mask_length,'0')::bit varying;
+		RAISE WARNING 'mask = %', _cumuled_bit_mask;
 		
 		FOR _cal_elt IN 
 			SELECT * FROM calendar_element WHERE calendar_id = _calendar_id ORDER BY rank
 		LOOP
-			_new_bit_mask := getcalendarelementbitmask(_cal_elt, _start_date, _end_date);
+			_new_bit_mask := getcalendarelementbitmask(_start_date, _end_date, _mask_length, _cal_elt.included_calendar_id, _cal_elt.start_date, _cal_elt.end_date, _cal_elt.period);
 			select applybitmask(_cumuled_bit_mask, _new_bit_mask, _start_date, _end_date, _mask_length) INTO _cumuled_bit_mask;
 		END LOOP;
 		
 		RETURN _cumuled_bit_mask;
 	END;
 	$$;
-COMMENT ON FUNCTION getcalendarbitmask (integer, date, date) IS 'Return active days calendar bitmask between provided dates bounds';
+COMMENT ON FUNCTION getcalendarbitmask (integer, date, date) IS 'Return active days calendar bitmask between provided dates bounds. You suppose to pass and end_date > start_date : I do not check for it';
 
 CREATE TYPE date_pair AS (start_date date, end_date date);
 
