@@ -748,7 +748,7 @@ CREATE OR REPLACE FUNCTION mergetrips(_trips integer[], _trip_calendar_id intege
     BEGIN
         -- create a new trip_parent using first trip in array
         INSERT INTO trip(name, route_id, trip_calendar_id) SELECT name || '_FH', route_id, _trip_calendar_id FROM trip WHERE id = _trips[1] RETURNING id INTO _trip_parent_id;
-        INSERT INTO trip_datasource(trip_id, datasource_id, code) VALUES(_trip_parent_id, _datasource_id, 'FH');
+        INSERT INTO trip_datasource(trip_id, datasource_id, code) VALUES(_trip_parent_id, _datasource_id, _trip_parent_id || '_FH');
         -- duplicate all stop_time linked to the first trip and link them to the new _trip_parent_id
         INSERT INTO stop_time(route_stop_id, trip_id, departure_time, arrival_time) SELECT route_stop_id, _trip_parent_id, departure_time, arrival_time FROM stop_time WHERE trip_id = _trips[1];
         -- update all _trips by linking them to the new _trip_parent_id and deleting their trip_calendar_id
