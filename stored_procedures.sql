@@ -201,6 +201,8 @@ LANGUAGE plpgsql
 				END IF;
 				_bit_mask := (_bit_mask_text)::bit varying;
 			END IF;
+		ELSE
+			_bit_mask := lpad('0', _mask_length,'0')::bit varying;
 		END IF;
 		-- RAISE DEBUG '_bit_mask = %',_bit_mask;
 		RETURN _bit_mask;
