@@ -157,7 +157,10 @@ LANGUAGE plpgsql
 						_bit_mask_text := lpad('0', - _start_diff,'0');
 						IF _cal_interval > 1 THEN
 							_iterator := 0;
-							_interval_counter := _cal_interval - (_start_date - _cal_start_date)%_cal_interval;
+							_interval_counter := (_start_date - _cal_start_date)%_cal_interval;
+							IF _interval_counter = 0 THEN
+								_interval_counter := _cal_interval;
+							END IF;
 							_tmp_text := '';
 							_cal_displayed_lenght := _cal_lenght - _end_diff;
 							-- RAISE DEBUG '_cal_displayed_lenght = %, _interval_counter = %',_cal_displayed_lenght, _interval_counter;
@@ -186,7 +189,7 @@ LANGUAGE plpgsql
 							_bit_mask_text := '';
 							_cal_displayed_lenght := _cal_lenght + _end_diff + _start_diff;
 							-- RAISE DEBUG '2 _cal_displayed_lenght = %, _interval_counter = %',_cal_displayed_lenght, _interval_counter;
-							WHILE _iterator <= _cal_displayed_lenght
+							WHILE _iterator < _cal_displayed_lenght
 							LOOP
 								IF _interval_counter = _cal_interval THEN
 									_bit_mask_text := _bit_mask_text || '1';
