@@ -124,7 +124,7 @@ LANGUAGE plpgsql
 							END LOOP;
 							_bit_mask_text := _tmp_text || _bit_mask_text;
 						ELSE
-							_bit_mask_text := lpad(_bit_mask_text,_cal_lenght,'1');
+							_bit_mask_text := lpad(_bit_mask_text,_cal_lenght + _end_diff,'1');
 						END IF;		
 						_bit_mask_text := lpad(_bit_mask_text, _mask_length,'0');				
 					ELSE
