@@ -64,6 +64,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS  TO endiv_owner
 ALTER DEFAULT PRIVILEGES IN SCHEMA pgis GRANT ALL ON FUNCTIONS  TO endiv_owner;
 ALTER DEFAULT PRIVILEGES IN SCHEMA pgis GRANT ALL ON FUNCTIONS  TO endiv_reader;
 
-REVOKE INSERT ON calendar_element FROM endiv_owner;
-REVOKE DELETE ON calendar_element FROM endiv_owner;
-REVOKE UPDATE ON calendar_element FROM endiv_owner;
+-- mise en commentaire des restrictions de droits sur calendar_element pour les procédures stockées
+-- REVOKE INSERT ON calendar_element FROM endiv_owner;
+-- REVOKE DELETE ON calendar_element FROM endiv_owner;
+-- REVOKE UPDATE ON calendar_element FROM endiv_owner;
