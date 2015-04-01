@@ -1,4 +1,4 @@
-﻿SET statement_timeout = 0;
+SET statement_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SET check_function_bodies = false;
@@ -120,7 +120,7 @@ LANGUAGE plpgsql
 								END IF;
 								_interval_counter := _interval_counter + 1;
 								_iterator := _iterator + 1;
-								RAISE WARNING 'tmp_text = %',_tmp_text;			
+								-- RAISE DEBUG 'tmp_text = %',_tmp_text;			
 							END LOOP;
 							_bit_mask_text := _tmp_text || _bit_mask_text;
 						ELSE
@@ -154,7 +154,7 @@ LANGUAGE plpgsql
 					-- In this case we need to calculate first active day with a modulo
 					IF _end_diff > 0 THEN
 						-- In this case we will need to set some 0 at the end
-						_bit_mask_text := lpad('0', - _start_diff,'0');
+						_bit_mask_text := lpad('0', _end_diff,'0');
 						IF _cal_interval > 1 THEN
 							_iterator := 0;
 							_interval_counter := (_start_date - _cal_start_date)%_cal_interval;
