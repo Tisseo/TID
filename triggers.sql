@@ -61,3 +61,9 @@ COMMENT ON FUNCTION delete_exceptions() IS 'Detach commented trips related to th
 
 CREATE TRIGGER delete_exceptions BEFORE DELETE ON grid_link_calendar_mask_type
 FOR EACH ROW EXECUTE PROCEDURE delete_exceptions();
+
+CREATE TRIGGER before_update_exceptions BEFORE UPDATE ON grid_link_calendar_mask_type
+FOR EACH ROW EXECUTE PROCEDURE delete_exceptions();
+
+CREATE TRIGGER after_update_exceptions AFTER UPDATE ON grid_link_calendar_mask_type
+FOR EACH ROW EXECUTE PROCEDURE add_exceptions();
