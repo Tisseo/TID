@@ -947,10 +947,10 @@ CREATE OR REPLACE FUNCTION stopisaccessible(_stop_id integer, _accessibility_mod
 COMMENT ON FUNCTION stopisaccessible(_stop_id integer, _accessibility_mode_id integer, _date date) IS 'return true if _stop_id is accessible. Function tests next day accessibility';
 
 CREATE OR REPLACE FUNCTION purge_fh_data(_line_version_id integer) RETURNS VOID 
-    LANGUAGE plpgsql
     AS $$
     DECLARE
         _route_stop_id integer;
+        _trip_id integer;
     BEGIN
         FOR _trip_id IN SELECT t.id FROM trip t JOIN route r ON r.id = t.route_id JOIN line_version lv ON lv.id = r.line_version_id WHERE lv.id = _line_version_id AND t.period_calendar_id IS NULL AND t.day_calendar_id IS NULL
         LOOP
