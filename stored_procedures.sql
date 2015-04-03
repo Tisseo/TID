@@ -243,6 +243,33 @@ LANGUAGE plpgsql
 COMMENT ON FUNCTION getcalendarbitmask (integer, date, date) IS 'Return active days calendar bitmask between provided dates bounds. You suppose to pass and end_date > start_date : I do not check for it';
 
 
+CREATE OR REPLACE FUNCTION updateordeletecalendar (_calendar_id integer, _start_date date, _end_date date) RETURNS void
+LANGUAGE plpgsql
+	AS $$
+	DECLARE
+		_bit_mask bit varying;
+		_cal_elt record;
+		_id integer;
+	BEGIN
+		SELECT id FROM calendar_element WHERE included_calendar_id = _calendar_id INTO _id;
+		IF FOUND THEN
+			RAISE EXCEPTION 'You cannot delete or update a calendar %, it is included by some calendar elements', _calendar_id;
+		END IF;		
+		_bit_mask := getcalendarbitmask(_calendar_id,_start_date,_end_date);
+		IF (_bit_mask::text ~ '^0+$') THEN
+			FOR _cal_elt IN 
+				SELECT * FROM calendar_element WHERE calendar_id = _calendar_id ORDER BY rank DESC
+			LOOP
+				PERFORM deletecalendarelement(_cal_elt.id);				
+			END LOOP;
+			DELETE FROM calendar WHERE id = _calendar_id;
+		ELSE
+			PERFORM insertcalendarelement(_calendar_id, _start_date, _end_date, 1, '&'); 
+		END IF;
+	END;
+	$$;
+COMMENT ON FUNCTION updateordeletecalendar (integer, date, date) IS 'Check if a calendar does have active dates beetween two dates. If yes then add a union calendar element which restrict dates beetween given dates else delete calendar.';
+
 CREATE TYPE date_pair AS (start_date date, end_date date);
 
 -- _start_date, _end_date could be NULL (if no applicable dates)
