@@ -68,7 +68,7 @@ FOR EACH ROW EXECUTE PROCEDURE delete_exceptions();
 CREATE TRIGGER after_update_exceptions AFTER UPDATE ON grid_link_calendar_mask_type
 FOR EACH ROW EXECUTE PROCEDURE add_exceptions();
 
-CREATE OR REPLACE FUNCTION delete_overlaps_calendars() RETURNS TRIGGER
+CREATE OR REPLACE FUNCTION delete_overlaps_calendar() RETURNS TRIGGER
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -77,7 +77,7 @@ CREATE OR REPLACE FUNCTION delete_overlaps_calendars() RETURNS TRIGGER
         IF NEW.end_date IS NOT NULL THEN
             FOR _calendar_id IN SELECT c.id FROM trip t JOIN route r ON r.id = t.route_id JOIN line_version lv ON lv.id = r.line_version_id JOIN calendar c ON c.id = t.period_calendar_id WHERE lv.id = NEW.id AND c.calendar_type = 'periode'
             LOOP
-                PERFORM updateordeletecalendar(_calendar_id, NEW.end_date, NEW.end_date);
+                PERFORM updateordeletecalendar(_calendar_id, NEW.start_date, NEW.end_date);
             END LOOP;
         END IF;
         RETURN NEW;

@@ -981,15 +981,17 @@ CREATE OR REPLACE FUNCTION purge_fh_data(_line_version_id integer) RETURNS VOID
         _route_stop_id integer;
         _trip_id integer;
     BEGIN
-        FOR _trip_id IN SELECT t.id FROM trip t JOIN route r ON r.id = t.route_id JOIN line_version lv ON lv.id = r.line_version_id WHERE lv.id = _line_version_id AND t.period_calendar_id IS NULL AND t.day_calendar_id IS NULL
+        FOR _trip_id IN SELECT t.id FROM trip t JOIN route r ON r.id = t.route_id JOIN line_version lv ON lv.id = r.line_version_id WHERE lv.id = _line_version_id AND t.period_calendar_id IS NULL AND t.day_calendar_id IS NULL AND t.id NOT IN (SELECT DISTINCT(trip_parent_id) FROM trip WHERE period_calendar_id IS NOT NULL OR day_calendar_id IS NOT NULL)
         LOOP
-            DELETE FROM stop_time WHERE trip_id = _trip_id RETURNING route_stop_id IN _route_stop_id;
-            DELETE FROM route_stop WHERE id = _route_stop_id;
+            DELETE FROM stop_time WHERE trip_id = _trip_id;
+            DELETE FROM route_stop WHERE id NOT IN (SELECT DISTINCT(route_stop_id) FROM stop_time);
+            DELETE FROM trip_datasource WHERE trip_id = _trip_id;
             DELETE FROM trip WHERE id = _trip_id;
         END LOOP;
         DELETE FROM comment WHERE id NOT IN (SELECT distinct(comment_id) FROM trip) AND id NOT IN (SELECT DISTINCT(comment_id) FROM route);
         DELETE FROM grid_link_calendar_mask_type WHERE grid_calendar_id IN (SELECT id FROM grid_calendar WHERE line_version_id = _line_version_id);
         DELETE FROM trip_calendar WHERE id NOT IN (SELECT DISTINCT(trip_calendar_id) FROM trip);
+        DELETE FROM grid_link_calendar_mask_type WHERE grid_mask_type_id NOT IN (SELECT DISTINCT(grid_mask_type_id) FROM trip_calendar);
         DELETE FROM grid_mask_type WHERE id NOT IN (SELECT DISTINCT(grid_mask_type_id) FROM trip_calendar);
     END;
     $$ LANGUAGE 'plpgsql';
