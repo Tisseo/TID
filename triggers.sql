@@ -43,7 +43,7 @@ CREATE OR REPLACE FUNCTION add_exceptions() RETURNS TRIGGER
     $$;
 COMMENT ON FUNCTION add_exceptions() IS 'Detect exceptions and insert comments in trips according to multiple conditions. This function is triggered after insert/delete on table grid_link_calendar_mask_type.';
 
-CREATE OR REPLACE TRIGGER add_exceptions AFTER INSERT ON grid_link_calendar_mask_type
+CREATE TRIGGER add_exceptions AFTER INSERT ON grid_link_calendar_mask_type
 FOR EACH ROW EXECUTE PROCEDURE add_exceptions();
 
 CREATE OR REPLACE FUNCTION delete_exceptions() RETURNS TRIGGER
@@ -59,23 +59,25 @@ CREATE OR REPLACE FUNCTION delete_exceptions() RETURNS TRIGGER
     $$;
 COMMENT ON FUNCTION delete_exceptions() IS 'Detach commented trips related to the deleted glcmt because there is no more exception needed.';
 
-CREATE OR REPLACE TRIGGER delete_exceptions BEFORE DELETE ON grid_link_calendar_mask_type
+CREATE TRIGGER delete_exceptions BEFORE DELETE ON grid_link_calendar_mask_type
 FOR EACH ROW EXECUTE PROCEDURE delete_exceptions();
 
-CREATE OR REPLACE TRIGGER before_update_exceptions BEFORE UPDATE ON grid_link_calendar_mask_type
+CREATE TRIGGER before_update_exceptions BEFORE UPDATE ON grid_link_calendar_mask_type
 FOR EACH ROW EXECUTE PROCEDURE delete_exceptions();
 
-CREATE OR REPLACE TRIGGER after_update_exceptions AFTER UPDATE ON grid_link_calendar_mask_type
+CREATE TRIGGER after_update_exceptions AFTER UPDATE ON grid_link_calendar_mask_type
 FOR EACH ROW EXECUTE PROCEDURE add_exceptions();
 
 CREATE OR REPLACE FUNCTION delete_overlaps_calendars() RETURNS TRIGGER
     LANGUAGE plpgsql
     AS $$
+    DECLARE
+        _calendar_id integer;
     BEGIN
-        IF NEW.end_date IS NOT NULL THEN:
+        IF NEW.end_date IS NOT NULL THEN
             FOR _calendar_id IN SELECT c.id FROM trip t JOIN route r ON r.id = t.route_id JOIN line_version lv ON lv.id = r.line_version_id JOIN calendar c ON c.id = t.period_calendar_id WHERE lv.id = NEW.id AND c.calendar_type = 'periode'
             LOOP
-                PERFORM updateordeletecalendar(_calendar_id, NEW.end_date, NEW.end_date)
+                PERFORM updateordeletecalendar(_calendar_id, NEW.end_date, NEW.end_date);
             END LOOP;
         END IF;
         RETURN NEW;
@@ -83,5 +85,5 @@ CREATE OR REPLACE FUNCTION delete_overlaps_calendars() RETURNS TRIGGER
     $$;
 COMMENT ON FUNCTION clear_trip_calendars() IS 'When a line_version is closed (i.e. end_date is filled), this function will clear trips which doesnt belong to it anymore because of their calendar dates.';
 
-CREATE OR REPLACE TRIGGER update_line_version AFTER UPDATE OF end_date ON line_version
+CREATE TRIGGER update_line_version AFTER UPDATE OF end_date ON line_version
 FOR EACH ROW WHEN (OLD.end_date IS DISTINCT FROM NEW.end_date) EXECUTE PROCEDURE delete_overlaps_calendar();
