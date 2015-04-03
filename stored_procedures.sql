@@ -262,6 +262,8 @@ LANGUAGE plpgsql
 			LOOP
 				PERFORM deletecalendarelement(_cal_elt.id);				
 			END LOOP;
+			UPDATE trip SET period_calendar_id = NULL WHERE period_calendar_id = _calendar_id;
+			DELETE FROM calendar_datasource WHERE calendar_id = _calendar_id;
 			DELETE FROM calendar WHERE id = _calendar_id;
 		ELSE
 			PERFORM insertcalendarelement(_calendar_id, _start_date, _end_date, 1, '&'); 
