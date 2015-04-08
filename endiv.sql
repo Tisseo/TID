@@ -217,7 +217,8 @@ CREATE TABLE line (
     id serial PRIMARY KEY,
     number character varying(10) NOT NULL,
     physical_mode_id integer NOT NULL,
-    priority integer NOT NULL
+    priority integer NOT NULL,
+	picto_file character varying(80)
 );
 COMMENT ON TABLE line IS 'Ligne commerciale de TC.';
 COMMENT ON COLUMN line.number IS 'Numéro de la ligne. Peut ne pas etre numerique. Par exple : T1, A ou L16 sont des numeros.';
@@ -244,7 +245,7 @@ CREATE TABLE line_version (
     backward_direction character varying(255) NOT NULL,
     bg_color_id integer NOT NULL,
     fg_color_id integer NOT NULL,
-    carto_file text,
+    carto_file character varying(80),
     accessibility boolean ,
     air_conditioned boolean,
     certified boolean DEFAULT false NOT NULL,
@@ -486,7 +487,7 @@ COMMENT ON TABLE stop_area_datasource IS 'Reference de l''objet dans le referent
 
 CREATE TABLE stop (
     id integer PRIMARY KEY,
-    stop_area_id integer NOT NULL,
+    stop_area_id integer,
     master_stop_id integer
 );
 COMMENT ON TABLE stop IS 'Arret de bus ou de TAD, quai de tram ou de metro.';
