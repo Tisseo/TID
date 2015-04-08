@@ -83,7 +83,7 @@ CREATE OR REPLACE FUNCTION delete_overlaps_calendar() RETURNS TRIGGER
         RETURN NEW;
     END;
     $$;
-COMMENT ON FUNCTION clear_trip_calendars() IS 'When a line_version is closed (i.e. end_date is filled), this function will clear trips which doesnt belong to it anymore because of their calendar dates.';
+COMMENT ON FUNCTION delete_overlaps_calendars() IS 'When a line_version is closed (i.e. end_date is filled), this function will clear trips which doesnt belong to it anymore because of their calendar dates.';
 
 CREATE TRIGGER update_line_version AFTER UPDATE OF end_date ON line_version
 FOR EACH ROW WHEN (OLD.end_date IS DISTINCT FROM NEW.end_date) EXECUTE PROCEDURE delete_overlaps_calendar();
