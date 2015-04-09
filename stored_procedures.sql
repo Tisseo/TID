@@ -272,98 +272,74 @@ LANGUAGE plpgsql
 	$$;
 COMMENT ON FUNCTION updateordeletecalendar (integer, date, date) IS 'Check if a calendar does have active dates beetween two dates. If yes then add a union calendar element which restrict dates beetween given dates else delete calendar.';
 
-CREATE TYPE date_pair AS (start_date date, end_date date);
+CREATE TYPE date_pair AS (start_date date, end_date date, bit_mask bit varying, mask_length smallint);
 
--- _start_date, _end_date could be NULL (if no applicable dates)
--- previous_bounds could be also a NULL pair
-CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date date, _operator calendar_operator, previous_bounds date_pair) RETURNS date_pair
-	LANGUAGE plpgsql
+CREATE OR REPLACE FUNCTION detectmaskbounds (_bit_mask bit varying, _start_date date, _bit_mask_lenght smallint) RETURNS date_pair
+LANGUAGE plpgsql
 	AS $$
 	DECLARE
 		_computed_date_pair date_pair;
 	BEGIN
-		-- RAISE DEBUG 'Operate this : (%,%) % (%,%)',previous_bounds.start_date,previous_bounds.end_date,_operator,_start_date,_end_date;		
-		CASE _operator
-			WHEN '+'::calendar_operator THEN -- Date muse be added
-				IF _start_date IS NULL THEN
-					-- We assume that if _start_date is NULL _end_date is also NULL
-					_computed_date_pair := previous_bounds;
+		-- TODO boucle sur le mask pour détecter les propriétés
+		_iterator := 0;
+		_first_active_bit_index := -1;
+		_last_active_bit_index := 0;
+		_bit_mask_text := '';
+		_segment_bit_mask := '';
+		WHILE _iterator < _bit_mask_lenght
+		LOOP
+			IF _bit_mask_text[_iterator] == 1 THEN
+				_last_active_bit_index := _iterator;	
+				IF _first_active_bit_index == -1 THEN -- This is the first 1
+					_first_active_bit_index := iterator;
+					_bit_mask_text := '1';
 				ELSE
-					IF previous_bounds.start_date IS NULL THEN
-						_computed_date_pair.start_date := _start_date;
-						_computed_date_pair.end_date := _end_date;
-					ELSE
-						IF _start_date < previous_bounds.start_date THEN
-							_computed_date_pair.start_date := _start_date;
-						ELSE
-							_computed_date_pair.start_date := previous_bounds.start_date;
-						END IF;						 
-						IF _end_date > previous_bounds.end_date THEN
-							_computed_date_pair.end_date := _end_date;
-						ELSE
-							_computed_date_pair.end_date := previous_bounds.end_date;
-						END IF;
-					END IF;
+					_bit_mask_text := _bit_mask_text || _segment_bit_mask || '1';
+				END IF;			
+				_segment_bit_mask := '';
+			ELSE -- current mask value is 0
+				IF _first_active_bit_index != -1 THEN
+					_segment_bit_mask := _segment_bit_mask || '0';
 				END IF;
-			WHEN '&'::calendar_operator THEN -- Must calculate intersection
-				IF _start_date IS NULL THEN
-					-- We assume that if _start_date is NULL _end_date is also NULL
-					_computed_date_pair.start_date := NULL;
-					_computed_date_pair.end_date := NULL;
-				ELSE
-					IF previous_bounds.start_date IS NULL THEN
-						_computed_date_pair.start_date := NULL;
-						_computed_date_pair.end_date := NULL;
-					ELSE
-						IF _start_date > previous_bounds.start_date THEN
-							_computed_date_pair.start_date := _start_date;
-						ELSE
-							_computed_date_pair.start_date := previous_bounds.start_date;
-						END IF;						 
-						IF _end_date < previous_bounds.end_date THEN
-							_computed_date_pair.end_date := _end_date;
-						ELSE
-							_computed_date_pair.end_date := previous_bounds.end_date;
-						END IF;
-						-- Check if intersect two distinct calendars
-						IF _computed_date_pair.start_date > _computed_date_pair.end_date THEN
-							_computed_date_pair.start_date := NULL;
-							_computed_date_pair.end_date := NULL;							
-						END IF;
-					END IF;
-				END IF;
-			WHEN '-'::calendar_operator THEN -- Date must be subs
-				IF _start_date IS NULL OR previous_bounds.start_date IS NULL THEN
-					-- Substract something NULL don't change object
-					-- Substract something to a NULL object left him NULL
-					_computed_date_pair := previous_bounds;
-				ELSE
-					IF _start_date <= previous_bounds.start_date THEN
-						_computed_date_pair.start_date := _end_date + interval '1' day;
-					ELSE
-						_computed_date_pair.start_date := previous_bounds.start_date;
-					END IF;						 
-					IF _end_date >= previous_bounds.end_date THEN
-						_computed_date_pair.end_date := _start_date - interval '1' day;
-					ELSE
-						_computed_date_pair.end_date := previous_bounds.end_date;
-					END IF;
-					-- If operation result is negative set it to NULL
-					IF _computed_date_pair.start_date > _computed_date_pair.end_date THEN
-						_computed_date_pair.start_date := NULL;
-						_computed_date_pair.end_date := NULL;							
-					END IF;
-				END IF;
-		END CASE;
+			END IF;
+			_iterator := _iterator + 1;
+		END LOOP;
+		IF _first_active_bit_index == -1 THEN -- There is only zeros
+			_computed_date_pair.start_date := NULL;
+			_computed_date_pair.end_date := NULL;
+			_computed_date_pair.bit_mask := NULL;
+			_computed_date_pair.mask_length := 0;			
+		ELSE
+			_computed_date_pair.start_date := _start_date + cast ((_first_active_bit_index) || 'day' as interval);
+			_computed_date_pair.end_date := _start_date + cast ((_last_active_bit_index) || 'day' as interval);
+			_computed_date_pair.mask_length := _last_active_bit_index -_first_active_bit_index + 1;
+			_computed_date_pair.bit_mask := (_bit_mask_text)::bit varying;			
+		END IF;
+		RETURN _computed_date_pair;
+	END;
+	$$;
+COMMENT ON FUNCTION detectmaskbounds (bit varying, date) IS 'Return full date_pair (start date, end date, adjusted bitmask and length) for a given bitmask and start date. The returned bitmask will be probably different from the given one.';
+
+-- _start_date, _end_date could be NULL (if no applicable dates)
+-- previous_bounds could be also a NULL pair
+CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date date, _bit_mask bit varying, _bit_mask_lenght smallint, _operator calendar_operator, previous_bounds date_pair) RETURNS date_pair
+	LANGUAGE plpgsql
+	AS $$
+	DECLARE
+		_computed_date_pair date_pair;
+		_tmp_bitmask bit varying;
+	BEGIN
+		select applybitmask(previous_bounds.bit_mask, _bit_mask, _start_date, _end_date, _operator) INTO _tmp_bitmask;
+		select detectmaskbounds(_computed_date_pair.bitmask, _start_date, _bit_mask_lenght) into _computed_date_pair;
 		-- RAISE DEBUG 'Result (%,%)',_computed_date_pair.start_date,_computed_date_pair.end_date;
 		RETURN _computed_date_pair;
 	END;
 	$$;
-COMMENT ON FUNCTION atomicdatecomputation (date, date, calendar_operator, date_pair) IS 'Apply "operator" operation (with calendar element args) on a previous start/end couple. Result could be a pair of null if no date intersect or empty calendar';
+COMMENT ON FUNCTION atomicdatecomputation (date, date, bit varying, smallint, calendar_operator, date_pair) IS 'Apply "operator" operation (with calendar element args) on a previous start/end couple. Result could be a pair of null if no date intersect or empty calendar';
 	
-
+-- If _bit_mask is given, ignore interval
 -- If rank is null, we are in a calendar element deletion case
-CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _start_date date, _end_date date, _rank integer, _operator calendar_operator, _currentElementDeletion boolean) RETURNS date_pair 
+CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _start_date date, _end_date date, _rank integer, _operator calendar_operator, _currentElementDeletion boolean, _bit_mask bit varying) RETURNS date_pair 
 	LANGUAGE plpgsql
 	AS $$
 	DECLARE
@@ -372,6 +348,9 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 		_cal_elt_rank_found boolean;
 		_cal_elt_number integer;
 		_rank_to_ignore integer;
+		-- TODO : delete this when cache mecanism ready
+		_cal_bit_mask bit varying;
+		_cal_mask_lenght smallint;
 	BEGIN
 		-- RAISE DEBUG 'Calculate calendar %, _rank = %', _calendar_id, _rank;
 		_cal_elt_rank_found := FALSE;
@@ -385,25 +364,31 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 		BEGIN
 			-- If there is not any calendar element in this calendar then we don't go in the loop.
 			FOR _cal IN 
-				SELECT id, operator, start_date, end_date, rank FROM calendar_element WHERE calendar_id = _calendar_id AND rank != _rank_to_ignore ORDER BY rank
+				SELECT id, operator, start_date, end_date, rank, interval, included_calendar_id FROM calendar_element WHERE calendar_id = _calendar_id AND rank != _rank_to_ignore ORDER BY rank
 			LOOP
 				-- Note that we use start_date & end_date of a calendar element with an included calendar_id
 				-- It is working only because we always duplicate computed_start_date/ computed_end_date of a calendar in all calendar element witch include it !
 				-- RAISE DEBUG 'CalElt % : start = %, end = %, operator = %, rank = %', _cal.id, _cal.start_date, _cal.end_date, _cal.operator, _cal.rank;			
 				-- First we need to remember the first date bounds
 				IF _cal_elt_number = 0 THEN -- Must be true for _cal.rank = 1
+					_computed_date_pair.mask_length := (_cal.end_date - _cal.start_date )+ 1;
 					_computed_date_pair.start_date := _cal.start_date;
 					_computed_date_pair.end_date := _cal.end_date;
+					_computed_date_pair.bit_mask := getcalendarelementbitmask(_cal.start_date, _cal.end_date, _computed_date_pair.mask_length, _cal.included_calendar_id, _cal.start_date, _cal.end_date, _cal.interval);
 				ELSE
 					-- Second (_rank>1) we need to calculate new bounds
 					IF _cal.rank = _rank THEN 				
 						-- RAISE DEBUG 'This is the element of rank %', _cal.rank;
 						_cal_elt_rank_found := TRUE;
 						-- In that case we MUST use the new start/end dates (because the current one could be false until COMMIT)
-						SELECT * FROM atomicdatecomputation(_start_date, _end_date, _operator,  _computed_date_pair) INTO _computed_date_pair;
+						SELECT * FROM atomicdatecomputation(_start_date, _end_date, _bit_mask, (_end_date - _start_date )+ 1, _operator,  _computed_date_pair) INTO _computed_date_pair;
 					ELSE
 						-- RAISE DEBUG 'Element of rank %', _cal.rank;
-						SELECT * FROM atomicdatecomputation(_cal.start_date, _cal.end_date, _cal.operator, _computed_date_pair) INTO _computed_date_pair;
+						-- TODO : delete this when cache mecanism ready
+						_cal_bit_mask := getcalendarelementbitmask(_cal.start_date, _cal.end_date, _computed_date_pair.mask_length, _cal.included_calendar_id, _cal.start_date, _cal.end_date, _cal.interval);
+						_cal_mask_lenght := (_cal.end_date - _cal.start_date )+ 1;
+						
+						SELECT * FROM atomicdatecomputation(_cal.start_date, _cal.end_date, _cal_bit_mask, _cal_mask_lenght, _cal.operator, _computed_date_pair) INTO _computed_date_pair;
 					END IF;
 				END IF;
 				_cal_elt_number := _cal_elt_number + 1;
@@ -423,12 +408,15 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 						-- There is 0 elts in this calendar : calculation is trivial
 						_computed_date_pair.start_date := _start_date;
 						_computed_date_pair.end_date := _end_date;
+						_computed_date_pair.bit_mask := _bit_mask;
+						_computed_date_pair.mask_length := (_end_date - _start_date) + 1;
 					ELSE
 						-- There is already calendar elements but the current one is new
-						SELECT * FROM atomicdatecomputation(_start_date, _end_date, _operator, _computed_date_pair) INTO _computed_date_pair;
+						SELECT * FROM atomicdatecomputation(_start_date, _end_date, _bit_mask, (_end_date - _start_date )+ 1, _operator, _computed_date_pair) INTO _computed_date_pair;
 					END IF;
 				END IF;
 			END IF;
+			-- TODO : add cache information ?
 			UPDATE calendar SET computed_start_date = _computed_date_pair.start_date, computed_end_date = _computed_date_pair.end_date WHERE id = _calendar_id;
 		EXCEPTION WHEN raise_exception THEN
 			RAISE EXCEPTION '% %An atomic calendar operation failed for calendar %',SQLERRM , chr(10), _calendar_id;
@@ -436,10 +424,10 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 		RETURN _computed_date_pair;		
 	END;
     $$;
-COMMENT ON FUNCTION computecalendarsstartend(integer, date, date, integer, calendar_operator, boolean) IS 'Calculate start/end computed dates of a calendar. Result could be a pair of null if no date intersect or empty calendar';
+COMMENT ON FUNCTION computecalendarsstartend(integer, date, date, integer, calendar_operator, boolean, bit varying) IS 'Calculate start/end computed dates of a calendar. Result could be a pair of null if no date intersect or empty calendar';
     
-
-CREATE OR REPLACE FUNCTION propagateparentcalendarsstartend (_calendar_id integer, _rank integer, _currentElementDeletion boolean, _start_date date default null, _end_date date default null, _operator calendar_operator default null) RETURNS void 
+-- If _bit_mask is given, ignore interval
+CREATE OR REPLACE FUNCTION propagateparentcalendarsstartend (_calendar_id integer, _rank integer, _currentElementDeletion boolean, _start_date date default null, _end_date date default null, _operator calendar_operator default null, _bit_mask bit varying default null) RETURNS void 
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -448,7 +436,7 @@ CREATE OR REPLACE FUNCTION propagateparentcalendarsstartend (_calendar_id intege
     BEGIN
 		BEGIN
 			-- Calculate new start/end computed date for current calendar
-			SELECT * FROM computecalendarsstartend(_calendar_id, _start_date, _end_date, _rank, _operator, _currentElementDeletion) INTO _computed_date_pair;
+			SELECT * FROM computecalendarsstartend(_calendar_id, _start_date, _end_date, _rank, _operator, _currentElementDeletion, _bit_mask) INTO _computed_date_pair;
 			-- Launch same operation an all parent calendars (could have none)
 			-- Infinite recursion must not happen because we previously check it with 'detectcalendarinclusionloop' function
 			FOR _cal IN 
@@ -459,14 +447,14 @@ CREATE OR REPLACE FUNCTION propagateparentcalendarsstartend (_calendar_id intege
 				-- To calculate the parent calendar, we need to pass (not commited yet) new start/end date of updated calendar_element (and rand to found it)
 				-- operator is passed because of the not already added calendar element (first call of this recursive function)
 				-- We set currentElementDeletion, because just want to update fields, ignoring no calendar
-				PERFORM propagateparentcalendarsstartend(_cal.calendar_id, _cal.rank, FALSE, _computed_date_pair.start_date, _computed_date_pair.end_date, _cal.operator);
+				PERFORM propagateparentcalendarsstartend(_cal.calendar_id, _cal.rank, FALSE, _computed_date_pair.start_date, _computed_date_pair.end_date, _cal.operator, _computed_date_pair.bitmask);
 			END LOOP;
 		EXCEPTION WHEN raise_exception THEN
 			RAISE EXCEPTION '% %Parent calendar element = %',SQLERRM , chr(10), _calendar_id;
 		END;
     END;
     $$;
-COMMENT ON FUNCTION propagateparentcalendarsstartend(integer, integer, boolean, date, date, calendar_operator) IS 'This recursive function launch computecalendarsstartend and call himself on an all parents calendar';
+COMMENT ON FUNCTION propagateparentcalendarsstartend(integer, integer, boolean, date, date, calendar_operator, bit varying) IS 'This recursive function launch computecalendarsstartend and call himself on an all parents calendar';
 
 
 
@@ -479,6 +467,7 @@ CREATE OR REPLACE FUNCTION insertcalendarelement(_calendar_id integer, _start_da
 		_real_start_date date;
 		_real_end_date date;
 		_included_cal record;
+		_bit_mask bit varying;
     BEGIN		
 		IF _included_calendar_id IS NOT NULL THEN
 			-- Integrity control : a calendar element with an included_calendar_id could not have start_date & end_date provided
@@ -502,6 +491,7 @@ CREATE OR REPLACE FUNCTION insertcalendarelement(_calendar_id integer, _start_da
 			-- Note that dates could be NULL
 			_real_start_date := _included_cal.computed_start_date;
 			_real_end_date := _included_cal.computed_end_date;
+			_bitmask := getcalendarelementbitmask(_real_start_date, _real_end_date, (_real_end_date - _real_start_date) + 1, _included_calendar_id, _real_start_date, _real_end_date, _interval);
 		ELSE
 			IF _start_date IS NULL OR _end_date IS NULL THEN
 				RAISE EXCEPTION 'You must provide start_date+end_date or included calendar !';
@@ -513,6 +503,7 @@ CREATE OR REPLACE FUNCTION insertcalendarelement(_calendar_id integer, _start_da
 			ELSE
 				_real_end_date := _end_date;
 			END IF;
+			_bitmask := getcalendarelementbitmask(_real_start_date, _real_end_date, (_real_end_date - _real_start_date) + 1, NULL, _real_start_date, _real_end_date, _interval);
 		END IF;
 		-- At this point if _real_start_date or _real_end_date are null we know that there is an empty calendar underneath
 		
@@ -524,7 +515,7 @@ CREATE OR REPLACE FUNCTION insertcalendarelement(_calendar_id integer, _start_da
 		-- Third, recalculate calendar start/end computed dates and recursively for all calendars that include this one
 		BEGIN
 			-- The new calendar_element is not already inserted so we need to pass information about it on sub routines
-			PERFORM propagateparentcalendarsstartend(_calendar_id, _rank, FALSE, _real_start_date, _real_end_date, _operator);
+			PERFORM propagateparentcalendarsstartend(_calendar_id, _rank, FALSE, _real_start_date, _real_end_date, _operator, _bitmask);
 		EXCEPTION WHEN raise_exception THEN
 				RAISE EXCEPTION '% %Cannot insert calendar. It broke start stop rule somewhere !',SQLERRM , chr(10);
 		END;
