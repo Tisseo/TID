@@ -251,13 +251,17 @@ CREATE TABLE line_version (
     certified boolean DEFAULT false NOT NULL,
     comment text,
     depot character varying(50),
-    status line_version_status
+    status line_version_status,
+    gis_working boolean DEFAULT FALSE,
+    schematic_id integer DEFAULT NULL
 );
 COMMENT ON TABLE line_version IS 'Offre d''une ligne.';
 COMMENT ON COLUMN line_version.start_date IS 'Date de debut d''offre.';
 COMMENT ON COLUMN line_version.end_date IS 'Date effective de fin d''offre, non reneignee a la creation.';
 COMMENT ON COLUMN line_version.planned_end_date IS 'Date de fin previsionnelle d''offre.';
 COMMENT ON COLUMN line_version.child_line_id IS 'Ligne rattachee (ligne de soiree)';
+COMMENT ON COLUMN line_version.gis_working IS 'Offre signalee car le SIG effectue un travail carto.';
+COMMENT ON COLUMN line_version.schematic_id IS 'Identifiant du schematique de l''offre';
 
 CREATE TABLE line_version_datasource (
     id serial PRIMARY KEY,
@@ -463,6 +467,16 @@ COMMENT ON COLUMN route_stop.scheduled_stop IS 'Indique s''il s''agit d''un wayp
 COMMENT ON COLUMN route_stop.internal_service IS 'Dans le cas d''une zone TAD, idique si la desserte interne de la zone est autorisee.';
 CREATE INDEX route_stop_route_id_idx ON route_stop USING btree (route_id);
 CREATE INDEX route_stop_waypoint_id_idx ON route_stop USING btree (waypoint_id);
+
+
+CREATE TABLE schematic_file (
+    id serial PRIMARY KEY,
+    name character varying(255),
+    comment character varying(255) NOT NULL,
+    start_date date NOT NULL,
+    file_path text
+);
+COMMENT ON TABLE schematic_file IS 'Schemas de ligne';
 
 CREATE TABLE stop_area (
     id serial PRIMARY KEY,
@@ -691,6 +705,7 @@ ALTER TABLE ONLY line_version_not_exported ADD CONSTRAINT line_version_not_expor
 ALTER TABLE ONLY line_version_datasource ADD CONSTRAINT line_version_datasource_datasource_id_fk FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY line_version_datasource ADD CONSTRAINT line_version_datasource_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE CASCADE;
 ALTER TABLE ONLY line_version ADD CONSTRAINT line_version_line_id_fk FOREIGN KEY (line_id) REFERENCES line(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY line_version ADD CONSTRAINT line_version_schematic_id_fk FOREIGN KEY (schematic_id) REFERENCES schematic_file(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY line_datasource ADD CONSTRAINT line_datasource_datasource_id_fk FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY line_datasource ADD CONSTRAINT line_datasource_line_id_fk FOREIGN KEY (line_id) REFERENCES line(id) ON UPDATE RESTRICT ON DELETE CASCADE;
 ALTER TABLE ONLY line ADD CONSTRAINT line_physical_mode_fk FOREIGN KEY (physical_mode_id) REFERENCES physical_mode(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
