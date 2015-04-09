@@ -484,7 +484,10 @@ CREATE OR REPLACE FUNCTION insertcalendarelement(_calendar_id integer, _start_da
 			-- Integrity control : a calendar element with an included_calendar_id could not have start_date & end_date provided
 			IF _start_date IS NOT NULL OR _end_date IS NOT NULL THEN
 				RAISE EXCEPTION 'A calendar element with an included_calendar_id could not have start_date & end_date provided !';
-			END IF;			
+			END IF;
+			IF _interval != 1 THEN
+				RAISE EXCEPTION 'A calendar element with an included_calendar_id could not have an interval not equal to 1 !';
+			END IF;					
 			-- Abort creation if calendar creation will create an inclusion loop
 			BEGIN
 				PERFORM detectcalendarinclusionloop(_included_calendar_id, _calendar_id);
@@ -504,7 +507,12 @@ CREATE OR REPLACE FUNCTION insertcalendarelement(_calendar_id integer, _start_da
 				RAISE EXCEPTION 'You must provide start_date+end_date or included calendar !';
 			END IF;
 			_real_start_date := _start_date;
-			_real_end_date := _end_date;
+			IF _interval != 1 THEN -- In that case we need to recalculate end_date
+				-- Substract modulo to end_date (could be 0)
+				_real_end_date := _end_date + cast ((_start_date - _end_date)%_interval || 'day' as interval);
+			ELSE
+				_real_end_date := _end_date;
+			END IF;
 		END IF;
 		-- At this point if _real_start_date or _real_end_date are null we know that there is an empty calendar underneath
 		
