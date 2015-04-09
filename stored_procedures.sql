@@ -288,7 +288,7 @@ LANGUAGE plpgsql
 		_segment_bit_mask := '';
 		WHILE _iterator < _bit_mask_lenght
 		LOOP
-			IF _bit_mask_text[_iterator] == 1 THEN
+			IF get_bit(_bit_mask_text, _iterator) == 1 THEN
 				_last_active_bit_index := _iterator;	
 				IF _first_active_bit_index == -1 THEN -- This is the first 1
 					_first_active_bit_index := iterator;
@@ -318,7 +318,7 @@ LANGUAGE plpgsql
 		RETURN _computed_date_pair;
 	END;
 	$$;
-COMMENT ON FUNCTION detectmaskbounds (bit varying, date) IS 'Return full date_pair (start date, end date, adjusted bitmask and length) for a given bitmask and start date. The returned bitmask will be probably different from the given one.';
+COMMENT ON FUNCTION detectmaskbounds (bit varying, date, smallint) IS 'Return full date_pair (start date, end date, adjusted bitmask and length) for a given bitmask and start date. The returned bitmask will be probably different from the given one.';
 
 -- _start_date, _end_date could be NULL (if no applicable dates)
 -- previous_bounds could be also a NULL pair
@@ -381,7 +381,7 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 						-- RAISE DEBUG 'This is the element of rank %', _cal.rank;
 						_cal_elt_rank_found := TRUE;
 						-- In that case we MUST use the new start/end dates (because the current one could be false until COMMIT)
-						SELECT * FROM atomicdatecomputation(_start_date, _end_date, _bit_mask, (_end_date - _start_date )+ 1, _operator,  _computed_date_pair) INTO _computed_date_pair;
+						SELECT * FROM atomicdatecomputation(_start_date, _end_date, _bit_mask, ((_end_date - _start_date )+ 1)::smallint, _operator,  _computed_date_pair) INTO _computed_date_pair;
 					ELSE
 						-- RAISE DEBUG 'Element of rank %', _cal.rank;
 						-- TODO : delete this when cache mecanism ready
@@ -412,7 +412,7 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 						_computed_date_pair.mask_length := (_end_date - _start_date) + 1;
 					ELSE
 						-- There is already calendar elements but the current one is new
-						SELECT * FROM atomicdatecomputation(_start_date, _end_date, _bit_mask, (_end_date - _start_date )+ 1, _operator, _computed_date_pair) INTO _computed_date_pair;
+						SELECT * FROM atomicdatecomputation(_start_date, _end_date, _bit_mask, ((_end_date - _start_date )+ 1)::smallint, _operator, _computed_date_pair) INTO _computed_date_pair;
 					END IF;
 				END IF;
 			END IF;
@@ -467,7 +467,7 @@ CREATE OR REPLACE FUNCTION insertcalendarelement(_calendar_id integer, _start_da
 		_real_start_date date;
 		_real_end_date date;
 		_included_cal record;
-		_bit_mask bit varying;
+		_bitmask bit varying;
     BEGIN		
 		IF _included_calendar_id IS NOT NULL THEN
 			-- Integrity control : a calendar element with an included_calendar_id could not have start_date & end_date provided
