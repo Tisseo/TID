@@ -328,9 +328,142 @@ CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date da
 	DECLARE
 		_computed_date_pair date_pair;
 		_tmp_bitmask bit varying;
-	BEGIN
-		select applybitmask(previous_bounds.bit_mask, _bit_mask, _start_date, _end_date, _operator) INTO _tmp_bitmask;
-		select detectmaskbounds(_computed_date_pair.bitmask, _start_date, _bit_mask_lenght) into _computed_date_pair;
+		_start_bitmask_date date;
+		_end_bitmask_date date;
+		_effective_start_bitmask_date date;
+		_effective_end_bitmask_date date;
+		_previous_bit_mask_trimed bit varying;
+		_new_bit_mask_trimed bit varying;
+	BEGIN	
+		-- RAISE DEBUG 'Operate this : (%,%) % (%,%)',previous_bounds.start_date,previous_bounds.end_date,_operator,_start_date,_end_date;		
+		CASE _operator
+			WHEN '+'::calendar_operator THEN -- Date muse be added
+				IF _start_date IS NULL THEN
+					-- We assume that if _start_date is NULL _end_date is also NULL
+					_computed_date_pair := previous_bounds;
+				ELSE
+					IF previous_bounds.start_date IS NULL THEN
+						_computed_date_pair.start_date := _start_date;
+						_computed_date_pair.end_date := _end_date;
+						_computed_date_pair.bit_mask := _bit_mask;
+						_computed_date_pair.mask_length := _bit_mask_lenght;
+					ELSE
+						IF _start_date < previous_bounds.start_date THEN
+							_start_bitmask_date := _start_date;	
+							_tmp_bitmask := (lpad('',previous_bounds.start_date - _start_bitmask_date,'0'))::bit varying;
+							_previous_bit_mask_trimed := _tmp_bitmask || _computed_date_pair.bit_mask;
+							_new_bit_mask_trimed := _bit_mask;
+						ELSE
+							_start_bitmask_date := previous_bounds.start_date;
+							_tmp_bitmask := (lpad('',_start_date - _start_bitmask_date,'0'))::bit varying;
+							_new_bit_mask_trimed := _tmp_bitmask || _bit_mask;
+							_previous_bit_mask_trimed := _computed_date_pair.bit_mask;
+						END IF;
+						IF _end_date > previous_bounds.end_date THEN
+							_end_bitmask_date := _end_date;
+							_tmp_bitmask := (lpad('',_end_bitmask_date - previous_bounds.end_date,'0'))::bit varying;
+							_previous_bit_mask_trimed := _computed_date_pair.bit_mask || _previous_bit_mask_trimed;							
+						ELSE
+							_end_bitmask_date := previous_bounds.end_date;
+							_tmp_bitmask := (lpad('',_end_bitmask_date - _end_date,'0'))::bit varying;
+							_new_bit_mask_trimed := _computed_date_pair.bit_mask || _new_bit_mask_trimed;
+						END IF;
+						select applybitmask(_previous_bit_mask_trimed, _new_bit_mask_trimed, _start_bitmask_date, _end_bitmask_date, _operator) INTO _tmp_bitmask;
+						select detectmaskbounds(_tmp_bitmask, _start_bitmask_date, _bit_mask_lenght) into _computed_date_pair;
+					END IF;
+				END IF;
+			WHEN '&'::calendar_operator THEN -- Must calculate intersection
+				IF _start_date IS NULL THEN
+					-- We assume that if _start_date is NULL _end_date is also NULL
+					_computed_date_pair.start_date := NULL;
+					_computed_date_pair.end_date := NULL;
+					_computed_date_pair.bit_mask := NULL;
+					_computed_date_pair.mask_length := 0;	
+				ELSE
+					IF previous_bounds.start_date IS NULL THEN
+						_computed_date_pair.start_date := NULL;
+						_computed_date_pair.end_date := NULL;
+						_computed_date_pair.bit_mask := NULL;
+						_computed_date_pair.mask_length := 0;	
+					ELSE						
+						IF _start_date < previous_bounds.start_date THEN
+							_effective_start_bitmask_date := previous_bounds.start_date;
+							_start_bitmask_date := _start_date;
+							_tmp_bitmask := (lpad('',previous_bounds.start_date - _start_bitmask_date,'0'))::bit varying;
+							_previous_bit_mask_trimed := _tmp_bitmask || _computed_date_pair.bit_mask;
+							_new_bit_mask_trimed := _bit_mask;
+						ELSE
+							_effective_start_bitmask_date := _start_date;
+							_start_bitmask_date := previous_bounds.start_date;
+							_tmp_bitmask := (lpad('',_start_date - _start_bitmask_date,'0'))::bit varying;
+							_new_bit_mask_trimed := _tmp_bitmask || _bit_mask;
+							_previous_bit_mask_trimed := _computed_date_pair.bit_mask;
+						END IF;
+						IF _end_date > previous_bounds.end_date THEN
+							_effective_end_bitmask_date := previous_bounds.end_date;
+							_end_bitmask_date := _end_date;
+							_tmp_bitmask := (lpad('',_end_bitmask_date - previous_bounds.end_date,'0'))::bit varying;
+							_previous_bit_mask_trimed := _computed_date_pair.bit_mask || _previous_bit_mask_trimed;							
+						ELSE
+							_effective_end_bitmask_date := _end_date;
+							_end_bitmask_date := previous_bounds.end_date;
+							_tmp_bitmask := (lpad('',_end_bitmask_date - _end_date,'0'))::bit varying;
+							_new_bit_mask_trimed := _computed_date_pair.bit_mask || _new_bit_mask_trimed;
+						END IF;
+						-- Check if intersect two distinct calendars
+						IF _effective_start_bitmask_date > _effective_end_bitmask_date THEN
+							_computed_date_pair.start_date := NULL;
+							_computed_date_pair.end_date := NULL;
+							_computed_date_pair.bit_mask := NULL;							
+							_computed_date_pair.mask_length := 0;	
+						ELSE				
+							select applybitmask(_previous_bit_mask_trimed, _new_bit_mask_trimed, _start_bitmask_date, _end_bitmask_date, _operator) INTO _tmp_bitmask;
+							select detectmaskbounds(_tmp_bitmask, _start_bitmask_date, _bit_mask_lenght) into _computed_date_pair;
+						END IF;
+					END IF;
+				END IF;
+			WHEN '-'::calendar_operator THEN -- Date must be subs
+				IF _start_date IS NULL OR previous_bounds.start_date IS NULL THEN
+					-- Substract something NULL don't change object
+					-- Substract something to a NULL object left him NULL
+					_computed_date_pair := previous_bounds;
+				ELSE
+					IF _start_date <= previous_bounds.start_date THEN
+						_effective_start_bitmask_date := _end_date + interval '1' day;
+						_start_bitmask_date := _start_date;
+						_tmp_bitmask := (lpad('',previous_bounds.start_date - _start_bitmask_date,'0'))::bit varying;
+						_previous_bit_mask_trimed := _tmp_bitmask || _computed_date_pair.bit_mask;
+						_new_bit_mask_trimed := _bit_mask;
+					ELSE
+						_effective_start_bitmask_date := previous_bounds.start_date;
+						_start_bitmask_date := previous_bounds.start_date;
+						_tmp_bitmask := (lpad('',_start_date - _start_bitmask_date,'0'))::bit varying;
+						_new_bit_mask_trimed := _tmp_bitmask || _bit_mask;
+						_previous_bit_mask_trimed := _computed_date_pair.bit_mask;
+					END IF;						 
+					IF _end_date >= previous_bounds.end_date THEN
+						_effective_end_bitmask_date := _start_date - interval '1' day;
+						_end_bitmask_date := _end_date;
+						_tmp_bitmask := (lpad('',_end_bitmask_date - previous_bounds.end_date,'0'))::bit varying;
+						_previous_bit_mask_trimed := _computed_date_pair.bit_mask || _previous_bit_mask_trimed;	
+					ELSE
+						_effective_end_bitmask_date := previous_bounds.end_date;
+						_end_bitmask_date := previous_bounds.end_date;
+						_tmp_bitmask := (lpad('',_end_bitmask_date - _end_date,'0'))::bit varying;
+						_new_bit_mask_trimed := _computed_date_pair.bit_mask || _new_bit_mask_trimed;
+					END IF;
+					-- If operation result is negative set it to NULL
+					IF _effective_start_bitmask_date > _effective_end_bitmask_date THEN
+						_computed_date_pair.start_date := NULL;
+						_computed_date_pair.end_date := NULL;	
+						_computed_date_pair.bit_mask := NULL;
+						_computed_date_pair.mask_length := 0;	
+					ELSE
+						select applybitmask(_previous_bit_mask_trimed, _new_bit_mask_trimed, _start_bitmask_date, _end_bitmask_date, _operator) INTO _tmp_bitmask;
+						select detectmaskbounds(_tmp_bitmask, _start_bitmask_date, _bit_mask_lenght) into _computed_date_pair;
+					END IF;
+				END IF;
+		END CASE;		
 		-- RAISE DEBUG 'Result (%,%)',_computed_date_pair.start_date,_computed_date_pair.end_date;
 		RETURN _computed_date_pair;
 	END;
