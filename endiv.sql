@@ -70,6 +70,10 @@ CREATE TABLE alias (
 );
 COMMENT ON TABLE alias IS 'Alias des zones d''arrets.';
 
+CREATE TABLE global_vars (name TEXT PRIMARY KEY, value TEXT);
+INSERT INTO global_vars (name, value) VALUES ('maximum_calendar_date', '2020-12-31');
+COMMENT ON TABLE global_vars IS 'Definit des variables globales de la base. Notament la date maximum de fin des calendars elements qui evoluera d''un an tous les ans : par un appel de la procedure updatecalendarlimit.';
+
 CREATE TABLE calendar (
     id serial PRIMARY KEY,
     name character varying(50) NOT NULL,

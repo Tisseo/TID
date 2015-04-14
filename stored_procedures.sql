@@ -82,19 +82,31 @@ LANGUAGE plpgsql
 COMMENT ON FUNCTION recalculateallcalendars (date, date) IS 'Recalculate all calendar computed fields, and "include" calendar element start/end';
 
 
-CREATE OR REPLACE FUNCTION updatecalendarlimit(_old_limit date, _new_limit date) RETURNS void
+CREATE OR REPLACE FUNCTION updatecalendarlimit() RETURNS void
 LANGUAGE plpgsql
 	AS $$
 	DECLARE
 		_cal record;
 		_computed_date_pair date_pair;
+		current_maximum_calendar_date TEXT;
+		new_maximum_calendar_date TEXT;
+		current_limit date;
+		new_limit date;
 	BEGIN
+		SELECT value FROM global_vars WHERE name = 'maximum_calendar_date' INTO current_maximum_calendar_date;
+		-- TODO calculate 'new_maximum_calendar_date'
+		-- SECOND THINGS TODO IS REPLACE HARD CODED 2020-12-31 by dynamic 'maximum_calendar_date'
+		UPDATE global_vars SET value = new_maximum_calendar_date WHERE name = 'maximum_calendar_date' IS NOT NULL;
+		
+		current_limit := current_maximum_calendar_date::date;
+		new_limit := new_maximum_calendar_date::date;
+		
 		-- Update "simple" calendar elements with hard coded _end_date
-		UPDATE calendar_element SET end_date = _new_limit WHERE end_date = _old_limit and included_calendar_id IS NULL;
+		UPDATE calendar_element SET end_date = new_limit WHERE end_date = current_limit and included_calendar_id IS NULL;
 		recalculateallcalendars();
 	END;
 	$$;
-COMMENT ON FUNCTION updatecalendarlimit (date, date) IS 'Update date limit. Eg. from 2020-12-31 to 2021-12-31. Call this function every year.';
+COMMENT ON FUNCTION updatecalendarlimit () IS 'Update date limit. Eg. from 2020-12-31 to 2021-12-31. Call this function every year.';
 
 
 CREATE OR REPLACE FUNCTION applybitmask(_source_bit_mask bit varying, _new_bit_mask bit varying, _bounds_start_date date, _bounds_end_date date, _operator calendar_operator) RETURNS bit varying
