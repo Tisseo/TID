@@ -56,6 +56,46 @@ CREATE OR REPLACE FUNCTION insertcalendar(_name character varying, _ccode charac
     $$;
 COMMENT ON FUNCTION insertcalendar (character varying, character varying, integer, calendar_type) IS 'insert record in tables calendar and calendar_datasource and return new calendar.id';
 
+-- This could take a while because of recursion
+CREATE OR REPLACE FUNCTION recalculateallcalendars() RETURNS void
+LANGUAGE plpgsql
+	AS $$
+	DECLARE
+		_cal record;
+		_computed_date_pair date_pair;
+	BEGIN
+		-- First, "include" calendar elements with calculated _end_date
+		UPDATE calendar_element SET end_date = NULL, begin_date = NULL, WHERE included_calendar_id IS NOT NULL;
+		-- Two, vacuum computed dates
+		UPDATE calendar SET computed_start_date = NULL, computed_start_date = NULL;
+		-- This could take a while because of recursion
+		FOR _cal IN 
+			SELECT id FROM calendar
+		LOOP
+			-- Recalculate computed date for given calendar
+			-- Pass TRUE to deletion to force computecalendarsstartend to accept NULL for given calendar_element attributes
+			--¨Pass TRUE to _recalculate_included_calendar to force recalculate sub calendars
+			SELECT * FROM computecalendarsstartend(_cal.id, NULL, NULL, NULL, NULL, TRUE, NULL, TRUE) INTO _computed_date_pair;
+		END LOOP;
+	END;
+	$$;
+COMMENT ON FUNCTION recalculateallcalendars (date, date) IS 'Recalculate all calendar computed fields, and "include" calendar element start/end';
+
+
+CREATE OR REPLACE FUNCTION updatecalendarlimit(_old_limit date, _new_limit date) RETURNS void
+LANGUAGE plpgsql
+	AS $$
+	DECLARE
+		_cal record;
+		_computed_date_pair date_pair;
+	BEGIN
+		-- Update "simple" calendar elements with hard coded _end_date
+		UPDATE calendar_element SET end_date = _new_limit WHERE end_date = _old_limit and included_calendar_id IS NULL;
+		recalculateallcalendars();
+	END;
+	$$;
+COMMENT ON FUNCTION updatecalendarlimit (date, date) IS 'Update date limit. Eg. from 2020-12-31 to 2021-12-31. Call this function every year.';
+
 
 CREATE OR REPLACE FUNCTION applybitmask(_source_bit_mask bit varying, _new_bit_mask bit varying, _bounds_start_date date, _bounds_end_date date, _operator calendar_operator) RETURNS bit varying
 LANGUAGE plpgsql
@@ -479,18 +519,21 @@ COMMENT ON FUNCTION atomicdatecomputation (date, date, bit varying, smallint, ca
 	
 -- If _bit_mask is given, ignore interval
 -- If rank is null, we are in a calendar element deletion case
-CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _start_date date, _end_date date, _rank integer, _operator calendar_operator, _currentElementDeletion boolean, _bit_mask bit varying) RETURNS date_pair 
+CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _start_date date, _end_date date, _rank integer, _operator calendar_operator, _currentElementDeletion boolean, _bit_mask bit varying, _recalculate_included_calendar boolean default FALSE) RETURNS date_pair 
 	LANGUAGE plpgsql
 	AS $$
 	DECLARE
 		_cal record;
 		_computed_date_pair date_pair;
+		_recalculated_date_pair date_pair;
 		_cal_elt_rank_found boolean;
 		_cal_elt_number integer;
 		_rank_to_ignore integer;
 		-- TODO : delete this when cache mecanism ready
 		_cal_bit_mask bit varying;
 		_cal_mask_lenght smallint;
+		_cal_end_date date;
+		_cal_start_date date;		
 	BEGIN
 		-- RAISE DEBUG 'Calculate calendar %, _rank = %', _calendar_id, _rank;
 		_cal_elt_rank_found := FALSE;
@@ -506,15 +549,33 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 			FOR _cal IN 
 				SELECT id, operator, start_date, end_date, rank, interval, included_calendar_id FROM calendar_element WHERE calendar_id = _calendar_id AND rank != _rank_to_ignore ORDER BY rank
 			LOOP
+				IF _recalculate_included_calendar AND (_cal.included_calendar_id IS NOT NULL) THEN				
+					SELECT * FROM computecalendarsstartend(_cal.included_calendar_id, NULL, NULL, NULL, NULL, TRUE, NULL, TRUE) INTO _recalculated_date_pair;
+					-- Record new computed dates in calendar element
+					UPDATE calendar_element SET start_date = _recalculated_date_pair.start_date, end_date = _recalculated_date_pair.end_date WHERE id = _cal.id;
+					_cal_end_date := _recalculated_date_pair.end_date;
+					_cal_start_date := _recalculated_date_pair.start_date;
+				ELSE
+					_cal_end_date := _cal.end_date;
+					_cal_start_date := _cal.start_date;
+				END IF;
 				-- Note that we use start_date & end_date of a calendar element with an included calendar_id
 				-- It is working only because we always duplicate computed_start_date/ computed_end_date of a calendar in all calendar element witch include it !
-				-- RAISE DEBUG 'CalElt % : start = %, end = %, operator = %, rank = %', _cal.id, _cal.start_date, _cal.end_date, _cal.operator, _cal.rank;			
+				-- RAISE DEBUG 'CalElt % : start = %, end = %, operator = %, rank = %', _cal.id, _cal_start_date, _cal.end_date, _cal.operator, _cal.rank;			
 				-- First we need to remember the first date bounds
 				IF _cal_elt_number = 0 THEN -- Must be true for _cal.rank = 1
-					_computed_date_pair.mask_length := (_cal.end_date - _cal.start_date )+ 1;
-					_computed_date_pair.start_date := _cal.start_date;
-					_computed_date_pair.end_date := _cal.end_date;
-					_computed_date_pair.bit_mask := getcalendarelementbitmask(_cal.start_date, _cal.end_date, _computed_date_pair.mask_length, _cal.included_calendar_id, _cal.start_date, _cal.end_date, _cal.interval);
+					IF _cal_start_date IS NULL THEN
+						_computed_date_pair.mask_length := 0;
+						_computed_date_pair.start_date := NULL;
+						_computed_date_pair.end_date := NULL;
+						_computed_date_pair.bit_mask := NULL;
+					ELSE
+						_computed_date_pair.mask_length := (_cal_end_date - _cal_start_date )+ 1;
+						_computed_date_pair.start_date := _cal_start_date;
+						_computed_date_pair.end_date := _cal_end_date;
+						_computed_date_pair.bit_mask := getcalendarelementbitmask(_cal_start_date, _cal_end_date, _computed_date_pair.mask_length, _cal.included_calendar_id, _cal_start_date, _cal_end_date, _cal.interval);
+					
+					END IF;
 				ELSE
 					-- Second (_rank>1) we need to calculate new bounds
 					IF _cal.rank = _rank THEN 				
@@ -525,10 +586,14 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 					ELSE
 						-- RAISE DEBUG 'Element of rank %', _cal.rank;
 						-- TODO : delete this when cache mecanism ready
-						_cal_mask_lenght := (_cal.end_date - _cal.start_date )+ 1;
-						_cal_bit_mask := getcalendarelementbitmask(_cal.start_date, _cal.end_date, _cal_mask_lenght, _cal.included_calendar_id, _cal.start_date, _cal.end_date, _cal.interval);
-						
-						SELECT * FROM atomicdatecomputation(_cal.start_date, _cal.end_date, _cal_bit_mask, _cal_mask_lenght, _cal.operator, _computed_date_pair) INTO _computed_date_pair;
+						IF _cal_start_date IS NULL THEN
+							_cal_mask_lenght := 0;
+							_cal_bit_mask := NULL;
+						ELSE
+							_cal_mask_lenght := (_cal_end_date - _cal_start_date )+ 1;
+							_cal_bit_mask := getcalendarelementbitmask(_cal_start_date, _cal_end_date, _cal_mask_lenght, _cal.included_calendar_id, _cal_start_date, _cal_end_date, _cal.interval);
+						END;
+						SELECT * FROM atomicdatecomputation(_cal_start_date, _cal_end_date, _cal_bit_mask, _cal_mask_lenght, _cal.operator, _computed_date_pair) INTO _computed_date_pair;
 					END IF;
 				END IF;
 				_cal_elt_number := _cal_elt_number + 1;
@@ -550,7 +615,11 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 						_computed_date_pair.start_date := _start_date;
 						_computed_date_pair.end_date := _end_date;
 						_computed_date_pair.bit_mask := _bit_mask;
-						_computed_date_pair.mask_length := (_end_date - _start_date) + 1;
+						IF _end_date IS NULL THEN
+							_computed_date_pair.mask_length := 0;
+						ELSE
+							_computed_date_pair.mask_length := (_end_date - _start_date) + 1;
+						END IF;
 					ELSE
 						-- There is already calendar elements but the current one is new
 						SELECT * FROM atomicdatecomputation(_start_date, _end_date, _bit_mask, ((_end_date - _start_date )+ 1)::smallint, _operator, _computed_date_pair) INTO _computed_date_pair;
