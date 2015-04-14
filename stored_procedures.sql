@@ -279,8 +279,13 @@ LANGUAGE plpgsql
 	AS $$
 	DECLARE
 		_computed_date_pair date_pair;
+		_iterator integer;
+		_first_active_bit_index integer;
+		_last_active_bit_index integer;
+		_bit_mask_text text;
+		_segment_bit_mask text;	
 	BEGIN
-		-- TODO boucle sur le mask pour détecter les propriétés
+		RAISE WARNING 'detectmaskbounds : _tmp_bitmask % _start_bitmask_date % _bit_mask_lenght %',_tmp_bitmask, _start_bitmask_date, _bit_mask_lenght;
 		_iterator := 0;
 		_first_active_bit_index := -1;
 		_last_active_bit_index := 0;
@@ -288,10 +293,10 @@ LANGUAGE plpgsql
 		_segment_bit_mask := '';
 		WHILE _iterator < _bit_mask_lenght
 		LOOP
-			IF get_bit(_bit_mask_text, _iterator) == 1 THEN
+			IF get_bit(_bit_mask, _iterator) = 1 THEN
 				_last_active_bit_index := _iterator;	
-				IF _first_active_bit_index == -1 THEN -- This is the first 1
-					_first_active_bit_index := iterator;
+				IF _first_active_bit_index = -1 THEN -- This is the first 1
+					_first_active_bit_index := _iterator;
 					_bit_mask_text := '1';
 				ELSE
 					_bit_mask_text := _bit_mask_text || _segment_bit_mask || '1';
@@ -304,7 +309,7 @@ LANGUAGE plpgsql
 			END IF;
 			_iterator := _iterator + 1;
 		END LOOP;
-		IF _first_active_bit_index == -1 THEN -- There is only zeros
+		IF _first_active_bit_index = -1 THEN -- There is only zeros
 			_computed_date_pair.start_date := NULL;
 			_computed_date_pair.end_date := NULL;
 			_computed_date_pair.bit_mask := NULL;
@@ -335,7 +340,8 @@ CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date da
 		_previous_bit_mask_trimed bit varying;
 		_new_bit_mask_trimed bit varying;
 	BEGIN	
-		-- RAISE DEBUG 'Operate this : (%,%) % (%,%)',previous_bounds.start_date,previous_bounds.end_date,_operator,_start_date,_end_date;		
+		RAISE WARNING 'Operate this : (%,%) % (%,%)',previous_bounds.start_date,previous_bounds.end_date,_operator,_start_date,_end_date;	
+		RAISE WARNING '_bit_mask : "%"  previous_bounds.bit_mask: "%"',_bit_mask, previous_bounds.bit_mask;		
 		CASE _operator
 			WHEN '+'::calendar_operator THEN -- Date muse be added
 				IF _start_date IS NULL THEN
@@ -351,25 +357,30 @@ CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date da
 						IF _start_date < previous_bounds.start_date THEN
 							_start_bitmask_date := _start_date;	
 							_tmp_bitmask := (lpad('',previous_bounds.start_date - _start_bitmask_date,'0'))::bit varying;
-							_previous_bit_mask_trimed := _tmp_bitmask || _computed_date_pair.bit_mask;
+							_previous_bit_mask_trimed := _tmp_bitmask || previous_bounds.bit_mask;
 							_new_bit_mask_trimed := _bit_mask;
+							RAISE WARNING 'CASE 1 = _new_bit_mask_trimed : "%"  _previous_bit_mask_trimed: "%"',_new_bit_mask_trimed, _previous_bit_mask_trimed;	
 						ELSE
 							_start_bitmask_date := previous_bounds.start_date;
 							_tmp_bitmask := (lpad('',_start_date - _start_bitmask_date,'0'))::bit varying;
 							_new_bit_mask_trimed := _tmp_bitmask || _bit_mask;
-							_previous_bit_mask_trimed := _computed_date_pair.bit_mask;
+							_previous_bit_mask_trimed := previous_bounds.bit_mask;
+							RAISE WARNING 'CASE 2 = _new_bit_mask_trimed : "%"  _previous_bit_mask_trimed: "%"',_new_bit_mask_trimed, _previous_bit_mask_trimed;	
 						END IF;
 						IF _end_date > previous_bounds.end_date THEN
 							_end_bitmask_date := _end_date;
 							_tmp_bitmask := (lpad('',_end_bitmask_date - previous_bounds.end_date,'0'))::bit varying;
-							_previous_bit_mask_trimed := _computed_date_pair.bit_mask || _previous_bit_mask_trimed;							
+							_previous_bit_mask_trimed := _previous_bit_mask_trimed || _tmp_bitmask;		
+							RAISE WARNING 'CASE 3 = _new_bit_mask_trimed : "%"  _previous_bit_mask_trimed: "%"',_new_bit_mask_trimed, _previous_bit_mask_trimed;						
 						ELSE
 							_end_bitmask_date := previous_bounds.end_date;
 							_tmp_bitmask := (lpad('',_end_bitmask_date - _end_date,'0'))::bit varying;
-							_new_bit_mask_trimed := _computed_date_pair.bit_mask || _new_bit_mask_trimed;
-						END IF;
+							_new_bit_mask_trimed := _new_bit_mask_trimed || _tmp_bitmask;
+							RAISE WARNING 'CASE 3 = _new_bit_mask_trimed : "%"  _previous_bit_mask_trimed: "%"',_new_bit_mask_trimed, _previous_bit_mask_trimed;	
+						END IF;						
+						RAISE WARNING '_new_bit_mask_trimed : "%"  _previous_bit_mask_trimed: "%", _start_bitmask_date = % _end_bitmask_date = %',_new_bit_mask_trimed,_previous_bit_mask_trimed, _start_bitmask_date,_end_bitmask_date;		
 						select applybitmask(_previous_bit_mask_trimed, _new_bit_mask_trimed, _start_bitmask_date, _end_bitmask_date, _operator) INTO _tmp_bitmask;
-						select detectmaskbounds(_tmp_bitmask, _start_bitmask_date, _bit_mask_lenght) into _computed_date_pair;
+						select * FROM detectmaskbounds(_tmp_bitmask, _start_bitmask_date, ((_end_bitmask_date - _start_bitmask_date) + 1)::smallint) into _computed_date_pair;
 					END IF;
 				END IF;
 			WHEN '&'::calendar_operator THEN -- Must calculate intersection
@@ -390,25 +401,25 @@ CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date da
 							_effective_start_bitmask_date := previous_bounds.start_date;
 							_start_bitmask_date := _start_date;
 							_tmp_bitmask := (lpad('',previous_bounds.start_date - _start_bitmask_date,'0'))::bit varying;
-							_previous_bit_mask_trimed := _tmp_bitmask || _computed_date_pair.bit_mask;
+							_previous_bit_mask_trimed := _tmp_bitmask || previous_bounds.bit_mask;
 							_new_bit_mask_trimed := _bit_mask;
 						ELSE
 							_effective_start_bitmask_date := _start_date;
 							_start_bitmask_date := previous_bounds.start_date;
 							_tmp_bitmask := (lpad('',_start_date - _start_bitmask_date,'0'))::bit varying;
 							_new_bit_mask_trimed := _tmp_bitmask || _bit_mask;
-							_previous_bit_mask_trimed := _computed_date_pair.bit_mask;
+							_previous_bit_mask_trimed := previous_bounds.bit_mask;
 						END IF;
 						IF _end_date > previous_bounds.end_date THEN
 							_effective_end_bitmask_date := previous_bounds.end_date;
 							_end_bitmask_date := _end_date;
 							_tmp_bitmask := (lpad('',_end_bitmask_date - previous_bounds.end_date,'0'))::bit varying;
-							_previous_bit_mask_trimed := _computed_date_pair.bit_mask || _previous_bit_mask_trimed;							
+							_previous_bit_mask_trimed :=  _previous_bit_mask_trimed || _tmp_bitmask;						
 						ELSE
 							_effective_end_bitmask_date := _end_date;
 							_end_bitmask_date := previous_bounds.end_date;
 							_tmp_bitmask := (lpad('',_end_bitmask_date - _end_date,'0'))::bit varying;
-							_new_bit_mask_trimed := _computed_date_pair.bit_mask || _new_bit_mask_trimed;
+							_new_bit_mask_trimed := _new_bit_mask_trimed || _tmp_bitmask;
 						END IF;
 						-- Check if intersect two distinct calendars
 						IF _effective_start_bitmask_date > _effective_end_bitmask_date THEN
@@ -418,7 +429,7 @@ CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date da
 							_computed_date_pair.mask_length := 0;	
 						ELSE				
 							select applybitmask(_previous_bit_mask_trimed, _new_bit_mask_trimed, _start_bitmask_date, _end_bitmask_date, _operator) INTO _tmp_bitmask;
-							select detectmaskbounds(_tmp_bitmask, _start_bitmask_date, _bit_mask_lenght) into _computed_date_pair;
+							select * FROM detectmaskbounds(_tmp_bitmask, _start_bitmask_date, ((_end_bitmask_date - _start_bitmask_date) + 1)::smallint) into _computed_date_pair;
 						END IF;
 					END IF;
 				END IF;
@@ -432,25 +443,25 @@ CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date da
 						_effective_start_bitmask_date := _end_date + interval '1' day;
 						_start_bitmask_date := _start_date;
 						_tmp_bitmask := (lpad('',previous_bounds.start_date - _start_bitmask_date,'0'))::bit varying;
-						_previous_bit_mask_trimed := _tmp_bitmask || _computed_date_pair.bit_mask;
+						_previous_bit_mask_trimed := _tmp_bitmask || previous_bounds.bit_mask;
 						_new_bit_mask_trimed := _bit_mask;
 					ELSE
 						_effective_start_bitmask_date := previous_bounds.start_date;
 						_start_bitmask_date := previous_bounds.start_date;
 						_tmp_bitmask := (lpad('',_start_date - _start_bitmask_date,'0'))::bit varying;
 						_new_bit_mask_trimed := _tmp_bitmask || _bit_mask;
-						_previous_bit_mask_trimed := _computed_date_pair.bit_mask;
+						_previous_bit_mask_trimed := previous_bounds.bit_mask;
 					END IF;						 
 					IF _end_date >= previous_bounds.end_date THEN
 						_effective_end_bitmask_date := _start_date - interval '1' day;
 						_end_bitmask_date := _end_date;
 						_tmp_bitmask := (lpad('',_end_bitmask_date - previous_bounds.end_date,'0'))::bit varying;
-						_previous_bit_mask_trimed := _computed_date_pair.bit_mask || _previous_bit_mask_trimed;	
+						_previous_bit_mask_trimed := _previous_bit_mask_trimed || _tmp_bitmask;	
 					ELSE
 						_effective_end_bitmask_date := previous_bounds.end_date;
 						_end_bitmask_date := previous_bounds.end_date;
 						_tmp_bitmask := (lpad('',_end_bitmask_date - _end_date,'0'))::bit varying;
-						_new_bit_mask_trimed := _computed_date_pair.bit_mask || _new_bit_mask_trimed;
+						_new_bit_mask_trimed := _new_bit_mask_trimed || _tmp_bitmask;
 					END IF;
 					-- If operation result is negative set it to NULL
 					IF _effective_start_bitmask_date > _effective_end_bitmask_date THEN
@@ -460,7 +471,7 @@ CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date da
 						_computed_date_pair.mask_length := 0;	
 					ELSE
 						select applybitmask(_previous_bit_mask_trimed, _new_bit_mask_trimed, _start_bitmask_date, _end_bitmask_date, _operator) INTO _tmp_bitmask;
-						select detectmaskbounds(_tmp_bitmask, _start_bitmask_date, _bit_mask_lenght) into _computed_date_pair;
+						select * FROM detectmaskbounds(_tmp_bitmask, _start_bitmask_date, ((_end_bitmask_date - _start_bitmask_date) + 1)::smallint) into _computed_date_pair;
 					END IF;
 				END IF;
 		END CASE;		
@@ -580,7 +591,7 @@ CREATE OR REPLACE FUNCTION propagateparentcalendarsstartend (_calendar_id intege
 				-- To calculate the parent calendar, we need to pass (not commited yet) new start/end date of updated calendar_element (and rand to found it)
 				-- operator is passed because of the not already added calendar element (first call of this recursive function)
 				-- We set currentElementDeletion, because just want to update fields, ignoring no calendar
-				PERFORM propagateparentcalendarsstartend(_cal.calendar_id, _cal.rank, FALSE, _computed_date_pair.start_date, _computed_date_pair.end_date, _cal.operator, _computed_date_pair.bitmask);
+				PERFORM propagateparentcalendarsstartend(_cal.calendar_id, _cal.rank, FALSE, _computed_date_pair.start_date, _computed_date_pair.end_date, _cal.operator, _computed_date_pair.bit_mask);
 			END LOOP;
 		EXCEPTION WHEN raise_exception THEN
 			RAISE EXCEPTION '% %Parent calendar element = %',SQLERRM , chr(10), _calendar_id;
