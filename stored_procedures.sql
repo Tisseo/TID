@@ -358,25 +358,21 @@ CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date da
 							_start_bitmask_date := _start_date;	
 							_tmp_bitmask := (lpad('',previous_bounds.start_date - _start_bitmask_date,'0'))::bit varying;
 							_previous_bit_mask_trimed := _tmp_bitmask || previous_bounds.bit_mask;
-							_new_bit_mask_trimed := _bit_mask;
-							RAISE WARNING 'CASE 1 = _new_bit_mask_trimed : "%"  _previous_bit_mask_trimed: "%"',_new_bit_mask_trimed, _previous_bit_mask_trimed;	
+							_new_bit_mask_trimed := _bit_mask;	
 						ELSE
 							_start_bitmask_date := previous_bounds.start_date;
 							_tmp_bitmask := (lpad('',_start_date - _start_bitmask_date,'0'))::bit varying;
 							_new_bit_mask_trimed := _tmp_bitmask || _bit_mask;
 							_previous_bit_mask_trimed := previous_bounds.bit_mask;
-							RAISE WARNING 'CASE 2 = _new_bit_mask_trimed : "%"  _previous_bit_mask_trimed: "%"',_new_bit_mask_trimed, _previous_bit_mask_trimed;	
 						END IF;
 						IF _end_date > previous_bounds.end_date THEN
 							_end_bitmask_date := _end_date;
 							_tmp_bitmask := (lpad('',_end_bitmask_date - previous_bounds.end_date,'0'))::bit varying;
-							_previous_bit_mask_trimed := _previous_bit_mask_trimed || _tmp_bitmask;		
-							RAISE WARNING 'CASE 3 = _new_bit_mask_trimed : "%"  _previous_bit_mask_trimed: "%"',_new_bit_mask_trimed, _previous_bit_mask_trimed;						
+							_previous_bit_mask_trimed := _previous_bit_mask_trimed || _tmp_bitmask;			
 						ELSE
 							_end_bitmask_date := previous_bounds.end_date;
 							_tmp_bitmask := (lpad('',_end_bitmask_date - _end_date,'0'))::bit varying;
-							_new_bit_mask_trimed := _new_bit_mask_trimed || _tmp_bitmask;
-							RAISE WARNING 'CASE 3 = _new_bit_mask_trimed : "%"  _previous_bit_mask_trimed: "%"',_new_bit_mask_trimed, _previous_bit_mask_trimed;	
+							_new_bit_mask_trimed := _new_bit_mask_trimed || _tmp_bitmask;	
 						END IF;						
 						RAISE WARNING '_new_bit_mask_trimed : "%"  _previous_bit_mask_trimed: "%", _start_bitmask_date = % _end_bitmask_date = %',_new_bit_mask_trimed,_previous_bit_mask_trimed, _start_bitmask_date,_end_bitmask_date;		
 						select applybitmask(_previous_bit_mask_trimed, _new_bit_mask_trimed, _start_bitmask_date, _end_bitmask_date, _operator) INTO _tmp_bitmask;
@@ -522,30 +518,31 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 				ELSE
 					-- Second (_rank>1) we need to calculate new bounds
 					IF _cal.rank = _rank THEN 				
-						-- RAISE DEBUG 'This is the element of rank %', _cal.rank;
+						RAISE WARNING 'This is the element of rank %', _cal.rank;
 						_cal_elt_rank_found := TRUE;
 						-- In that case we MUST use the new start/end dates (because the current one could be false until COMMIT)
 						SELECT * FROM atomicdatecomputation(_start_date, _end_date, _bit_mask, ((_end_date - _start_date )+ 1)::smallint, _operator,  _computed_date_pair) INTO _computed_date_pair;
 					ELSE
-						-- RAISE DEBUG 'Element of rank %', _cal.rank;
+						RAISE WARNING 'Element of rank %', _cal.rank;
 						-- TODO : delete this when cache mecanism ready
-						_cal_bit_mask := getcalendarelementbitmask(_cal.start_date, _cal.end_date, _computed_date_pair.mask_length, _cal.included_calendar_id, _cal.start_date, _cal.end_date, _cal.interval);
 						_cal_mask_lenght := (_cal.end_date - _cal.start_date )+ 1;
+						_cal_bit_mask := getcalendarelementbitmask(_cal.start_date, _cal.end_date, _cal_mask_lenght, _cal.included_calendar_id, _cal.start_date, _cal.end_date, _cal.interval);
 						
 						SELECT * FROM atomicdatecomputation(_cal.start_date, _cal.end_date, _cal_bit_mask, _cal_mask_lenght, _cal.operator, _computed_date_pair) INTO _computed_date_pair;
 					END IF;
 				END IF;
 				_cal_elt_number := _cal_elt_number + 1;
+				RAISE WARNING 'Computed = (%,%) : % (%)',_computed_date_pair.start_date,_computed_date_pair.end_date,_computed_date_pair.bit_mask,_computed_date_pair.mask_length;
 			END LOOP;
 			-- If we are on first recursion level, there is no cal_elt record with the provided rank (the one all that stuff must add)
 			-- But we need to take it into account for finish computation
 			IF NOT _cal_elt_rank_found AND NOT _currentElementDeletion THEN
-				-- RAISE DEBUG 'Calendar element of rank % not found in calendar % (_cal_elt_number = %)', _rank, _calendar_id, _cal_elt_number;
+				RAISE WARNING 'Calendar element of rank % not found in calendar % (_cal_elt_number = %)', _rank, _calendar_id, _cal_elt_number;
 				-- If _rank is null, current calendar element is being deleted.
 				-- In that case the calculation (of the current calendar) is simply finished
 				IF _rank IS NOT NULL THEN
 					IF _cal_elt_number = 0 THEN
-						-- RAISE DEBUG 'First calendar element ! We set date to (%, %)', _start_date, _end_date;
+						RAISE WARNING 'First calendar element ! We set date to (%, %)', _start_date, _end_date;
 						IF _operator != '+'::calendar_operator THEN
 							RAISE EXCEPTION 'First calendar_element must always have an operator + ';
 						END IF;
