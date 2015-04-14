@@ -1051,11 +1051,11 @@ CREATE OR REPLACE FUNCTION setstopaccessibility(_stop_id integer, _access boolea
 		ELSE
 			IF _calendar_id IS NOT NULL THEN
 				IF  _calendar_element_id IS NULL THEN
-					PERFORM insertcalendarelement(_calendar_id, _accessibility_date, date '2999-12-31');
+					PERFORM insertcalendarelement(_calendar_id, _accessibility_date, date '2020-12-31');
 				END IF;
 			ELSE
 				SELECT insertcalendar('Access_'|| _accessibility_mode_id, _code, _datasource, 'accessibilite')  INTO _calendar_id;
-				PERFORM insertcalendarelement(_calendar_id, _accessibility_date, date '2999-12-31');
+				PERFORM insertcalendarelement(_calendar_id, _accessibility_date, date '2020-12-31');
 				INSERT INTO accessibility_type(accessibility_mode_id, calendar_id) VALUES (_accessibility_mode_id, currval('calendar_id_seq'));
 				INSERT INTO stop_accessibility(accessibility_type_id, stop_id) VALUES (currval('accessibility_type_id_seq'), _stop_id);			
 			END IF;
