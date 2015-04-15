@@ -604,7 +604,7 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 						ELSE
 							_cal_mask_lenght := (_cal_end_date - _cal_start_date )+ 1;
 							_cal_bit_mask := getcalendarelementbitmask(_cal_start_date, _cal_end_date, _cal_mask_lenght, _cal.included_calendar_id, _cal_start_date, _cal_end_date, _cal.interval);
-						END;
+						END IF;
 						SELECT * FROM atomicdatecomputation(_cal_start_date, _cal_end_date, _cal_bit_mask, _cal_mask_lenght, _cal.operator, _computed_date_pair) INTO _computed_date_pair;
 					END IF;
 				END IF;
