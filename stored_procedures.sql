@@ -99,7 +99,7 @@ LANGUAGE plpgsql
 				
 		-- Update "simple" calendar elements with hard coded _end_date
 		UPDATE calendar_element SET end_date = new_limit WHERE end_date = current_limit and included_calendar_id IS NULL;
-		recalculateallcalendars();
+		PERFORM recalculateallcalendars();
 	END;
 	$$;
 COMMENT ON FUNCTION updatecalendarlimit () IS 'Update date limit. Eg. from 2020-12-31 to 2021-12-31. Call this function every year.';
