@@ -79,7 +79,7 @@ LANGUAGE plpgsql
 		END LOOP;
 	END;
 	$$;
-COMMENT ON FUNCTION recalculateallcalendars (date, date) IS 'Recalculate all calendar computed fields, and "include" calendar element start/end';
+COMMENT ON FUNCTION recalculateallcalendars () IS 'Recalculate all calendar computed fields, and "include" calendar element start/end';
 
 
 CREATE OR REPLACE FUNCTION updatecalendarlimit() RETURNS void
@@ -586,8 +586,7 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 						_computed_date_pair.mask_length := (_cal_end_date - _cal_start_date )+ 1;
 						_computed_date_pair.start_date := _cal_start_date;
 						_computed_date_pair.end_date := _cal_end_date;
-						_computed_date_pair.bit_mask := getcalendarelementbitmask(_cal_start_date, _cal_end_date, _computed_date_pair.mask_length, _cal.included_calendar_id, _cal_start_date, _cal_end_date, _cal.interval);
-					
+						_computed_date_pair.bit_mask := getcalendarelementbitmask(_cal_start_date, _cal_end_date, _computed_date_pair.mask_length, _cal.included_calendar_id, _cal_start_date, _cal_end_date, _cal.interval);					
 					END IF;
 				ELSE
 					-- Second (_rank>1) we need to calculate new bounds
@@ -647,7 +646,7 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 		RETURN _computed_date_pair;		
 	END;
     $$;
-COMMENT ON FUNCTION computecalendarsstartend(integer, date, date, integer, calendar_operator, boolean, bit varying) IS 'Calculate start/end computed dates of a calendar. Result could be a pair of null if no date intersect or empty calendar';
+COMMENT ON FUNCTION computecalendarsstartend(integer, date, date, integer, calendar_operator, boolean, bit varying, boolean) IS 'Calculate start/end computed dates of a calendar. Result could be a pair of null if no date intersect or empty calendar';
     
 -- If _bit_mask is given, ignore interval
 CREATE OR REPLACE FUNCTION propagateparentcalendarsstartend (_calendar_id integer, _rank integer, _currentElementDeletion boolean, _start_date date default null, _end_date date default null, _operator calendar_operator default null, _bit_mask bit varying default null) RETURNS void 
