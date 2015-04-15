@@ -543,12 +543,12 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 		_cal_end_date date;
 		_cal_start_date date;		
 	BEGIN
-		-- RAISE DEBUG 'Calculate calendar %, _rank = %', _calendar_id, _rank;
+		-- RAISE DEBUG 'Calculate calendar %, _rank = %, recalculate = %', _calendar_id, _rank, _recalculate_included_calendar;
 		_cal_elt_rank_found := FALSE;
 		_cal_elt_number := 0;
 		_rank_to_ignore := 0; -- There is never rank = 0 (start at 1)
 		-- If we want delete this element : don't take it into account for calculation
-		IF _currentElementDeletion THEN
+		IF _currentElementDeletion and NOT _recalculate_included_calendar THEN
 			_rank_to_ignore := _rank;
 			-- RAISE DEBUG 'This is DELETION : rank to ignore = %', _rank;
 		END IF;
@@ -557,8 +557,10 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 			FOR _cal IN 
 				SELECT id, operator, start_date, end_date, rank, interval, included_calendar_id FROM calendar_element WHERE calendar_id = _calendar_id AND rank != _rank_to_ignore ORDER BY rank
 			LOOP
+				-- RAISE DEBUG 'CalElt % : start = %, end = %, operator = %, rank = %, included_calendar_id = %', _cal.id, _cal_start_date, _cal.end_date, _cal.operator, _cal.rank, _cal.included_calendar_id;	
 				IF _recalculate_included_calendar AND (_cal.included_calendar_id IS NOT NULL) THEN				
 					SELECT * FROM computecalendarsstartend(_cal.included_calendar_id, NULL, NULL, NULL, NULL, TRUE, NULL, TRUE) INTO _recalculated_date_pair;
+					-- RAISE DEBUG 'This is UPDATE : cal elt % which include calendar % : _recalculated_date_pair = (%,%)', _cal.id, _cal.included_calendar_id, _recalculated_date_pair.start_date,_recalculated_date_pair.end_date;
 					-- Record new computed dates in calendar element
 					UPDATE calendar_element SET start_date = _recalculated_date_pair.start_date, end_date = _recalculated_date_pair.end_date WHERE id = _cal.id;
 					_cal_end_date := _recalculated_date_pair.end_date;
@@ -568,8 +570,7 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 					_cal_start_date := _cal.start_date;
 				END IF;
 				-- Note that we use start_date & end_date of a calendar element with an included calendar_id
-				-- It is working only because we always duplicate computed_start_date/ computed_end_date of a calendar in all calendar element witch include it !
-				-- RAISE DEBUG 'CalElt % : start = %, end = %, operator = %, rank = %', _cal.id, _cal_start_date, _cal.end_date, _cal.operator, _cal.rank;			
+				-- It is working only because we always duplicate computed_start_date/ computed_end_date of a calendar in all calendar element witch include it !		
 				-- First we need to remember the first date bounds
 				IF _cal_elt_number = 0 THEN -- Must be true for _cal.rank = 1
 					IF _cal_start_date IS NULL THEN
@@ -634,6 +635,7 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 				END IF;
 			END IF;
 			-- TODO : add cache information ?
+			-- RAISE DEBUG 'Set calendar % computed date to (%,%)', _calendar_id,_computed_date_pair.start_date,_computed_date_pair.end_date;
 			UPDATE calendar SET computed_start_date = _computed_date_pair.start_date, computed_end_date = _computed_date_pair.end_date WHERE id = _calendar_id;
 		EXCEPTION WHEN raise_exception THEN
 			RAISE EXCEPTION '% %An atomic calendar operation failed for calendar %',SQLERRM , chr(10), _calendar_id;
