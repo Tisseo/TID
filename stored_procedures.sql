@@ -65,9 +65,9 @@ LANGUAGE plpgsql
 		_computed_date_pair date_pair;
 	BEGIN
 		-- First, "include" calendar elements with calculated _end_date
-		UPDATE calendar_element SET end_date = NULL, begin_date = NULL WHERE included_calendar_id IS NOT NULL;
+		UPDATE calendar_element SET end_date = NULL, start_date = NULL WHERE included_calendar_id IS NOT NULL;
 		-- Two, vacuum computed dates
-		UPDATE calendar SET computed_start_date = NULL, computed_start_date = NULL;
+		UPDATE calendar SET computed_start_date = NULL, computed_end_date = NULL;
 		-- This could take a while because of recursion
 		FOR _cal IN 
 			SELECT id FROM calendar
