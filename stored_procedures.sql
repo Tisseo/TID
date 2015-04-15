@@ -94,9 +94,10 @@ LANGUAGE plpgsql
 		new_limit date;
 	BEGIN
 		SELECT value FROM global_vars WHERE name = 'maximum_calendar_date' INTO current_maximum_calendar_date;
-		-- TODO calculate 'new_maximum_calendar_date'
-		-- SECOND THINGS TODO IS REPLACE HARD CODED 2020-12-31 by dynamic 'maximum_calendar_date'
-		UPDATE global_vars SET value = new_maximum_calendar_date WHERE name = 'maximum_calendar_date' IS NOT NULL;
+		
+		new_maximum_calendar_date = ((substr(current_maximum_calendar_date, 1, 4))::integer + 1)::text || '-12-31';
+		
+		UPDATE global_vars SET value = new_maximum_calendar_date WHERE name = 'maximum_calendar_date';
 		
 		current_limit := current_maximum_calendar_date::date;
 		new_limit := new_maximum_calendar_date::date;
@@ -1095,6 +1096,8 @@ CREATE OR REPLACE FUNCTION setstopaccessibility(_stop_id integer, _access boolea
         _calendar_id integer;
 		_calendar_element_id integer;
 		_cal_elt record;
+		_current_limit date;
+		_current_maximum_calendar_date TEXT;
     BEGIN			
 		IF _date IS NULL THEN
 			_accessibility_date := current_date;
@@ -1132,11 +1135,15 @@ CREATE OR REPLACE FUNCTION setstopaccessibility(_stop_id integer, _access boolea
 		ELSE
 			IF _calendar_id IS NOT NULL THEN
 				IF  _calendar_element_id IS NULL THEN
-					PERFORM insertcalendarelement(_calendar_id, _accessibility_date, date '2020-12-31');
+					SELECT value FROM global_vars WHERE name = 'maximum_calendar_date' INTO _current_maximum_calendar_date;
+					_current_limit := _current_maximum_calendar_date::date;
+					PERFORM insertcalendarelement(_calendar_id, _accessibility_date, _current_limit);
 				END IF;
 			ELSE
 				SELECT insertcalendar('Access_'|| _accessibility_mode_id, _code, _datasource, 'accessibilite')  INTO _calendar_id;
-				PERFORM insertcalendarelement(_calendar_id, _accessibility_date, date '2020-12-31');
+				SELECT value FROM global_vars WHERE name = 'maximum_calendar_date' INTO _current_maximum_calendar_date;
+				_current_limit := _current_maximum_calendar_date::date;
+				PERFORM insertcalendarelement(_calendar_id, _accessibility_date, _current_limit);
 				INSERT INTO accessibility_type(accessibility_mode_id, calendar_id) VALUES (_accessibility_mode_id, currval('calendar_id_seq'));
 				INSERT INTO stop_accessibility(accessibility_type_id, stop_id) VALUES (currval('accessibility_type_id_seq'), _stop_id);			
 			END IF;
