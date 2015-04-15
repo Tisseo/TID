@@ -88,20 +88,15 @@ LANGUAGE plpgsql
 	DECLARE
 		_cal record;
 		_computed_date_pair date_pair;
-		current_maximum_calendar_date TEXT;
-		new_maximum_calendar_date TEXT;
 		current_limit date;
 		new_limit date;
 	BEGIN
-		SELECT value FROM global_vars WHERE name = 'maximum_calendar_date' INTO current_maximum_calendar_date;
+		SELECT value FROM global_vars WHERE name = 'maximum_calendar_date' INTO current_limit;
 		
-		new_maximum_calendar_date = ((substr(current_maximum_calendar_date, 1, 4))::integer + 1)::text || '-12-31';
+		new_limit := current_limit + interval '1' year;
 		
-		UPDATE global_vars SET value = new_maximum_calendar_date WHERE name = 'maximum_calendar_date';
-		
-		current_limit := current_maximum_calendar_date::date;
-		new_limit := new_maximum_calendar_date::date;
-		
+		UPDATE global_vars SET value = new_limit WHERE name = 'maximum_calendar_date';
+				
 		-- Update "simple" calendar elements with hard coded _end_date
 		UPDATE calendar_element SET end_date = new_limit WHERE end_date = current_limit and included_calendar_id IS NULL;
 		recalculateallcalendars();
@@ -1096,7 +1091,6 @@ CREATE OR REPLACE FUNCTION setstopaccessibility(_stop_id integer, _access boolea
 		_calendar_element_id integer;
 		_cal_elt record;
 		_current_limit date;
-		_current_maximum_calendar_date TEXT;
     BEGIN			
 		IF _date IS NULL THEN
 			_accessibility_date := current_date;
@@ -1134,14 +1128,12 @@ CREATE OR REPLACE FUNCTION setstopaccessibility(_stop_id integer, _access boolea
 		ELSE
 			IF _calendar_id IS NOT NULL THEN
 				IF  _calendar_element_id IS NULL THEN
-					SELECT value FROM global_vars WHERE name = 'maximum_calendar_date' INTO _current_maximum_calendar_date;
-					_current_limit := _current_maximum_calendar_date::date;
+					SELECT value FROM global_vars WHERE name = 'maximum_calendar_date' INTO _current_limit;
 					PERFORM insertcalendarelement(_calendar_id, _accessibility_date, _current_limit);
 				END IF;
 			ELSE
 				SELECT insertcalendar('Access_'|| _accessibility_mode_id, _code, _datasource, 'accessibilite')  INTO _calendar_id;
-				SELECT value FROM global_vars WHERE name = 'maximum_calendar_date' INTO _current_maximum_calendar_date;
-				_current_limit := _current_maximum_calendar_date::date;
+				SELECT value FROM global_vars WHERE name = 'maximum_calendar_date' INTO _current_limit;
 				PERFORM insertcalendarelement(_calendar_id, _accessibility_date, _current_limit);
 				INSERT INTO accessibility_type(accessibility_mode_id, calendar_id) VALUES (_accessibility_mode_id, currval('calendar_id_seq'));
 				INSERT INTO stop_accessibility(accessibility_type_id, stop_id) VALUES (currval('accessibility_type_id_seq'), _stop_id);			
