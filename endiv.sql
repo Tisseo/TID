@@ -476,7 +476,8 @@ CREATE TABLE schematic (
     name character varying(255),
     comment character varying(255) NOT NULL,
     date date NOT NULL,
-    file_path text
+    file_path text,
+	line_id integer NOT NULL
 );
 COMMENT ON TABLE schematic IS 'Modifications des schemas de ligne';
 
@@ -728,3 +729,4 @@ ALTER TABLE ONLY alias ADD CONSTRAINT alias_stop_area_id_fk FOREIGN KEY (stop_ar
 ALTER TABLE ONLY calendar ADD CONSTRAINT calendar_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY trip ADD CONSTRAINT trip_pattern_id_fk FOREIGN KEY (pattern_id) REFERENCES trip(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY trip ADD CONSTRAINT trip_trip_parent_id_fk FOREIGN KEY (trip_parent_id) REFERENCES trip(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY schematic ADD CONSTRAINT schematic_line_id_fk FOREIGN KEY (line_id) REFERENCES line(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
