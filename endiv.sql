@@ -236,6 +236,31 @@ CREATE TABLE line_datasource (
 );
 COMMENT ON TABLE line_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
 
+CREATE TABLE line_group (
+    id serial PRIMARY KEY,
+    name character varying(20)
+);
+COMMENT ON TABLE line_group IS 'Groupe de ligne. Permet d''associer les lignes avec leurs lignes de soirées.';
+
+CREATE TABLE line_group_content (
+    line_version_id integer not null,
+    line_group_id integer not null,
+    is_parent boolean
+);
+COMMENT ON TABLE line_group IS 'Constitution des groupes de ligne.';
+
+CREATE TABLE line_group_gis (
+    id serial PRIMARY KEY,
+    name character varying(20)
+);
+COMMENT ON TABLE line_group_gis IS 'Groupe de ligne SIG. Permet d''associer les lignes selon les voussures bus.';
+
+CREATE TABLE line_group_gis_content (
+    line_id integer not null,
+    line_group_gis_id integer not null
+);
+COMMENT ON TABLE line_group IS 'Constitution des groupes de lignes SIG.';
+
 CREATE TABLE line_version (
     id serial PRIMARY KEY,
     line_id integer NOT NULL,
@@ -243,7 +268,6 @@ CREATE TABLE line_version (
     start_date date NOT NULL,
     end_date date,
     planned_end_date date NOT NULL,
-    child_line_id integer,
     name character varying(255) NOT NULL,
     forward_direction character varying(255) NOT NULL,
     backward_direction character varying(255) NOT NULL,
@@ -262,7 +286,6 @@ COMMENT ON TABLE line_version IS 'Offre d''une ligne.';
 COMMENT ON COLUMN line_version.start_date IS 'Date de debut d''offre.';
 COMMENT ON COLUMN line_version.end_date IS 'Date effective de fin d''offre, non reneignee a la creation.';
 COMMENT ON COLUMN line_version.planned_end_date IS 'Date de fin previsionnelle d''offre.';
-COMMENT ON COLUMN line_version.child_line_id IS 'Ligne rattachee (ligne de soiree)';
 COMMENT ON COLUMN line_version.schematic_id IS 'Identifiant du schematique de l''offre';
 
 CREATE TABLE line_version_datasource (
@@ -645,6 +668,10 @@ CREATE TABLE waypoint (
 );
 
 -- Creation des cles etrangeres
+ALTER TABLE ONLY line_group_content ADD CONSTRAINT line_group_content_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY line_group_content ADD CONSTRAINT line_group_content_line_group_id_fk FOREIGN KEY (line_group_id) REFERENCES line_group(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY line_group_gis_content ADD CONSTRAINT line_group__gis_content_line_id_fk FOREIGN KEY (line_id) REFERENCES line(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY line_group_gis_content ADD CONSTRAINT line_group_gis_content_line_group_gis_id_fk FOREIGN KEY (line_group_gis_id) REFERENCES line_group_gis(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY line_version ADD CONSTRAINT line_version_bg_color_id_fk FOREIGN KEY (bg_color_id) REFERENCES color(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY line_version ADD CONSTRAINT line_version_fg_color_id_fk FOREIGN KEY (fg_color_id) REFERENCES color(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY poi_address_accessibility ADD CONSTRAINT poi_address_accessibility_accessibility_type_id_fk FOREIGN KEY (accessibility_type_id) REFERENCES accessibility_type(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
