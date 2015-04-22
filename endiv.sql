@@ -273,7 +273,6 @@ CREATE TABLE line_version (
     backward_direction character varying(255) NOT NULL,
     bg_color_id integer NOT NULL,
     fg_color_id integer NOT NULL,
-    carto_file character varying(80),
     accessibility boolean ,
     air_conditioned boolean,
     certified boolean DEFAULT false NOT NULL,
