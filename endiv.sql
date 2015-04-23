@@ -508,7 +508,7 @@ CREATE TABLE stop_area (
     short_name character varying(255) NOT NULL,
     long_name character varying(255),
     city_id integer NOT NULL,
-    transfer_duration integer NOT NULL,
+    transfer_duration integer NOT NULL default 3,
     the_geom geometry(Point,3943)
 );
 COMMENT ON TABLE stop_area IS 'Zone d''arret comportant un ou plusieurs arrets.';
