@@ -18,6 +18,7 @@ CREATE EXTENSION IF NOT EXISTS file_fdw;
 COMMENT ON EXTENSION file_fdw IS 'foreign-data wrapper which can be used to access data files in the (server)file system';
 CREATE SERVER file_fdw_server FOREIGN DATA WRAPPER file_fdw;
 
+CREATE EXTENSION IF NOT EXISTS unaccent;
 
 SET default_tablespace = '';
 SET default_with_oids = false;
