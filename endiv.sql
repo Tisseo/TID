@@ -498,7 +498,7 @@ CREATE TABLE schematic (
     id serial PRIMARY KEY,
     name character varying(255),
     comment character varying(255) NOT NULL,
-    date date NOT NULL,
+    date timestamp without time zone NOT NULL,
     file_path text,
 	line_id integer NOT NULL
 );
