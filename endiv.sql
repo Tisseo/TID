@@ -66,7 +66,7 @@ COMMENT ON TABLE agency IS 'Reseau de transport en commun. Contient egalement le
 
 CREATE TABLE alias (
     id serial PRIMARY KEY,
-    stop_area_id integer,
+    stop_area_id integer NOT NULL,
     name character varying(255) NOT NULL
 );
 COMMENT ON TABLE alias IS 'Alias des zones d''arrets.';
@@ -274,7 +274,7 @@ CREATE TABLE line_version (
     backward_direction character varying(255) NOT NULL,
     bg_color_id integer NOT NULL,
     fg_color_id integer NOT NULL,
-    accessibility boolean ,
+    accessibility boolean,
     air_conditioned boolean,
     certified boolean DEFAULT false NOT NULL,
     comment text,
@@ -421,9 +421,10 @@ CREATE TABLE poi_type (
 CREATE TABLE printing (
     id serial PRIMARY KEY,
     quantity integer,
-    date date,
+    "date" date,
     line_version_id integer,
-    comment text
+    "comment" text,
+	rfp_date date
 );
 COMMENT ON TABLE printing IS 'Quatite de fiche horaire d''une offre imprimees. Aide a la gestion des document IV.';
 COMMENT ON COLUMN printing.comment IS 'Raison du tirage : initial, reassort ou correction.';
@@ -500,7 +501,8 @@ CREATE TABLE schematic (
     comment character varying(255) NOT NULL,
     date timestamp without time zone NOT NULL,
     file_path text,
-	line_id integer NOT NULL
+	line_id integer NOT NULL,
+	deprecated boolean NOT NULL
 );
 COMMENT ON TABLE schematic IS 'Modifications des schemas de ligne';
 
@@ -667,6 +669,23 @@ CREATE TABLE waypoint (
     id serial PRIMARY KEY
 );
 
+CREATE TABLE property (
+    id serial PRIMARY KEY,
+    name character varying(20) NOT NULL,
+    "default" boolean NOT NULL
+);
+COMMENT ON TABLE property IS 'Proprietes de versions de ligne';
+
+CREATE TABLE line_version_property (
+    line_version_id integer NOT NULL,
+    property_id integer NOT NULL,
+    "value" boolean NOT NULL,
+	PRIMARY KEY (line_version_id, property_id)
+);
+COMMENT ON TABLE line_version_property IS 'Lien entre property et line_version';
+
+
+
 -- Creation des cles etrangeres
 ALTER TABLE ONLY line_group_content ADD CONSTRAINT line_group_content_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY line_group_content ADD CONSTRAINT line_group_content_line_group_id_fk FOREIGN KEY (line_group_id) REFERENCES line_group(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
@@ -757,3 +776,6 @@ ALTER TABLE ONLY calendar ADD CONSTRAINT calendar_line_version_id_fk FOREIGN KEY
 ALTER TABLE ONLY trip ADD CONSTRAINT trip_pattern_id_fk FOREIGN KEY (pattern_id) REFERENCES trip(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY trip ADD CONSTRAINT trip_trip_parent_id_fk FOREIGN KEY (trip_parent_id) REFERENCES trip(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY schematic ADD CONSTRAINT schematic_line_id_fk FOREIGN KEY (line_id) REFERENCES line(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY line_version_property ADD CONSTRAINT line_version_property_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE CASCADE ON DELETE CASCADE;
+ALTER TABLE ONLY line_version_property ADD CONSTRAINT line_version_property_property_id_fk FOREIGN KEY (property_id) REFERENCES property(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
