@@ -254,7 +254,7 @@ CREATE TABLE line_group_gis (
     id serial PRIMARY KEY,
     name character varying(20),
 	nb_bus integer not null default 0,
-	comment
+	comment text
 );
 COMMENT ON TABLE line_group_gis IS 'Groupe de ligne SIG. Permet d''associer les lignes selon les voussures bus.';
 

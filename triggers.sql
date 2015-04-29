@@ -17,10 +17,10 @@ CREATE OR REPLACE FUNCTION add_exceptions() RETURNS TRIGGER
         END IF;
 
         -- build the grid_calendar pattern using new inserted glcmt grid_calendar_id value
-        SELECT line_version_id, concat(cast(monday as char(1)), cast(tuesday as char(1)), cast(wednesday as char(1)), cast(thursday as char(1)), cast(friday as char(1)), cast(saturday as char(1)), cast(sunday as char(1))) FROM grid_calendar WHERE id = NEW.grid_calendar_id INTO _line_version_id, _gc_pattern;
+        SELECT line_version_id, concat(cast(monday as integer), cast(tuesday as integer), cast(wednesday as integer), cast(thursday as integer), cast(friday as integer), cast(saturday as integer), cast(sunday as integer)) FROM grid_calendar WHERE id = NEW.grid_calendar_id INTO _line_version_id, _gc_pattern;
 
         -- for each trip_calendar linked to the grid_mask_type from new inserted glcmt: build pattern and compare it to grid_calendar pattern
-        FOR _trip_calendar_id, _tc_pattern IN SELECT id, concat(cast(monday as char(1)), cast(tuesday as char(1)), cast(wednesday as char(1)), cast(thursday as char(1)), cast(friday as char(1)), cast(saturday as char(1)), cast(sunday as char(1))) FROM trip_calendar WHERE grid_mask_type_id = NEW.grid_mask_type_id
+        FOR _trip_calendar_id, _tc_pattern IN SELECT id, concat(cast(monday as integer), cast(tuesday as integer), cast(wednesday as integer), cast(thursday as integer), cast(friday as integer), cast(saturday as integer), cast(sunday as integer)) FROM trip_calendar WHERE grid_mask_type_id = NEW.grid_mask_type_id
         LOOP
             -- if the two patterns are different an exception is needed
             IF _gc_pattern != _tc_pattern THEN
