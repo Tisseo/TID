@@ -252,7 +252,9 @@ COMMENT ON TABLE line_group IS 'Constitution des groupes de ligne.';
 
 CREATE TABLE line_group_gis (
     id serial PRIMARY KEY,
-    name character varying(20)
+    name character varying(20),
+	nb_bus integer not null default 0,
+	comment
 );
 COMMENT ON TABLE line_group_gis IS 'Groupe de ligne SIG. Permet d''associer les lignes selon les voussures bus.';
 
@@ -588,7 +590,7 @@ CREATE TABLE transfer (
     the_geom geometry(Point,3943)
 );
 COMMENT ON TABLE transfer IS 'Correspondance entre deux arrets.';
-COMMENT ON COLUMN transfer.duration IS 'Temps de transfert en secondes.';
+COMMENT ON COLUMN transfer.duration IS 'Temps de transfert en minutes.';
 COMMENT ON COLUMN transfer.distance IS 'Distance en metres de la correspondance.';
 COMMENT ON COLUMN transfer.the_geom IS 'Trace de la correspondance. Inutilise pour le moment.';
 
