@@ -889,7 +889,7 @@ INSERT INTO color (id, name, html, pantone_oc, hoxis, cmyk_cyan, cmyk_magenta, c
 INSERT INTO color (id, name, html, pantone_oc, hoxis, cmyk_cyan, cmyk_magenta, cmyk_yellow, cmyk_black, rgb_red, rgb_green, rgb_blue) VALUES(6,'Vert Foncé','#00c62d','3415C',5348,100,0,77,22,0,198,45);
 INSERT INTO color (id, name, html, pantone_oc, hoxis, cmyk_cyan, cmyk_magenta, cmyk_yellow, cmyk_black, rgb_red, rgb_green, rgb_blue) VALUES(7,'Violet Clair','#b291ff','2573C',5480,30,43,0,0,178,145,255);
 INSERT INTO color (id, name, html, pantone_oc, hoxis, cmyk_cyan, cmyk_magenta, cmyk_yellow, cmyk_black, rgb_red, rgb_green, rgb_blue) VALUES(8,'Marron Clair','#8e4a05','4635C',5635,0,48,96,44,142,74,5);
-INSERT INTO color (id, name, html, pantone_oc, hoxis, cmyk_cyan, cmyk_magenta, cmyk_yellow, cmyk_black, rgb_red, rgb_green, rgb_blue) VALUES(9,'Vert Clair','#94d24d','361C',5359,69,0,100,0,148,210,77);
+INSERT INTO color (id, name, html, pantone_oc, hoxis, cmyk_cyan, cmyk_magenta, cmyk_yellow, cmyk_black, rgb_red, rgb_green, rgb_blue) VALUES(9,'Vert Clair','#58ac25','361C',5359,69,0,100,0,148,210,77);
 INSERT INTO color (id, name, html, pantone_oc, hoxis, cmyk_cyan, cmyk_magenta, cmyk_yellow, cmyk_black, rgb_red, rgb_green, rgb_blue) VALUES(10,'Rouge Rubis','#f400d0','Rubine Red C',5220,0,100,15,4,244,0,208);
 INSERT INTO color (id, name, html, pantone_oc, hoxis, cmyk_cyan, cmyk_magenta, cmyk_yellow, cmyk_black, rgb_red, rgb_green, rgb_blue) VALUES(11,'Rouge','#f40002','1797C',5155,0,100,99,4,244,0,2);
 INSERT INTO color (id, name, html, pantone_oc, hoxis, cmyk_cyan, cmyk_magenta, cmyk_yellow, cmyk_black, rgb_red, rgb_green, rgb_blue) VALUES(12,'Bleu Foncé','#0040c4','288C',5280,100,67,0,23,0,64,196);
