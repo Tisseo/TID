@@ -30,9 +30,9 @@ CREATE OR REPLACE FUNCTION add_exceptions() RETURNS TRIGGER
                     UPDATE trip SET comment_id = _auto_comment_id WHERE id IN (SELECT t.id FROM trip AS t JOIN route AS r ON r.id = t.route_id JOIN trip_calendar AS tc ON tc.id = t.trip_calendar_id WHERE r.line_version_id = _line_version_id AND t.trip_calendar_id = _trip_calendar_id);
                 ELSE
                     -- Check comment associated to exception_type already exists, if it doesn't create it
-                    SELECT c.id FROM comment c WHERE c.comment_text = _exception_type.comment_text AND c.label = _exception_type.label INTO _comment_id;
+                    SELECT c.id FROM comment c WHERE c.comment_text = _exception_type.exception_text AND c.label = _exception_type.label INTO _comment_id;
                     IF _comment_id IS NULL THEN
-                        INSERT INTO comment(label, comment_text) VALUES(_exception_type.label, _exception_type.comment_text) RETURNING id INTO _comment_id;
+                        INSERT INTO comment(label, comment_text) VALUES(_exception_type.label, _exception_type.exception_text) RETURNING id INTO _comment_id;
                     END IF;
                     UPDATE trip SET comment_id = _comment_id WHERE id IN (SELECT t.id FROM trip AS t JOIN route AS r ON r.id = t.route_id JOIN trip_calendar AS tc ON tc.id = t.trip_calendar_id WHERE r.line_version_id = _line_version_id AND tc.id = _trip_calendar_id);
                 END IF; 
