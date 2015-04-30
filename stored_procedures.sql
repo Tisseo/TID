@@ -939,9 +939,8 @@ CREATE OR REPLACE FUNCTION insertroutestopandstoptime(_rcode character varying, 
     $$;
 COMMENT ON FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode character varying, _scode character varying, _related_scode character varying, _lvid integer, _rank integer, _scheduled boolean, _hour integer, _is_first boolean, _is_last boolean) IS 'Insertion dune nouvelle entrée dans route_stop si elle nexiste pas déjà. Insertion dune nouvelle entrée stop_time. Dans le cas dinsertion dun route_stop, certaines valeurs changent en fonction du rang du route_stop dans litinéraire. Chaque route_stop est rattaché à une route_section sauf le dernier (doublon avec lavant dernier sinon). Les booléens pickup/dropoff prennent également des valeur différentes selon le rang du route_stop.';
 
-CREATE OR REPLACE FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer, _code character varying, _insee character varying, _datasource integer, _srid integer default 27572) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
+CREATE OR REPLACE FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer, _code character varying, _insee character varying, _master_stop_id integer, _datasource integer, _srid integer default 27572)
+	RETURNS integer AS $$
     DECLARE
         _stop_id integer;
         _stop_area_id integer;
@@ -958,15 +957,19 @@ CREATE OR REPLACE FUNCTION insertstop(_date date, _name character varying, _x ch
             RAISE EXCEPTION 'stop area not found with this short_name % and city %', _name, _insee;
         ELSE
             INSERT INTO waypoint(id) VALUES (nextval('waypoint_id_seq')) RETURNING waypoint.id INTO _stop_id;
-            INSERT INTO stop(id, stop_area_id) VALUES (_stop_id, _stop_area_id);
+            INSERT INTO stop(id, stop_area_id, master_stop_id) VALUES (_stop_id, _stop_area_id, _master_stop_id);
             INSERT INTO stop_datasource(stop_id, datasource_id, code) VALUES (_stop_id, _datasource, _code);
             INSERT INTO stop_history(stop_id, start_date, short_name, the_geom) VALUES (_stop_id, _date, _name, _the_geom);
 			
 			PERFORM setstopaccessibility(_stop_id, _access, _accessibility_mode_id, _code, _datasource);
+
+            PERFORM setmasterstop(_stop_id, _master_stop_id);
+            
+			RETURN _stop_id;
         END IF;
     END;
-    $$;
-COMMENT ON FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer, _code character varying, _insee character varying, _datasource integer, _srid integer) IS 'Insertion de 4 nouvelles entrées : un waypoint et un stop qui possèderont le même ID, puis les stop_datasource et stop_history associés au nouveau stop. La géométrie du stop_history est construite depuis des valeurs x/y passées en paramètre. Ces valeurs sont issues dun SRID 27572 (sortie HASTUS) et la géométrie finale est passée en SRID 3943.';
+    $$ LANGUAGE 'plpgsql';
+COMMENT ON FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer, _code character varying, _insee character varying, _master_stop_id integer, _datasource integer, _srid integer) IS 'Insertion de 4 nouvelles entrées : un waypoint et un stop qui possèderont le même ID, puis les stop_datasource et stop_history associés au nouveau stop. La géométrie du stop_history est construite depuis des valeurs x/y passées en paramètre. Ces valeurs sont issues dun SRID 27572 (sortie HASTUS) et la géométrie finale est passée en SRID 3943.';
 
 
 CREATE OR REPLACE FUNCTION insertstoparea(_city_id integer, _name character varying, _datasource integer) RETURNS void
@@ -1027,7 +1030,7 @@ CREATE OR REPLACE FUNCTION updateroutesection(_start_stop_id integer, _end_stop_
 COMMENT ON FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date, _route_section_id integer, _end_date date) IS 'La mise à jour dune route_section est historisée. Cela implique la fermeture dune route_section (champ end_date prend une valeur) et la création de sa successeur avec un champ end_date vide.';
 
 
-CREATE OR REPLACE FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer,  _datasource integer) RETURNS void
+CREATE OR REPLACE FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer, _master_stop_id integer,  _datasource integer) RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -1051,10 +1054,12 @@ CREATE OR REPLACE FUNCTION updatestop(_stop_history_id integer, _date date, _nam
 			IF _code IS NOT NULL THEN		
 				PERFORM setstopaccessibility(_stop_id, _access, _accessibility_mode_id, _code, _datasource);
 			END IF;
+            
+            PERFORM setmasterstop(_stop_id, _master_stop_id);
 		END IF;
     END;
     $$;
-COMMENT ON FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer,  _datasource integer) IS 'La mise à jour dun stop est historisée. Cela implique la fermeture de la version courante dun stop_history en appliquant une date au champ end_date puis en la création de son successeur avec un champ end_date vide.';
+COMMENT ON FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer, _master_stop_id integer,  _datasource integer) IS 'La mise à jour dun stop est historisée. Cela implique la fermeture de la version courante dun stop_history en appliquant une date au champ end_date puis en la création de son successeur avec un champ end_date vide.';
 
 
 CREATE OR REPLACE FUNCTION insertline(_number character varying, _physical_mode_id integer, _line_code character varying, _datasource integer, _priority integer default 0)
@@ -1217,3 +1222,57 @@ CREATE OR REPLACE FUNCTION purge_fh_data(_line_version_id integer) RETURNS VOID
     END;
     $$ LANGUAGE 'plpgsql';
 COMMENT ON FUNCTION purge_fh_data(integer) IS 'Efface toutes les données de type fiche horaire relatives à une line_version.';
+
+CREATE OR REPLACE FUNCTION setmasterstop(_stop_id integer, _master_stop_id integer, _date date default current_date) RETURNS VOID 
+    AS $$
+    DECLARE
+        _new_date date;
+        _new_start_date date;
+    BEGIN
+		UPDATE stop set master_stop_id = _master_stop_id where id = _stop_id;
+		
+		 IF _master_stop_id IS NOT NULL THEN
+			IF _date IS NULL THEN
+				_new_date := current_date;
+			ELSE
+				_new_date := _date;		
+			END IF;
+		 
+			-- remove stop accessibility
+			DELETE FROM stop_accessibility where stop_id = _stop_id;
+			--  close stop histories
+			UPDATE stop_history
+			SET end_date = _date
+			WHERE stop_id = _stop_id
+			AND (start_date <= _new_date
+			AND (end_date IS NULL OR end_date >= _new_date));
+			-- clone current master stop stop history 
+			_new_start_date := _date + integer '1';
+            INSERT INTO stop_history (stop_id, start_date, end_date, short_name, long_name, the_geom)
+                SELECT
+                    _stop_id as stop_id, 
+                    _new_start_date as start_date,
+                    end_date, 
+                    short_name, 
+                    long_name, 
+                    the_geom
+                FROM stop_history
+                WHERE stop_id =  _master_stop_id
+                AND (start_date <= _new_date
+                AND (end_date IS NULL OR end_date >= _new_date));
+			-- clone master stop future stop histories 
+            INSERT INTO stop_history (stop_id, start_date, end_date, short_name, long_name, the_geom)
+                SELECT
+                    _stop_id as stop_id, 
+                    start_date,
+                    end_date, 
+                    short_name, 
+                    long_name, 
+                    the_geom
+                FROM stop_history
+                WHERE stop_id =  _master_stop_id
+                AND start_date > _new_date;
+		 END IF;
+    END;
+    $$ LANGUAGE 'plpgsql';
+COMMENT ON FUNCTION setmasterstop(integer, integer, date) IS 'transform a stop into a phantom.';
