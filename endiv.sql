@@ -686,6 +686,13 @@ CREATE TABLE line_version_property (
 );
 COMMENT ON TABLE line_version_property IS 'Lien entre property et line_version';
 
+CREATE TABLE stop_history_datasource (
+    id serial PRIMARY KEY,
+    stop_history_id integer NOT NULL,
+    datasource_id integer NOT NULL,
+    code character varying(20)
+);
+COMMENT ON TABLE stop_history_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
 
 
 -- Creation des cles etrangeres
@@ -780,4 +787,6 @@ ALTER TABLE ONLY trip ADD CONSTRAINT trip_trip_parent_id_fk FOREIGN KEY (trip_pa
 ALTER TABLE ONLY schematic ADD CONSTRAINT schematic_line_id_fk FOREIGN KEY (line_id) REFERENCES line(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY line_version_property ADD CONSTRAINT line_version_property_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE CASCADE ON DELETE CASCADE;
 ALTER TABLE ONLY line_version_property ADD CONSTRAINT line_version_property_property_id_fk FOREIGN KEY (property_id) REFERENCES property(id) ON UPDATE CASCADE ON DELETE CASCADE;
+ALTER TABLE ONLY stop_history_datasource ADD CONSTRAINT stop_history_datasource_datasource_id_fk FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY stop_history_datasource ADD CONSTRAINT stop_history_datasource_stop_history_id_fk FOREIGN KEY (stop_history_id) REFERENCES stop_history(id) ON UPDATE RESTRICT ON DELETE CASCADE;
 
