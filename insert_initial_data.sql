@@ -879,8 +879,8 @@ INSERT INTO line (id, number, physical_mode_id, priority, picto_file) VALUES (10
 INSERT INTO line (id, number, physical_mode_id, priority, picto_file) VALUES (107, 'VILLE', 3, 2, 'tisseo_VILLE.png');
 INSERT INTO line (id, number, physical_mode_id, priority, picto_file) VALUES (108, 'CIMTR', 3, 2, 'tisseo_CIMTR.png');
 INSERT INTO line (id, number, physical_mode_id, priority, picto_file) VALUES (109, '87', 3, 3, 'tisseo_87.png');
-
-SELECT pg_catalog.setval('line_id_seq', 110, false);
+INSERT INTO line (id, number, physical_mode_id, priority, picto_file) VALUES (110, 'T2', 2, 1, 'tisseo_T2.png');
+SELECT pg_catalog.setval('line_id_seq', 111, false);
 
 INSERT INTO color (id, name, html, pantone_oc, hoxis, cmyk_cyan, cmyk_magenta, cmyk_yellow, cmyk_black, rgb_red, rgb_green, rgb_blue) VALUES(1,'Marron Foncé','#563f00','4625C',5478,0,60,100,79,86,63,0);
 INSERT INTO color (id, name, html, pantone_oc, hoxis, cmyk_cyan, cmyk_magenta, cmyk_yellow, cmyk_black, rgb_red, rgb_green, rgb_blue) VALUES(2,'Bleu Clair','#26ceff','299C',5299,85,19,0,0,38,206,255);
@@ -1064,7 +1064,8 @@ INSERT INTO line_datasource (id, line_id, datasource_id, code) VALUES (106, 106,
 INSERT INTO line_datasource (id, line_id, datasource_id, code) VALUES (107, 107, 1, '28');
 INSERT INTO line_datasource (id, line_id, datasource_id, code) VALUES (108, 108, 2, '');
 INSERT INTO line_datasource (id, line_id, datasource_id, code) VALUES (109, 109, 1, '87');
-SELECT pg_catalog.setval('line_datasource_id_seq', 110, false);
+INSERT INTO line_datasource (id, line_id, datasource_id, code) VALUES (110, 110, 1, '1006');
+SELECT pg_catalog.setval('line_datasource_id_seq', 111, false);
 
 
 INSERT INTO accessibility_mode (id, name) VALUES (1, 'UFR');
