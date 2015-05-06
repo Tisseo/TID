@@ -772,8 +772,8 @@ ALTER TABLE ONLY grid_link_calendar_mask_type ADD CONSTRAINT grid_link_calendar_
 ALTER TABLE ONLY grid_calendar ADD CONSTRAINT grid_calendar_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY datasource ADD CONSTRAINT datasource_id_agency_fk FOREIGN KEY (agency_id) REFERENCES agency(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY city ADD CONSTRAINT city_main_stop_area_id_fk FOREIGN KEY (main_stop_area_id) REFERENCES stop_area(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY modification ADD CONSTRAINT modification_link_resolved_in_fk FOREIGN KEY (resolved_in) REFERENCES modification(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY modification ADD CONSTRAINT modification_link_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY modification ADD CONSTRAINT modification_resolved_in_fk FOREIGN KEY (resolved_in) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY modification ADD CONSTRAINT modification_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY trip ADD CONSTRAINT trip_day_calendar_id_fk FOREIGN KEY (day_calendar_id) REFERENCES calendar(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY trip ADD CONSTRAINT trip_period_calendar_id_fk FOREIGN KEY (period_calendar_id) REFERENCES calendar(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY calendar_element ADD CONSTRAINT calendar_element_calendar_id_fk FOREIGN KEY (calendar_id) REFERENCES calendar(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
