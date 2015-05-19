@@ -309,11 +309,11 @@ CREATE INDEX line_version_not_exported_line_version_id_idx ON line_version_not_e
 CREATE TABLE log (
     id serial PRIMARY KEY,
     datetime timestamp without time zone NOT NULL,
-    "table" character varying(30) NOT NULL,
+    table_name character varying(30) NOT NULL,
     action character varying(20) NOT NULL,
     previous_data text,
     inserted_data text,
-    "user" character varying(30) NOT NULL
+    user_login character varying(30) NOT NULL
 );
 COMMENT ON TABLE log IS 'Trace de toutes les operations sur la base.';
 
