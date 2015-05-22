@@ -291,6 +291,24 @@ LANGUAGE plpgsql
 COMMENT ON FUNCTION getcalendarbitmask (integer, date, date) IS 'Return active days calendar bitmask between provided dates bounds. You suppose to pass and end_date > start_date : I do not check for it';
 
 
+CREATE OR REPLACE FUNCTION getbitmaskbeetweencalendars (_first_calendar_id integer, _second_calendar_id integer, _start_date date, _end_date date, _operator calendar_operator default '&') RETURNS bit varying
+LANGUAGE plpgsql
+	AS $$
+	DECLARE
+		_bit_mask bit varying;
+		_first_cal_bit_mask bit varying;
+		_second_cal_bit_mask bit varying;
+	BEGIN
+		_first_cal_bit_mask := getcalendarbitmask(_first_calendar_id,_start_date,_end_date);
+		_second_cal_bit_mask := getcalendarbitmask(_second_calendar_id,_start_date,_end_date);
+		select applybitmask(_first_cal_bit_mask, _second_cal_bit_mask, _start_date, _end_date, _operator) INTO _bit_mask;
+		RETURN _bit_mask;
+	END;
+	$$;
+COMMENT ON FUNCTION getbitmaskbeetweencalendars (integer, integer, date, date, calendar_operator) IS 'Return (first_calendar (operator) second_calendar)  bitmask between provided dates bounds. You suppose to pass and end_date > start_date : I do not check for it';
+
+	
+
 CREATE OR REPLACE FUNCTION updateordeletecalendar (_calendar_id integer, _start_date date, _end_date date) RETURNS void
 LANGUAGE plpgsql
 	AS $$
