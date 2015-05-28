@@ -674,7 +674,7 @@ CREATE TABLE waypoint (
 CREATE TABLE property (
     id serial PRIMARY KEY,
     name character varying(20) NOT NULL,
-    "default" boolean NOT NULL
+    is_default boolean NOT NULL
 );
 COMMENT ON TABLE property IS 'Proprietes de versions de ligne';
 
