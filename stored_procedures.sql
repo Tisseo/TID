@@ -828,7 +828,7 @@ COMMENT ON FUNCTION detectcalendarinclusionloop(integer, integer) IS 'This recur
 
 
 
-CREATE OR REPLACE FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer,  _operator calendar_operator default '+') RETURNS void
+CREATE OR REPLACE FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer, _calendar_type calendar_type default 'mixte',  _operator calendar_operator default '+') RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -850,7 +850,7 @@ CREATE OR REPLACE FUNCTION insertcalendar(_tcode character varying, _rcode chara
         -- Any case : Insert new calendar_element
         SELECT T.period_calendar_id INTO _calendar_id FROM trip T WHERE T.id = _trip_id;
         IF _calendar_id IS NULL THEN
-            INSERT INTO calendar(name, calendar_type, line_version_id) VALUES (_name, 'periode', _lvid);
+            INSERT INTO calendar(name, calendar_type, line_version_id) VALUES (_name, _calendar_type, _lvid);
             INSERT INTO calendar_datasource(calendar_id, code, datasource_id) VALUES (currval('calendar_id_seq'), _tcode, _datasource);
             UPDATE trip SET period_calendar_id =  currval('calendar_id_seq') WHERE id = _trip_id;
 			PERFORM insertcalendarelement(currval('calendar_id_seq')::integer, _date, _date, 1, _operator);
@@ -859,7 +859,7 @@ CREATE OR REPLACE FUNCTION insertcalendar(_tcode character varying, _rcode chara
         END IF;
     END;
     $$;
-COMMENT ON FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer, _operator calendar_operator) IS 'Insertion selon condition de nouvelles entrées calendar, calendar_datasource et calendar_element plus mise à jour dune entrée trip associée à ces nouveaux calendriers. Si le calendrier rattaché au trip existe déjà lors de lappel de cette fonction, elle effectuera une simple insertion dune entrée calendar_element.';
+COMMENT ON FUNCTION insertcalendar(_tcode character varying, _rcode character varying, _lvid integer, _name character varying, _date date, _datasource integer, _calendar_type calendar_type, _operator calendar_operator) IS 'Insertion selon condition de nouvelles entrées calendar, calendar_datasource et calendar_element plus mise à jour dune entrée trip associée à ces nouveaux calendriers. Si le calendrier rattaché au trip existe déjà lors de lappel de cette fonction, elle effectuera une simple insertion dune entrée calendar_element.';
 
 CREATE TYPE address AS (address character varying, the_geom character varying, is_entrance boolean);
 
@@ -1003,18 +1003,18 @@ CREATE OR REPLACE FUNCTION insertstoparea(_city_id integer, _name character vary
 COMMENT ON FUNCTION insertstoparea (integer, character varying, integer) IS 'Insertion dune entrée stop_area et de sa datasource associée.';
 
 
-CREATE OR REPLACE FUNCTION inserttrip(_name character varying, _tcode character varying, _rcode character varying, _lvid integer, _datasource integer) RETURNS void
+CREATE OR REPLACE FUNCTION inserttrip(_name character varying, _tcode character varying, _rcode character varying, _lvid integer, _datasource integer, _day_calendar_id integer default NULL, _period_calendar_id integer default NULL) RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
         _route_id integer;
     BEGIN
         SELECT R.id INTO _route_id FROM route R JOIN route_datasource RD ON R.id = RD.route_id WHERE RD.code = _rcode AND R.line_version_id = _lvid;
-        INSERT INTO trip(name, route_id) VALUES (_name, _route_id);
+        INSERT INTO trip(name, route_id, day_calendar_id, period_calendar_id) VALUES (_name, _route_id, _day_calendar_id, _period_calendar_id);
         INSERT INTO trip_datasource(trip_id, datasource_id, code) VALUES (currval('trip_id_seq'), _datasource, _tcode);
     END;
     $$;
-COMMENT ON FUNCTION inserttrip (character varying, character varying, character varying, integer, integer) IS 'Insertion dun nouveau trip et de sa datasource associée. Le trip est directement rattaché à une route dont lid est récupéré grâce aux paramètres _rcode et _lvid.';
+COMMENT ON FUNCTION inserttrip (character varying, character varying, character varying, integer, integer, integer, integer) IS 'Insertion dun nouveau trip et de sa datasource associée. Le trip est directement rattaché à une route dont lid est récupéré grâce aux paramètres _rcode et _lvid.';
 
 CREATE OR REPLACE FUNCTION mergetrips(_trips integer[], _trip_calendar_id integer, _datasource_id integer) RETURNS void
     LANGUAGE plpgsql

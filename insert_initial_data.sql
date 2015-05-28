@@ -896,7 +896,7 @@ INSERT INTO color (id, name, html, pantone_oc, hoxis, cmyk_cyan, cmyk_magenta, c
 INSERT INTO color (id, name, html, pantone_oc, hoxis, cmyk_cyan, cmyk_magenta, cmyk_yellow, cmyk_black, rgb_red, rgb_green, rgb_blue) VALUES(12,'Bleu Foncé','#004687','288C',5280,100,67,0,23,0,64,196);
 INSERT INTO color (id, name, html, pantone_oc, hoxis, cmyk_cyan, cmyk_magenta, cmyk_yellow, cmyk_black, rgb_red, rgb_green, rgb_blue) VALUES(13,'Jaune','#ffdd00','109C',NULL,0,10,100,0,255,229,0);
 INSERT INTO color (id, name, html, pantone_oc, hoxis, cmyk_cyan, cmyk_magenta, cmyk_yellow, cmyk_black, rgb_red, rgb_green, rgb_blue) VALUES(14,'Orange Clair','#f8b323','137C',NULL,0,35,90,0,255,165,25);
-INSERT INTO color (id, name, html, pantone_oc, hoxis, cmyk_cyan, cmyk_magenta, cmyk_yellow, cmyk_black, rgb_red, rgb_green, rgb_blue) VALUES(15,'Rose foncé','#dd0330dd0330','199C',NULL,0,100,62,0,227,0,67);
+INSERT INTO color (id, name, html, pantone_oc, hoxis, cmyk_cyan, cmyk_magenta, cmyk_yellow, cmyk_black, rgb_red, rgb_green, rgb_blue) VALUES(15,'Rose foncé','#dd0330','199C',NULL,0,100,62,0,227,0,67);
 INSERT INTO color (id, name, html, pantone_oc, hoxis, cmyk_cyan, cmyk_magenta, cmyk_yellow, cmyk_black, rgb_red, rgb_green, rgb_blue) VALUES(16,'Blanc','#ffffff',NULL,NULL,0,0,0,0,255,255,255);
 INSERT INTO color (id, name, html, pantone_oc, hoxis, cmyk_cyan, cmyk_magenta, cmyk_yellow, cmyk_black, rgb_red, rgb_green, rgb_blue) VALUES(17,'Noir','#000000',NULL,NULL,0,0,0,100,0,0,0);
 SELECT pg_catalog.setval('color_id_seq', 18, false);
