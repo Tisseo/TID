@@ -307,6 +307,44 @@ LANGUAGE plpgsql
 	$$;
 COMMENT ON FUNCTION getbitmaskbeetweencalendars (integer, integer, date, date, calendar_operator) IS 'Return (first_calendar (operator) second_calendar)  bitmask between provided dates bounds. You suppose to pass and end_date > start_date : I do not check for it';
 
+
+CREATE OR REPLACE FUNCTION getdateboundsbeetweencalendars (_first_calendar_id integer, _second_calendar_id integer, _operator calendar_operator default '&') RETURNS date_pair
+LANGUAGE plpgsql
+	AS $$
+	DECLARE
+		_bit_mask bit varying;
+		_first_cal_bit_mask bit varying;
+		_second_cal_bit_mask bit varying;
+		first_bounds record;
+		second_bounds record;
+		min_start_date date;
+		max_end_date date;
+		_computed_date_pair date_pair;
+	BEGIN
+	    -- First get full bitmask of the two calendars
+        SELECT computed_start_date, computed_end_date FROM calendar WHERE id = _first_calendar_id INTO first_bounds;
+        SELECT computed_start_date, computed_end_date FROM calendar WHERE id = _second_calendar_id INTO second_bounds;
+		IF(first_bounds.computed_start_date < second_bounds.computed_start_date) THEN
+		    min_start_date := first_bounds.computed_start_date;
+		ELSE
+		    min_start_date := second_bounds.computed_start_date;
+		END;
+		IF(first_bounds.computed_end_date > second_bounds.computed_end_date) THEN
+		    max_end_date := first_bounds.computed_end_date;
+		ELSE
+		    max_end_date := second_bounds.computed_end_date;
+		END;
+        _first_cal_bit_mask := getcalendarbitmask(_first_calendar_id, min_start_date, max_end_date);
+	    _second_cal_bit_mask := getcalendarbitmask(_second_calendar_id, min_start_date, max_end_date);
+		-- Second get the resulted bitmask
+	    SELECT applybitmask(_first_cal_bit_mask, _second_cal_bit_mask, min_start_date, max_end_date, _operator) INTO _bit_mask;
+		-- Third get the bound of resulted bitmask
+        SELECT * FROM detectmaskbounds(_bit_mask, min_start_date, ((max_end_date - min_start_date) + 1)::smallint) into _computed_date_pair;
+	    RETURN _computed_date_pair;
+	END;
+	$$;
+COMMENT ON FUNCTION getdateboundsbeetweencalendars (integer, integer, calendar_operator) IS 'Return (first_calendar (operator) second_calendar) date bounds. You suppose to pass and end_date > start_date : I do not check for it';
+
 	
 
 CREATE OR REPLACE FUNCTION updateordeletecalendar (_calendar_id integer, _start_date date, _end_date date) RETURNS void
