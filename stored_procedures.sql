@@ -321,7 +321,7 @@ LANGUAGE plpgsql
 		max_end_date date;
 		_computed_date_pair date_pair;
 	BEGIN
-	    -- First get full bitmask of the two calendars
+	    -- First get full bitmask of the two calendars and min/max date
         SELECT computed_start_date, computed_end_date FROM calendar WHERE id = _first_calendar_id INTO first_bounds;
         SELECT computed_start_date, computed_end_date FROM calendar WHERE id = _second_calendar_id INTO second_bounds;
 		IF(first_bounds.computed_start_date < second_bounds.computed_start_date) THEN
