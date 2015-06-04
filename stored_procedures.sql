@@ -328,12 +328,12 @@ LANGUAGE plpgsql
 		    min_start_date := first_bounds.computed_start_date;
 		ELSE
 		    min_start_date := second_bounds.computed_start_date;
-		END;
+		END IF;
 		IF(first_bounds.computed_end_date > second_bounds.computed_end_date) THEN
 		    max_end_date := first_bounds.computed_end_date;
 		ELSE
 		    max_end_date := second_bounds.computed_end_date;
-		END;
+		END IF;
         _first_cal_bit_mask := getcalendarbitmask(_first_calendar_id, min_start_date, max_end_date);
 	    _second_cal_bit_mask := getcalendarbitmask(_second_calendar_id, min_start_date, max_end_date);
 		-- Second get the resulted bitmask
