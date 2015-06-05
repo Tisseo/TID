@@ -542,7 +542,6 @@ CREATE TABLE stop_history (
     long_name character varying(255),
     the_geom geometry(Point,3943) NOT NULL
 );
-ALTER TABLE public.stop_history OWNER TO endiv_owner;
 COMMENT ON TABLE stop_history IS 'Proprietes d''un arret. Un arret n''a qu''un historique dans le temps. Si une caracteristique cahnge, l''historique precedent est cloture et un nouveau est cree.';
 COMMENT ON COLUMN stop_history.short_name IS 'Nom de l''arret dans le referentiel Hastus. Pas de modification possible.';
 COMMENT ON COLUMN stop_history.long_name IS 'Champ inutile pour le moment. Laisser vide.';

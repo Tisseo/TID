@@ -4,6 +4,8 @@ SET standard_conforming_strings = on;
 SET check_function_bodies = false;
 SET client_min_messages = warning;
 
+CREATE TYPE date_pair AS (start_date date, end_date date, bit_mask bit varying, mask_length smallint);
+
 CREATE OR REPLACE FUNCTION cleanimport() RETURNS void
     LANGUAGE plpgsql
     AS $$
@@ -375,8 +377,6 @@ LANGUAGE plpgsql
 	END;
 	$$;
 COMMENT ON FUNCTION updateordeletecalendar (integer, date, date) IS 'Check if a calendar does have active dates beetween two dates. If yes then add a union calendar element which restrict dates beetween given dates else delete calendar.';
-
-CREATE TYPE date_pair AS (start_date date, end_date date, bit_mask bit varying, mask_length smallint);
 
 CREATE OR REPLACE FUNCTION detectmaskbounds (_bit_mask bit varying, _start_date date, _bit_mask_lenght smallint) RETURNS date_pair
 LANGUAGE plpgsql
