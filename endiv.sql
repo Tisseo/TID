@@ -9,9 +9,6 @@ SET check_function_bodies = false;
 SET client_min_messages = warning;
 
 CREATE EXTENSION IF NOT EXISTS plpgsql WITH SCHEMA pg_catalog;
-CREATE SCHEMA pgis;
-CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA pgis;
-
 
 -- wrapper de fichiers txt type csv utilisé pour les imports gtfs
 CREATE EXTENSION IF NOT EXISTS file_fdw;
