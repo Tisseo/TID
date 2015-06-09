@@ -9,6 +9,11 @@ SET check_function_bodies = false;
 SET client_min_messages = warning;
 SET search_path = public, pg_catalog, pgis;
 
+DO $$
+BEGIN
+   execute 'alter database ' || current_database() || ' SET search_path = public, pg_catalog, pgis';
+END;
+$$;
 
 --creation des types 
 CREATE TYPE calendar_type AS ENUM ('jour', 'periode', 'mixte', 'accessibilite', 'brique');

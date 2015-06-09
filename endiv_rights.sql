@@ -15,6 +15,9 @@ CREATE SERVER file_fdw_server FOREIGN DATA WRAPPER file_fdw;
 
 CREATE EXTENSION IF NOT EXISTS unaccent;
 
+CREATE SCHEMA pgis;
+ALTER SCHEMA pgis OWNER TO endiv_owner;
+
 SET default_tablespace = '';
 SET default_with_oids = false;
 SET search_path = public, pg_catalog, pgis;
