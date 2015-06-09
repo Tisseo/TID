@@ -1,3 +1,4 @@
+SET search_path = public, pg_catalog, pgis;
 INSERT INTO agency (id, name, url, timezone, lang, phone) VALUES (1, 'Tisséo', 'http://www.tisseo.fr', 'Europe/Paris', 'fr', NULL);
 SELECT pg_catalog.setval('agency_id_seq', 2, false);
 
