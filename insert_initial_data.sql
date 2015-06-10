@@ -1022,10 +1022,10 @@ INSERT INTO accessibility_mode (id, name) VALUES (1, 'UFR');
 INSERT INTO accessibility_mode (id, name) VALUES (2, 'Pietons');
 SELECT pg_catalog.setval('accessibility_mode_id_seq', 3, false);
 
-INSERT INTO property (id, name, "default") VALUES (1, 'Accessible',true);
-INSERT INTO property (id, name, "default") VALUES (2, 'Certifiée',true);
-INSERT INTO property (id, name, "default") VALUES (3, 'Travaux',false);
-INSERT INTO property (id, name, "default") VALUES (4, 'Climatisée',true);
+INSERT INTO property (id, name, is_default) VALUES (1, 'Accessible',true);
+INSERT INTO property (id, name, is_default) VALUES (2, 'Certifiée',true);
+INSERT INTO property (id, name, is_default) VALUES (3, 'Travaux',false);
+INSERT INTO property (id, name, is_default) VALUES (4, 'Climatisée',true);
 SELECT pg_catalog.setval('property_id_seq', 5, false);
 
 INSERT INTO exception_type VALUES (1,'m', 'Uniquement le mercredi', '1111100', '0010000');
