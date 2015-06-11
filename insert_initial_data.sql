@@ -751,16 +751,16 @@ INSERT INTO datasource (id, name, agency_id) VALUES (3, 'Information Voyageurs',
 INSERT INTO datasource (id, name, agency_id) VALUES (4, 'TIGRE', 1);
 SELECT pg_catalog.setval('datasource_id_seq', 5, false);
 
-INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (1, 'Semaine', 'BASE');
-INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (2, 'Lun-Sam', 'BASE');
-INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (3, 'Samedi', 'BASE');
-INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (4, 'Dimanche', 'BASE');
+INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (1, 'Semaine', 'Base');
+INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (2, 'Lun-Sam', 'Base');
+INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (3, 'Samedi', 'Base');
+INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (4, 'Dimanche', 'Base');
 INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (5, 'Semaine', 'Vacances');
-INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (6, '7-jours', 'BASE');
+INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (6, '7-jours', 'Base');
 INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (7, '7-jours', 'Vacances');
-INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (8, 'Semaine', 'Vacances Ligne 63');
-INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (9, 'Dimanche', 'dimanche Renfort noel');
-INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (10, 'Dimanche', 'Jours Fériés');
+INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (8, 'Semaine', 'Vacances ligne 63');
+INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (9, 'Dimanche', 'Dimanche renfort noel');
+INSERT INTO grid_mask_type (id, calendar_type, calendar_period) VALUES (10, 'Dimanche', 'Jours fériés');
 SELECT pg_catalog.setval('grid_mask_type_id_seq', 11, false);
 
 INSERT INTO physical_mode (id, name, type) VALUES (1, 'Métro', 'Métro');
