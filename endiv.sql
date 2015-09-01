@@ -593,11 +593,11 @@ COMMENT ON TABLE transfer_not_exported IS 'Correspondances qui ne doivent pas ê
 
 CREATE TABLE trip (
     id serial PRIMARY KEY,
-    name character varying(20) NOT NULL,
+    name character varying(60) NOT NULL,
     route_id integer NOT NULL,
     trip_calendar_id integer,
     comment_id integer,
-    is_pattern boolean,
+    is_pattern boolean DEFAULT FALSE,
     pattern_id integer,
     trip_parent_id integer,
     day_calendar_id integer,
