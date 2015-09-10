@@ -480,7 +480,8 @@ CREATE TABLE schematic (
     date timestamp without time zone NOT NULL,
     file_path text,
 	line_id integer NOT NULL,
-	deprecated boolean NOT NULL
+	deprecated boolean NOT NULL,
+    group_gis boolean DEFAULT FALSE
 );
 COMMENT ON TABLE schematic IS 'Modifications des schemas de ligne';
 
