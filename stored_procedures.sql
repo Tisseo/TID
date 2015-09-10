@@ -959,6 +959,22 @@ CREATE OR REPLACE FUNCTION insertroutesection(_start_stop_id integer, _end_stop_
 COMMENT ON FUNCTION insertroutesection (integer, integer, character varying, date) IS 'Insert record in table route_section.';
 
 
+CREATE OR REPLACE FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _route_section_id integer, _start_date date, _end_date date) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        _real_geom pgis.geometry(Linestring, 3943);
+        _new_route_section_id integer;
+    BEGIN
+        _real_geom := pgis.ST_GeomFromText(_the_geom, 3943);
+        UPDATE route_section SET end_date = _end_date WHERE id = _route_section_id;
+        INSERT INTO route_section(start_stop_id, end_stop_id, start_date, the_geom) VALUES (_start_stop_id, _end_stop_id, _start_date, _real_geom) RETURNING id INTO _new_route_section_id;
+        UPDATE route_stop RS JOIN route R on R.id = RD.route_id JOIN line_version LV ON LV.id = R.line_version_id SET route_section_id = _new_route_section_id WHERE route_section_id = _route_section_id AND ((LV.end_date IS NULL AND LV.planned_end_date >= _start_date) OR LV.end_date >= _start_date);
+    END;
+    $$;
+COMMENT ON FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _route_section_id integer, _start_date date, _end_date date) IS 'La mise à jour dune route_section est historisée. Cela implique la fermeture dune route_section (champ end_date prend une valeur) et la création de sa successeur avec un champ end_date vide.';
+
+
 CREATE OR REPLACE FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode character varying, _scode character varying, _related_scode character varying, _lvid integer, _rank integer, _scheduled boolean, _hour integer, _is_first boolean, _is_last boolean) RETURNS void
     LANGUAGE plpgsql
     AS $$
@@ -995,6 +1011,7 @@ CREATE OR REPLACE FUNCTION insertroutestopandstoptime(_rcode character varying, 
     END;
     $$;
 COMMENT ON FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode character varying, _scode character varying, _related_scode character varying, _lvid integer, _rank integer, _scheduled boolean, _hour integer, _is_first boolean, _is_last boolean) IS 'Insertion dune nouvelle entrée dans route_stop si elle nexiste pas déjà. Insertion dune nouvelle entrée stop_time. Dans le cas dinsertion dun route_stop, certaines valeurs changent en fonction du rang du route_stop dans litinéraire. Chaque route_stop est rattaché à une route_section sauf le dernier (doublon avec lavant dernier sinon). Les booléens pickup/dropoff prennent également des valeur différentes selon le rang du route_stop.';
+
 
 CREATE OR REPLACE FUNCTION insertstop(_date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer, _code character varying, _insee character varying, _master_stop_id integer, _datasource integer, _srid integer default 27572)
 	RETURNS integer AS $$
@@ -1055,6 +1072,7 @@ CREATE OR REPLACE FUNCTION inserttrip(_name character varying, _tcode character 
     $$;
 COMMENT ON FUNCTION inserttrip (character varying, character varying, character varying, integer, integer, integer, integer) IS 'Insertion dun nouveau trip et de sa datasource associée. Le trip est directement rattaché à une route dont lid est récupéré grâce aux paramètres _rcode et _lvid.';
 
+
 CREATE OR REPLACE FUNCTION mergetrips(_trips integer[], _trip_calendar_id integer, _datasource_id integer) RETURNS void
     LANGUAGE plpgsql
     AS $$
@@ -1071,20 +1089,6 @@ CREATE OR REPLACE FUNCTION mergetrips(_trips integer[], _trip_calendar_id intege
     END;
     $$;
 COMMENT ON FUNCTION mergetrips (_trips integer[], _trip_calendar_id integer, _datasource_id integer) IS 'Merge duplicated trips by creating a new one attached to a specific _trip_calendar_id. The trip_calendar days pattern is the sum of all patterns of each trip which will be merged.';
-
-
-CREATE OR REPLACE FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date, _route_section_id integer, _end_date date) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-    DECLARE
-        _real_geom pgis.geometry(Linestring, 3943);
-    BEGIN
-        _real_geom := pgis.ST_GeomFromText(_the_geom, 3943);
-        UPDATE route_section SET end_date = _end_date WHERE id = _route_section_id;
-        INSERT INTO route_section(start_stop_id, end_stop_id, start_date, the_geom) VALUES (_start_stop_id, _end_stop_id, _start_date, _real_geom);
-    END;
-    $$;
-COMMENT ON FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date, _route_section_id integer, _end_date date) IS 'La mise à jour dune route_section est historisée. Cela implique la fermeture dune route_section (champ end_date prend une valeur) et la création de sa successeur avec un champ end_date vide.';
 
 
 CREATE OR REPLACE FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer, _master_stop_id integer,  _datasource integer) RETURNS void
