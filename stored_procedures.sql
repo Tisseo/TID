@@ -969,7 +969,7 @@ CREATE OR REPLACE FUNCTION updateroutesection(_start_stop_id integer, _end_stop_
         _real_geom := pgis.ST_GeomFromText(_the_geom, 3943);
         UPDATE route_section SET end_date = _end_date WHERE id = _route_section_id;
         INSERT INTO route_section(start_stop_id, end_stop_id, start_date, the_geom) VALUES (_start_stop_id, _end_stop_id, _start_date, _real_geom) RETURNING id INTO _new_route_section_id;
-        UPDATE route_section SET route_section_id = _new_route_section_id WHERE route_section_id = _route_section_id AND RS.route_id IN (SELECT R.id FROM route R JOIN line_version LV ON LV.id = R.line_version_id WHERE ((LV.end_date IS NULL AND LV.planned_end_date >= _start_date) OR LV.end_date >= _start_date));
+        UPDATE route_stop SET route_section_id = _new_route_section_id WHERE route_section_id = _route_section_id AND route_id IN (SELECT R.id FROM route R JOIN line_version LV ON LV.id = R.line_version_id WHERE ((LV.end_date IS NULL AND LV.planned_end_date >= _start_date) OR LV.end_date >= _start_date));
     END;
     $$;
 COMMENT ON FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _route_section_id integer, _start_date date, _end_date date) IS 'La mise à jour dune route_section est historisée. Cela implique la fermeture dune route_section (champ end_date prend une valeur) et la création de sa successeur avec un champ end_date vide.';
