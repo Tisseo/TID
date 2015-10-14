@@ -100,6 +100,8 @@ CREATE TABLE city (
     the_geom geometry(Polygon,3943)
  );
 COMMENT ON TABLE city IS 'Commune.';
+COMMENT ON COLUMN city.insee IS 'Code Insee de la commune.';
+COMMENT ON COLUMN city.main_stop_area_id IS 'Arret principal de la commune, sert de point de départ lors d''un itineraire depsui ou vers la commune.';
 CREATE INDEX city_geom_idx ON city USING GIST (the_geom); 
 CREATE INDEX city_main_stop_area_id_idx ON city USING btree (main_stop_area_id);
 
@@ -109,7 +111,7 @@ CREATE TABLE comment (
     comment_text character varying(255)
 );
 COMMENT ON TABLE comment IS 'Note sur un itineraire (route) ou un service (trip). Signale une particularite sur les fiches horaire.';
-COMMENT ON COLUMN comment.label IS 'Lettre servant a signer le commentaire.';
+COMMENT ON COLUMN comment.label IS 'Lettre servant a signer le commentaire. Servira de renvoi dans les FH.';
 COMMENT ON COLUMN comment.comment_text IS 'Description textuelle du commentaire.';
 
 CREATE TABLE color (
@@ -134,7 +136,7 @@ CREATE TABLE datasource (
     name character varying(30) NOT NULL,
     agency_id integer NOT NULL
 );
-COMMENT ON TABLE datasource IS 'Referentiel fournisseur de donnees. Les lignes saisies manuellement ont pour referentiel le ''Service donnes''.';
+COMMENT ON TABLE datasource IS 'Referentiel fournisseur de donnees. Le fournisseur peut etre automatique ou une saisie manuelle.';
 
 CREATE TABLE exception_type (
     id serial PRIMARY KEY,
@@ -143,7 +145,7 @@ CREATE TABLE exception_type (
     grid_calendar_pattern character varying(7),
     trip_calendar_pattern character varying(7)
 );
-COMMENT ON TABLE exception_type IS 'Base de connaissance des type de commentaires.';
+COMMENT ON TABLE exception_type IS 'Base de connaissance des type de commentaires. Propose une note par défaut pour les exceptions les plus courantes.';
 COMMENT ON COLUMN exception_type.label IS 'Lettre servant a signer le commentaire.';
 COMMENT ON COLUMN exception_type.exception_text IS 'Description textuelle du commentaire.';
 COMMENT ON COLUMN exception_type.grid_calendar_pattern IS 'Circulation LMMJVSD de la grille horaire cible.';
@@ -154,14 +156,17 @@ CREATE TABLE export_destination (
     nom character varying(255),
     url text
 );
+COMMENT ON TABLE export_destination IS 'Referentiel client de tout ou partie de la base. Permettra de filtrer l''export des objets.';
 
 CREATE TABLE export_perso (
     table_name character varying(30) PRIMARY KEY
 );
+COMMENT ON TABLE export_perso IS 'Liste des tables a exporter dans l''export perso.';
 
 CREATE TABLE export_prod (
     table_name character varying(30) PRIMARY KEY
 );
+COMMENT ON TABLE export_prod IS 'Liste des tables a exporter dans l''export prod.';
 
 CREATE TABLE grid_calendar (
     id serial PRIMARY KEY,
@@ -184,7 +189,7 @@ CREATE TABLE grid_link_calendar_mask_type (
     grid_mask_type_id integer NOT NULL,
     active boolean NOT NULL
 );
-COMMENT ON TABLE grid_link_calendar_mask_type IS 'Lien entre les calendriers Hastus fiche horaire et les grilles horaires de la fiche. Table remplie par l''IV via interface dediee lors de la creation de la fiche horaire.';
+COMMENT ON TABLE grid_link_calendar_mask_type IS 'Lien entre les calendriers type provenant d''un referentiel exploitation et les fiche horaire et les grilles horaires de la fiche. Table remplie par l''IV via interface dediee lors de la creation de la fiche horaire.';
 CREATE INDEX grid_link_calendar_mask_type_grid_calendar_id_idx ON grid_link_calendar_mask_type USING btree (grid_calendar_id);
 CREATE INDEX grid_link_calendar_mask_type_grid_mask_type_id_idx ON grid_link_calendar_mask_type USING btree (grid_mask_type_id);
 
@@ -193,7 +198,7 @@ CREATE TABLE grid_mask_type (
     calendar_type character varying(50),
     calendar_period character varying(100)
 );
-COMMENT ON TABLE grid_mask_type IS 'Type des calendriers envoyes par Hastus pour les fiches horaires.Table remplie par l''import Hastus FICHOR pour les lignes exploitees par Tisseo.';
+COMMENT ON TABLE grid_mask_type IS 'Type des calendriers envoyes par le referentiel d''exploitation pour les fiches horaires. Table remplie par l''import de donnees du referentiel d''exploitation.';
 COMMENT ON COLUMN grid_mask_type.calendar_type IS 'Type du calendrier. Semaine correspond à LaV si un type Samedi existe sur l''offre et à LaS sinon. Dimanche regroupe egalement les jours feries.';
 COMMENT ON COLUMN grid_mask_type.calendar_period IS 'Periode d''application du calendrier. BASE correspond a la periode hors vacances si une periode vacance existe sur cette offre et a la periode hiver sinon.';
 
@@ -202,10 +207,10 @@ CREATE TABLE line (
     number character varying(10) NOT NULL,
     physical_mode_id integer NOT NULL,
     priority integer NOT NULL,
-	picto_file character varying(80)
+    picto_file character varying(80)
 );
 COMMENT ON TABLE line IS 'Ligne commerciale de TC.';
-COMMENT ON COLUMN line.number IS 'Numéro de la ligne. Peut ne pas etre numerique. Par exple : T1, A ou L16 sont des numeros.';
+COMMENT ON COLUMN line.number IS 'Numero de la ligne. Alphanumerique. Par exple : T1, A ou L16 sont des numeros.';
 COMMENT ON COLUMN line.priority IS 'Priorité de la ligne. Sert notamment a trier les lignes dans les listes de lignes.';
 
 CREATE TABLE line_datasource (
@@ -220,7 +225,7 @@ CREATE TABLE line_group (
     id serial PRIMARY KEY,
     name character varying(20)
 );
-COMMENT ON TABLE line_group IS 'Groupe de ligne. Permet d''associer les lignes avec leurs lignes de soirées.';
+COMMENT ON TABLE line_group IS 'Groupe de ligne. Permet d''associer les lignes avec leurs lignes de soirees ou des linges principales avec leurs lignes filles.';
 
 CREATE TABLE line_group_content (
     line_version_id integer not null,
@@ -232,10 +237,10 @@ COMMENT ON TABLE line_group IS 'Constitution des groupes de ligne.';
 CREATE TABLE line_group_gis (
     id serial PRIMARY KEY,
     name character varying(20),
-	nb_bus integer not null default 0,
-	comment text
+    nb_bus integer not null default 0,
+    comment text
 );
-COMMENT ON TABLE line_group_gis IS 'Groupe de ligne SIG. Permet d''associer les lignes selon les voussures bus.';
+COMMENT ON TABLE line_group_gis IS 'Groupe de ligne SIG. Permet de gerer des regroupements commerciaux de schemas de ligne.';
 
 CREATE TABLE line_group_gis_content (
     line_id integer not null,
@@ -264,7 +269,11 @@ COMMENT ON TABLE line_version IS 'Offre d''une ligne.';
 COMMENT ON COLUMN line_version.start_date IS 'Date de debut d''offre.';
 COMMENT ON COLUMN line_version.end_date IS 'Date effective de fin d''offre, non reneignee a la creation.';
 COMMENT ON COLUMN line_version.planned_end_date IS 'Date de fin previsionnelle d''offre.';
+COMMENT ON COLUMN line_version.status IS 'Statut de l''offre (commencee, nouvelle,...)';
 COMMENT ON COLUMN line_version.schematic_id IS 'Identifiant du schematique de l''offre';
+COMMENT ON COLUMN line_version.bg_color_id IS 'Cle vers la couleur de background de l''offre.';
+COMMENT ON COLUMN line_version.fg_color_id IS 'Cle vers la couleur de texte de l''offre.';
+COMMENT ON COLUMN line_version.depot IS 'Depot d''exploitation de la ligne (depot bus, garage metro ou tram,...).';
 
 CREATE TABLE line_version_datasource (
     id serial PRIMARY KEY,
@@ -340,6 +349,7 @@ CREATE TABLE physical_mode (
     type character varying(30) NOT NULL
 );
 COMMENT ON TABLE physical_mode IS 'Mode de transport.';
+COMMENT ON COLUMN physical_mode.type IS 'A etablir dans la liste des modes autorises : Aérien, Maritime/Fluvial, Ferré, Métro, Tram, Funiculaire/Câble, Bus/Car/Trolley';
 
 CREATE TABLE poi (
     id serial PRIMARY KEY,
@@ -402,7 +412,7 @@ CREATE TABLE printing (
     "date" date,
     line_version_id integer,
     "comment" text,
-	rfp_date date
+    rfp_date date
 );
 COMMENT ON TABLE printing IS 'Quatite de fiche horaire d''une offre imprimees. Aide a la gestion des document IV.';
 COMMENT ON COLUMN printing.comment IS 'Raison du tirage : initial, reassort ou correction.';
@@ -446,10 +456,10 @@ CREATE TABLE route_section (
     end_date date,
     the_geom geometry(LineString,3943) NOT NULL
 );
-COMMENT ON TABLE route_section IS 'Troncon inter-arrets provenant de Tigre. Les dates permettent de gerer des changement de parcours entre 2 arrets. Un troncon est unique pour une geometrie et ses arrets depart-arrivee.';
+COMMENT ON TABLE route_section IS 'Troncon inter-arrets provenant du referentiel de donnees geographiques. Les dates permettent de gerer des changement de parcours entre 2 arrets. Un troncon est unique pour une geometrie et ses arrets depart-arrivee.';
 COMMENT ON COLUMN route_section.start_date IS 'Date de la creation de ce troncon. Un nouveau troncon est cree si arret debut ou arret fin ou geom est nouvelle.';
 COMMENT ON COLUMN route_section.end_date IS 'Date de fin d''utilisation du troncon. Lorsqu''un nouveau troncon (meme debut, meme fin mais geom differente) est cree, le precedentest cloture.';
-COMMENT ON COLUMN route_section.the_geom IS 'Geometrie de Tigre.';
+COMMENT ON COLUMN route_section.the_geom IS 'Geometrie du referentiel de donnees geographiques.';
 
 CREATE TABLE route_stop (
     id serial PRIMARY KEY,
@@ -479,11 +489,14 @@ CREATE TABLE schematic (
     comment character varying(255) NOT NULL,
     date timestamp without time zone NOT NULL,
     file_path text,
-	line_id integer NOT NULL,
-	deprecated boolean NOT NULL,
+    line_id integer NOT NULL,
+    deprecated boolean NOT NULL,
     group_gis boolean DEFAULT FALSE
 );
 COMMENT ON TABLE schematic IS 'Modifications des schemas de ligne';
+COMMENT ON COLUMN schematic.line_id IS 'Association d''un schematic a la line pour le proposer lors de la creation d''une line_version.';
+COMMENT ON COLUMN schematic.deprecated IS 'Tag informatif sur le schematic, sans conséquence directe dans la base.';
+COMMENT ON COLUMN schematic.group_gis IS 'Tag informatif sur le schematic, sans conséquence directe dans la base.';
 
 CREATE TABLE stop_area (
     id serial PRIMARY KEY,
@@ -497,6 +510,7 @@ COMMENT ON TABLE stop_area IS 'Zone d''arret comportant un ou plusieurs arrets.'
 COMMENT ON COLUMN stop_area.short_name IS 'Nom identique aux noms des arrets le composant.';
 COMMENT ON COLUMN stop_area.long_name IS 'Par defaut, le long_name est identique aux noms des arrets le composant, il peut etre modifie pour developper les abbreviations du nom court.';
 COMMENT ON COLUMN stop_area.transfer_duration IS 'Temps en secondes de transfert entre deux arret de cette zone d''arrets.';
+COMMENT ON COLUMN stop_area.the_geom IS 'Geometrie pour surcharger le simple centroide des stoppoint contenus dans l''area.';
 
 CREATE TABLE stop_area_datasource (
     id serial PRIMARY KEY,
@@ -512,6 +526,7 @@ CREATE TABLE stop (
     master_stop_id integer
 );
 COMMENT ON TABLE stop IS 'Arret de bus ou de TAD, quai de tram ou de metro.';
+COMMENT ON COLUMN stop.master_stop_id IS 'Indique s''il s''agit d''un arret fictif. Reference l''id du stop reel auxquel le stop fictif est rattache.';
 
 CREATE TABLE stop_history (
     id serial PRIMARY KEY,
@@ -522,9 +537,8 @@ CREATE TABLE stop_history (
     long_name character varying(255),
     the_geom geometry(Point,3943) NOT NULL
 );
-COMMENT ON TABLE stop_history IS 'Proprietes d''un arret. Un arret n''a qu''un historique dans le temps. Si une caracteristique cahnge, l''historique precedent est cloture et un nouveau est cree.';
-COMMENT ON COLUMN stop_history.short_name IS 'Nom de l''arret dans le referentiel Hastus. Pas de modification possible.';
-COMMENT ON COLUMN stop_history.long_name IS 'Champ inutile pour le moment. Laisser vide.';
+COMMENT ON TABLE stop_history IS 'Proprietes d''un arret. Un arret n''a qu''un historique dans le temps. Si une caracteristique change, l''historique precedent est cloture et un nouveau est cree.';
+COMMENT ON COLUMN stop_history.short_name IS 'Nom de l''arret dans le referentiel exploitation.';
 
 CREATE TABLE stop_datasource (
     id serial PRIMARY KEY,
@@ -541,7 +555,7 @@ CREATE TABLE stop_accessibility (
     accessibility_type_id integer NOT NULL,
     stop_id integer NOT NULL
 );
-COMMENT ON TABLE stop_accessibility IS 'Acccessibilite de l''objet.';
+COMMENT ON TABLE stop_accessibility IS 'Acccessibilite de l''objet. Reference un mode d''accessibilite et un stop.';
 
 CREATE TABLE stop_time (
     id serial PRIMARY KEY,
@@ -562,13 +576,13 @@ CREATE TABLE transfer (
     end_stop_id integer NOT NULL,
     duration integer NOT NULL,
     distance integer,
-	long_name character varying(255),
+    long_name character varying(255),
     the_geom geometry(Point,3943)
 );
 COMMENT ON TABLE transfer IS 'Correspondance entre deux arrets.';
 COMMENT ON COLUMN transfer.duration IS 'Temps de transfert en minutes.';
 COMMENT ON COLUMN transfer.distance IS 'Distance en metres de la correspondance.';
-COMMENT ON COLUMN transfer.the_geom IS 'Trace de la correspondance. Inutilise pour le moment.';
+COMMENT ON COLUMN transfer.the_geom IS 'Trace de la correspondance.';
 
 CREATE TABLE transfer_datasource (
     id serial PRIMARY KEY,
@@ -583,7 +597,7 @@ CREATE TABLE transfer_accessibility (
     accessibility_type_id integer NOT NULL,
     transfer_id integer NOT NULL
 );
-COMMENT ON TABLE transfer_accessibility IS 'Acccessibilite de l''objet.';
+COMMENT ON TABLE transfer_accessibility IS 'Acccessibilite de l''objet. Reference un mode d''accessibilite et un transfer.';
 
 CREATE TABLE transfer_not_exported (
     id serial PRIMARY KEY,
@@ -605,9 +619,12 @@ CREATE TABLE trip (
     period_calendar_id integer
 );
 COMMENT ON TABLE trip IS 'Service d''un itineraire. Fait le lien entre les horaires et les itineraires.';
-COMMENT ON COLUMN trip.name IS 'Nom de l''objet. Si vient d''Hastus, identiques a la datasource.';
+COMMENT ON COLUMN trip.name IS 'Nom de l''objet. Si vient du referentiel exploitation, identique a la datasource.';
 COMMENT ON COLUMN trip.trip_calendar_id IS 'Lien vers un calendrier de fiche horaire. Null si il s''agit d''un service de prod non present dans les fiches horaires.';
 COMMENT ON COLUMN trip.comment_id IS 'Lien vers les commentaires pour les fiches horaires.';
+COMMENT ON COLUMN trip.is_pattern IS 'TRUE si l''objet ne sert qu''a definir les temps de parcours type pour un itineraire. DAns ce cas l''objet n''est pas utilise ni dans le CI ni dans les FH.';
+COMMENT ON COLUMN trip.pattern_id IS 'ID du trip reference, permet de faciliter la saisie.';
+COMMENT ON COLUMN trip.trip_parent_id IS 'En cas de fusion de trip, les trip fusionnes reference l''id cree par la fusion.';
 CREATE INDEX trip_route_id_idx ON trip USING btree (route_id);
 CREATE INDEX trip_route_id_calendar_idx ON trip USING btree (route_id) WHERE (trip_calendar_id IS NOT NULL);
 CREATE INDEX trip_day_calendar_id_idx ON trip USING btree (day_calendar_id);
@@ -628,7 +645,7 @@ CREATE TABLE trip_accessibility (
     accessibility_type_id integer NOT NULL,
     trip_id integer NOT NULL
 );
-COMMENT ON TABLE trip_accessibility IS 'Acccessibilite de l''objet.';
+COMMENT ON TABLE trip_accessibility IS 'Acccessibilite de l''objet. Reference un mode d''accessibilite et un trip.';
 
 CREATE TABLE trip_calendar (
     id serial PRIMARY KEY,
@@ -641,11 +658,12 @@ CREATE TABLE trip_calendar (
     saturday boolean NOT NULL,
     sunday boolean NOT NULL
 );
-COMMENT ON TABLE trip_calendar IS 'Description des jours de circulation des services (trips) pour les fiches horaires. Table remplie par l''import Hastus FICHOR pour les lignes exploitees par Tisseo.';
+COMMENT ON TABLE trip_calendar IS 'Description des jours de circulation des services (trips) pour les fiches horaires. Table remplie par l''import du referentiel d''exploitation pour les FH.';
 
 CREATE TABLE waypoint (
     id serial PRIMARY KEY
 );
+COMMENT ON TABLE waypoint IS 'Sequence commune aux stop et aux odt_area pour premettre un itineraire comme un enchainement des deux objets.';
 
 CREATE TABLE property (
     id serial PRIMARY KEY,
@@ -658,7 +676,7 @@ CREATE TABLE line_version_property (
     line_version_id integer NOT NULL,
     property_id integer NOT NULL,
     "value" boolean NOT NULL,
-	PRIMARY KEY (line_version_id, property_id)
+    PRIMARY KEY (line_version_id, property_id)
 );
 COMMENT ON TABLE line_version_property IS 'Lien entre property et line_version';
 
@@ -669,7 +687,6 @@ CREATE TABLE stop_history_datasource (
     code character varying(20)
 );
 COMMENT ON TABLE stop_history_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
-
 
 -- Creation des cles etrangeres
 ALTER TABLE ONLY line_group_content ADD CONSTRAINT line_group_content_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
