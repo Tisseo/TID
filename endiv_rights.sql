@@ -18,7 +18,11 @@ END;
 $$;
 
 GRANT ALL PRIVILEGES ON DATABASE endiv to endiv_owner;
+GRANT ALL PRIVILEGES ON SCHEMA public TO endiv_owner;
 GRANT USAGE ON SCHEMA public TO endiv_reader;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO endiv_reader;
+GRANT EXECUTE ON FUNCTION getcalendarbitmask(int, date, date) TO endiv_reader;
+GRANT EXECUTE ON FUNCTION getcalendarelementbitmask(date, date, integer, integer, date, date, integer) TO endiv_reader;
+GRANT EXECUTE ON FUNCTION applybitmask(bit varying, bit varying, date, date, calendar_operator) TO endiv_reader;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
 GRANT SELECT ON TABLES TO endiv_reader;
