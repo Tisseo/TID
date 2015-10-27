@@ -1041,6 +1041,9 @@ INSERT INTO exception_type VALUES (10,'vs', 'Uniquement le vendredi et le samedi
 INSERT INTO exception_type VALUES (11,'vs', 'Uniquement le vendredi et le samedi', '1111111', '0000110');
 SELECT pg_catalog.setval('exception_type_id_seq', 12, false);
 
+INSERT INTO comment VALUES (1, 'zz', 'Une exception a été détectée mais aucune action automatique na pu être effectuée.');
+SELECT pg_catalog.setval('comment_id_seq', 2, false);
+
 INSERT INTO calendar (id, name, calendar_type) VALUES (1,'TAD 106 9/10/12','periode') ;
 INSERT INTO calendar (id, name, calendar_type) VALUES (2,'Z Vac Toussaint','brique') ;
 INSERT INTO calendar (id, name, calendar_type) VALUES (3,'Z Vac Noel','brique') ;

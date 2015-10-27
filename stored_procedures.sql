@@ -1081,16 +1081,16 @@ CREATE OR REPLACE FUNCTION mergetrips(_trips integer[], _trip_calendar_id intege
     DECLARE
         _trip_parent_id integer;
     BEGIN
-        -- create a new trip_parent using first trip in array
+        -- creating a new trip_parent using first trip in array
         INSERT INTO trip(name, route_id, trip_calendar_id) SELECT name || '_FH', route_id, _trip_calendar_id FROM trip WHERE id = _trips[1] RETURNING id INTO _trip_parent_id;
         INSERT INTO trip_datasource(trip_id, datasource_id, code) VALUES(_trip_parent_id, _datasource_id, _trip_parent_id || '_FH');
-        -- duplicate all stop_time linked to the first trip and link them to the new _trip_parent_id
+        -- duplicating all stop_time linked to the first trip and link them to the new _trip_parent_id
         INSERT INTO stop_time(route_stop_id, trip_id, departure_time, arrival_time) SELECT route_stop_id, _trip_parent_id, departure_time, arrival_time FROM stop_time WHERE trip_id = _trips[1];
-        -- update all _trips by linking them to the new _trip_parent_id and deleting their trip_calendar_id
+        -- updating all _trips by linking them to the new _trip_parent_id and deleting their trip_calendar_id and comment_id
         UPDATE trip SET(trip_calendar_id, trip_parent_id) = (NULL, _trip_parent_id) WHERE id = ANY(_trips);
     END;
     $$;
-COMMENT ON FUNCTION mergetrips (_trips integer[], _trip_calendar_id integer, _datasource_id integer) IS 'Merge duplicated trips by creating a new one attached to a specific _trip_calendar_id. The trip_calendar days pattern is the sum of all patterns of each trip which will be merged.';
+COMMENT ON FUNCTION mergetrips (_trips integer[], _trip_calendar_id integer, _datasource_id integer) IS 'Merging duplicated trips by creating a new one attached to a specific _trip_calendar_id. The trip_calendar days pattern is the sum of all patterns of each trip which will be merged.';
 
 
 CREATE OR REPLACE FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer, _master_stop_id integer,  _datasource integer) RETURNS void
