@@ -1,1 +1,0 @@
-Appelle toutes les procédures stoquées et fait des tests
