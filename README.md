@@ -1,6 +1,6 @@
-## Travellers Information Datawarehouse
+# Travellers Information Datawarehouse
 
-# Description
+## Description
 
 TID for Travellers Information Datawarehouse is a PostgeSQL database with a PostGIS extension. Its purpose is to store and transform public transport exploitation data into information dedicate to travellers. Tisséo provides 2 Symfony bundles for the management of TID database : [BoaBundle](https://github.com/Tisseo/BoaBundle) and [PaonBundle](https://github.com/Tisseo/PaonBundle).
 
@@ -16,12 +16,12 @@ TID covers:
 - line schematic
 - ...
 
-# Requirements
+## Requirements
 
 - Postgresql 9.1+
 - Postgis 2.1 (a script is available in order to install the extension)
 
-# Installation (linux)
+## Installation (linux)
 
 1. Set up [TID]:
 
@@ -52,6 +52,6 @@ psql -U endiv_owner -d endiv -f TID/insert_initial_data.sql
 psql -d endiv -f TID/grants.sql -v owner=endiv_owner -v reader=endiv_reader
 ```
 
-# TODO
+## TODO
 
 - Create an installer in order to simplify the installation process.
