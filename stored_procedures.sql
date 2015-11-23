@@ -1031,7 +1031,7 @@ CREATE OR REPLACE FUNCTION insertstop(_date date, _name character varying, _x ch
 
         IF _stop_area_id IS NULL THEN
             RAISE EXCEPTION 'stop area not found with this short_name % and city %', _name, _insee;
-        ELSIF master_stop_id IS NOT NULL THEN
+        ELSIF _master_stop_id IS NOT NULL THEN
             SELECT insertortransformtophantom(NULL, _master_stop_id, _datasource, _code) INTO _stop_id;
         ELSE
             INSERT INTO waypoint(id) VALUES (nextval('waypoint_id_seq')) RETURNING waypoint.id INTO _stop_id;
