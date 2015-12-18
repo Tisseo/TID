@@ -39,6 +39,7 @@ CREATE OR REPLACE FUNCTION cleanpoi() RETURNS void
     BEGIN
         DELETE FROM poi_datasource;
         DELETE FROM poi_address;
+        DELETE FROM poi_stop;
         DELETE FROM poi;
         DELETE FROM poi_type;
     END;
