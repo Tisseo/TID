@@ -406,6 +406,13 @@ CREATE TABLE poi_type (
     name character varying(50) NOT NULL
 );
 
+CREATE TABLE poi_stop (
+    poi_id integer NOT NULL,
+    stop_id integer NOT NULL
+);
+COMMENT ON TABLE poi_stop IS 'Relation entre un poi et un arrêt';
+CREATE INDEX poi_stop_idx ON poi_stop USING btree (poi_id, stop_id);
+
 CREATE TABLE printing (
     id serial PRIMARY KEY,
     quantity integer,
@@ -691,7 +698,7 @@ COMMENT ON TABLE stop_history_datasource IS 'Reference de l''objet dans le refer
 -- Creation des cles etrangeres
 ALTER TABLE ONLY line_group_content ADD CONSTRAINT line_group_content_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY line_group_content ADD CONSTRAINT line_group_content_line_group_id_fk FOREIGN KEY (line_group_id) REFERENCES line_group(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY line_group_gis_content ADD CONSTRAINT line_group__gis_content_line_id_fk FOREIGN KEY (line_id) REFERENCES line(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY line_group_gis_content ADD CONSTRAINT line_group_gis_content_line_id_fk FOREIGN KEY (line_id) REFERENCES line(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY line_group_gis_content ADD CONSTRAINT line_group_gis_content_line_group_gis_id_fk FOREIGN KEY (line_group_gis_id) REFERENCES line_group_gis(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY line_version ADD CONSTRAINT line_version_bg_color_id_fk FOREIGN KEY (bg_color_id) REFERENCES color(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY line_version ADD CONSTRAINT line_version_fg_color_id_fk FOREIGN KEY (fg_color_id) REFERENCES color(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
@@ -751,6 +758,8 @@ ALTER TABLE ONLY odt_area ADD CONSTRAINT odt_area_id_fk FOREIGN KEY (id) REFEREN
 ALTER TABLE ONLY non_concurrency ADD CONSTRAINT non_concurrency_non_priority_line_id_fk FOREIGN KEY (non_priority_line_id) REFERENCES line(id) ON UPDATE RESTRICT ON DELETE CASCADE;
 ALTER TABLE ONLY non_concurrency ADD CONSTRAINT non_concurrency_priority_line_id_fk FOREIGN KEY (priority_line_id) REFERENCES line(id) ON UPDATE RESTRICT ON DELETE CASCADE;
 ALTER TABLE ONLY poi ADD CONSTRAINT poi_poi_type_id_fk FOREIGN KEY (poi_type_id) REFERENCES poi_type(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY poi_stop ADD CONSTRAINT poi_stop_poi_id_fk FOREIGN KEY (poi_id) REFERENCES poi(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY poi_stop ADD CONSTRAINT poi_stop_stop_id_fk FOREIGN KEY (stop_id) REFERENCES stop(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY line_version_not_exported ADD CONSTRAINT line_version_not_exported_export_destination_id_fk FOREIGN KEY (export_destination_id) REFERENCES export_destination(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY line_version_not_exported ADD CONSTRAINT line_version_not_exported_line_version_id_pk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE CASCADE;
 ALTER TABLE ONLY line_version_datasource ADD CONSTRAINT line_version_datasource_datasource_id_fk FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
