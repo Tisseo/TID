@@ -6,7 +6,7 @@ CREATE SERVER file_fdw_server FOREIGN DATA WRAPPER file_fdw;
 CREATE EXTENSION IF NOT EXISTS unaccent;
 
 CREATE SCHEMA pgis;
-ALTER SCHEMA pgis OWNER TO endiv_owner;
+ALTER SCHEMA pgis OWNER TO :owner;
 
 SET default_tablespace = '';
 SET default_with_oids = false;
@@ -17,12 +17,9 @@ BEGIN
 END;
 $$;
 
-GRANT ALL PRIVILEGES ON DATABASE endiv to endiv_owner;
-GRANT ALL PRIVILEGES ON SCHEMA public TO endiv_owner;
-GRANT USAGE ON SCHEMA public TO endiv_reader;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO endiv_reader;
-GRANT EXECUTE ON FUNCTION getcalendarbitmask(int, date, date) TO endiv_reader;
-GRANT EXECUTE ON FUNCTION getcalendarelementbitmask(date, date, integer, integer, date, date, integer) TO endiv_reader;
-GRANT EXECUTE ON FUNCTION applybitmask(bit varying, bit varying, date, date, calendar_operator) TO endiv_reader;
+GRANT ALL PRIVILEGES ON DATABASE :db to :owner;
+GRANT ALL PRIVILEGES ON SCHEMA public TO :owner;
+GRANT USAGE ON SCHEMA public TO :reader;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO :reader;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
-GRANT SELECT ON TABLES TO endiv_reader;
+GRANT SELECT ON TABLES TO :reader;
