@@ -580,7 +580,7 @@ CREATE TABLE transfer (
     the_geom geometry(Point,3943)
 );
 COMMENT ON TABLE transfer IS 'Correspondance entre deux arrets.';
-COMMENT ON COLUMN transfer.duration IS 'Temps de transfert en minutes.';
+COMMENT ON COLUMN transfer.duration IS 'Temps de transfert en secondes.';
 COMMENT ON COLUMN transfer.distance IS 'Distance en metres de la correspondance.';
 COMMENT ON COLUMN transfer.the_geom IS 'Trace de la correspondance.';
 
