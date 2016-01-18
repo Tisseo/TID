@@ -356,12 +356,14 @@ CREATE TABLE poi (
     name character varying(255) NOT NULL,
     city_id integer NOT NULL,
     poi_type_id integer NOT NULL,
-    priority integer NOT NULL
+    priority integer NOT NULL,
+    on_schema boolean
 );
 COMMENT ON TABLE poi IS 'Point d''interet. ';
 COMMENT ON COLUMN poi.city_id IS 'Commune du POI.';
 COMMENT ON COLUMN poi.poi_type_id IS 'Categorie de POI.';
 COMMENT ON COLUMN poi.priority IS 'Importance du POI. 1 = prioritaire, 5 = peu important.';
+COMMENT ON COLUMN poi.on_schema IS 'Affichage du POI sur les schemas de lignes, provient de Tigre.';
 CREATE INDEX poi_poi_type_id_idx ON poi USING btree (poi_type_id);
 
 CREATE TABLE poi_address (
