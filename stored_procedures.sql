@@ -905,7 +905,7 @@ COMMENT ON FUNCTION insertcalendar(_tcode character varying, _rcode character va
 
 CREATE TYPE address AS (address character varying, the_geom character varying, is_entrance boolean);
 
-CREATE OR REPLACE FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, _addresses address[], _stop_codes varchar[]) RETURNS void
+CREATE OR REPLACE FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _on_schema boolean, _datasource integer, _is_velo boolean, _addresses address[], _stop_codes varchar[]) RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -928,7 +928,7 @@ CREATE OR REPLACE FUNCTION insertpoi(_name character varying, _city_id integer, 
                 INSERT INTO poi_type(name) VALUES(_type) RETURNING id INTO _type_id;
             END IF;
         END IF;
-        INSERT INTO poi(name, city_id, poi_type_id, priority) VALUES (_name, _city_id, _type_id, _priority) RETURNING id INTO _poi_id;
+        INSERT INTO poi(name, city_id, poi_type_id, priority, on_schema) VALUES (_name, _city_id, _type_id, _priority, _on_schema) RETURNING id INTO _poi_id;
         INSERT INTO poi_datasource(poi_id, code, datasource_id) VALUES (_poi_id, '', _datasource);
         FOREACH _address IN ARRAY _addresses
         LOOP
@@ -946,7 +946,7 @@ CREATE OR REPLACE FUNCTION insertpoi(_name character varying, _city_id integer, 
         END IF;
     END;
     $$;
-COMMENT ON FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _datasource integer, _is_velo boolean, addresses address[]) IS 'Insertion de nouvelles entrées poi, poi_datasource et si passées en paramètre, poi_adress. Les poi_adress sont passées dans le tableau addresses qui contient des types address (le type address est un type technique contenant les champs nécessaires à linsertion dune entrée poi_address). Ainsi toutes les entrées poi_address seront associées à la donnée poi nouvellement créée.';
+COMMENT ON FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _on_schema boolean, _datasource integer, _is_velo boolean, addresses address[], _stop_codes varchar[]) IS 'Insertion de nouvelles entrées poi, poi_datasource et si passées en paramètre, poi_adress. Les poi_adress sont passées dans le tableau addresses qui contient des types address (le type address est un type technique contenant les champs nécessaires à linsertion dune entrée poi_address). Ainsi toutes les entrées poi_address seront associées à la donnée poi nouvellement créée.';
 
 
 CREATE OR REPLACE FUNCTION insertroute(_lvid integer, _way character varying, _name character varying, _direction character varying, _code character varying, _datasource integer) RETURNS void
