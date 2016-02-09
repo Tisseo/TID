@@ -1111,13 +1111,15 @@ CREATE OR REPLACE FUNCTION updatestop(_stop_history_id integer, _date date, _nam
         _stop_id integer;
         _temp_geom character varying;
         _the_geom pgis.geometry(Point, 3943);
+        _next_start_date date;
     BEGIN
         _temp_geom := 'POINT(' || _x || ' ' || _y || ')';
         _the_geom := pgis.ST_Transform(pgis.ST_GeomFromText(_temp_geom, 27572), 3943);
 
         IF _master_stop_id IS NULL THEN
             UPDATE stop_history SET end_date = _date - interval '1 day' WHERE id = _stop_history_id RETURNING stop_id INTO _stop_id;
-            INSERT INTO stop_history(stop_id, start_date, short_name, the_geom) VALUES (_stop_id, _date, _name, _the_geom);
+            SELECT MIN(start_date) INTO _next_start_date FROM stop_history WHERE stop_id = _stop_id AND start_date > _date;
+            INSERT INTO stop_history(stop_id, start_date, end_date, short_name, the_geom) VALUES (_stop_id, _date, _next_start_date - interval '1 day',_name, _the_geom);
         END IF;
     END;
     $$ LANGUAGE 'plpgsql';
