@@ -73,3 +73,4 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA pgis GRANT ALL ON FUNCTIONS  TO :reader;
 GRANT EXECUTE ON FUNCTION getcalendarbitmask(int, date, date) TO :reader;
 GRANT EXECUTE ON FUNCTION getcalendarelementbitmask(date, date, integer, integer, date, date, integer) TO :reader;
 GRANT EXECUTE ON FUNCTION applybitmask(bit varying, bit varying, date, date, calendar_operator) TO :reader;
+GRANT EXECUTE ON FUNCTION getbitmaskbeetweencalendars ( integer, integer, date, date, calendar_operator) TO :reader;
