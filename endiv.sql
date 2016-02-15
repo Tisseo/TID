@@ -153,20 +153,10 @@ COMMENT ON COLUMN exception_type.trip_calendar_pattern IS 'Circulation LMMJVSD d
 
 CREATE TABLE export_destination (
     id serial PRIMARY KEY,
-    nom character varying(255),
+    name character varying(255),
     url text
 );
 COMMENT ON TABLE export_destination IS 'Referentiel client de tout ou partie de la base. Permettra de filtrer l''export des objets.';
-
-CREATE TABLE export_perso (
-    table_name character varying(30) PRIMARY KEY
-);
-COMMENT ON TABLE export_perso IS 'Liste des tables a exporter dans l''export perso.';
-
-CREATE TABLE export_prod (
-    table_name character varying(30) PRIMARY KEY
-);
-COMMENT ON TABLE export_prod IS 'Liste des tables a exporter dans l''export prod.';
 
 CREATE TABLE grid_calendar (
     id serial PRIMARY KEY,
@@ -261,7 +251,7 @@ CREATE TABLE line_version (
     bg_color_id integer NOT NULL,
     fg_color_id integer NOT NULL,
     comment text,
-    depot character varying(50),
+    depot_id integer,
     status line_version_status,
     schematic_id integer DEFAULT NULL
 );
@@ -273,7 +263,7 @@ COMMENT ON COLUMN line_version.status IS 'Statut de l''offre (commencee, nouvell
 COMMENT ON COLUMN line_version.schematic_id IS 'Identifiant du schematique de l''offre';
 COMMENT ON COLUMN line_version.bg_color_id IS 'Cle vers la couleur de background de l''offre.';
 COMMENT ON COLUMN line_version.fg_color_id IS 'Cle vers la couleur de texte de l''offre.';
-COMMENT ON COLUMN line_version.depot IS 'Depot d''exploitation de la ligne (depot bus, garage metro ou tram,...).';
+COMMENT ON COLUMN line_version.depot_id IS 'Cle vers le depot d''exploitation de la ligne (depot bus, garage metro ou tram,...).';
 
 CREATE TABLE line_version_datasource (
     id serial PRIMARY KEY,
@@ -283,13 +273,12 @@ CREATE TABLE line_version_datasource (
 );
 COMMENT ON TABLE line_version_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
 
-CREATE TABLE line_version_not_exported (
+CREATE TABLE line_version_export_destination (
     id serial PRIMARY KEY,
     line_version_id integer,
     export_destination_id integer
 );
-COMMENT ON TABLE line_version_not_exported IS 'Line_version qui ne doivent pas être exportées en production car il y a un travail en cours ou obsolete.';
-CREATE INDEX line_version_not_exported_line_version_id_idx ON line_version_not_exported USING btree (line_version_id);
+CREATE INDEX line_version_export_destination_line_version_id_idx ON line_version_export_destination USING btree (line_version_id);
 
 CREATE TABLE log (
     id serial PRIMARY KEY,
@@ -426,6 +415,15 @@ CREATE TABLE printing (
 COMMENT ON TABLE printing IS 'Quatite de fiche horaire d''une offre imprimees. Aide a la gestion des document IV.';
 COMMENT ON COLUMN printing.comment IS 'Raison du tirage : initial, reassort ou correction.';
 
+CREATE TABLE printing_line_group_gis(
+	id serial PRIMARY KEY,
+	quantity integer,
+	date date,
+	line_group_gis_id integer,
+	comment text
+);
+COMMENT ON TABLE printing_line_group_gis IS 'Quantite de voussures imprimees. Aide a la gestion des document IV.';
+
 CREATE TABLE route (
     id serial PRIMARY KEY,
     line_version_id integer NOT NULL,
@@ -450,12 +448,11 @@ COMMENT ON TABLE route_datasource IS 'Reference de l''objet dans le referentiel 
 CREATE INDEX route_datasource_code_idx ON route_datasource USING btree (code);
 CREATE INDEX route_datasource_route_id_idx ON route_datasource USING btree (route_id);
 
-CREATE TABLE route_not_exported (
+CREATE TABLE route_export_destination (
     id serial PRIMARY KEY,
     route_id integer,
     export_destination_id integer
 );
-COMMENT ON TABLE route_not_exported IS 'Routes qui ne doivent pas être exportées en production car il y a un travail en cours ou obsolete.';
 
 CREATE TABLE route_section (
     id serial PRIMARY KEY,
@@ -608,12 +605,11 @@ CREATE TABLE transfer_accessibility (
 );
 COMMENT ON TABLE transfer_accessibility IS 'Acccessibilite de l''objet. Reference un mode d''accessibilite et un transfer.';
 
-CREATE TABLE transfer_not_exported (
+CREATE TABLE transfer_export_destination (
     id serial PRIMARY KEY,
     transfer_id integer,
     export_destination_id integer
 );
-COMMENT ON TABLE transfer_not_exported IS 'Correspondances qui ne doivent pas être exportées en production car il y a un travail en cours ou obsolete.';
 
 CREATE TABLE trip (
     id serial PRIMARY KEY,
@@ -697,6 +693,13 @@ CREATE TABLE stop_history_datasource (
 );
 COMMENT ON TABLE stop_history_datasource IS 'Reference de l''objet dans le referentiel de la datasource.';
 
+CREATE TABLE depot (
+	id serial PRIMARY KEY,
+	short_name character varying(50),
+	long_name character varying(255)
+);
+COMMENT ON TABLE depot IS 'Depot de stockage des vehicules, lie a la line_version.';
+
 -- Creation des cles etrangeres
 ALTER TABLE ONLY line_group_content ADD CONSTRAINT line_group_content_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY line_group_content ADD CONSTRAINT line_group_content_line_group_id_fk FOREIGN KEY (line_group_id) REFERENCES line_group(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
@@ -704,6 +707,7 @@ ALTER TABLE ONLY line_group_gis_content ADD CONSTRAINT line_group_gis_content_li
 ALTER TABLE ONLY line_group_gis_content ADD CONSTRAINT line_group_gis_content_line_group_gis_id_fk FOREIGN KEY (line_group_gis_id) REFERENCES line_group_gis(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY line_version ADD CONSTRAINT line_version_bg_color_id_fk FOREIGN KEY (bg_color_id) REFERENCES color(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY line_version ADD CONSTRAINT line_version_fg_color_id_fk FOREIGN KEY (fg_color_id) REFERENCES color(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY line_version ADD CONSTRAINT line_version_depot_id_fk FOREIGN KEY (depot_id) REFERENCES depot(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY poi_address_accessibility ADD CONSTRAINT poi_address_accessibility_accessibility_type_id_fk FOREIGN KEY (accessibility_type_id) REFERENCES accessibility_type(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY poi_address_accessibility ADD CONSTRAINT poi_address_accessibility_poi_address_id_fk FOREIGN KEY (poi_address_id) REFERENCES poi_address(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY stop_accessibility ADD CONSTRAINT stop_accessibility_accessibility_type_id_fk FOREIGN KEY (accessibility_type_id) REFERENCES accessibility_type(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
@@ -730,6 +734,7 @@ ALTER TABLE ONLY stop_time ADD CONSTRAINT stop_time_trip_id_fk FOREIGN KEY (trip
 ALTER TABLE ONLY route ADD CONSTRAINT route_comment_id FOREIGN KEY (comment_id) REFERENCES comment(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY route ADD CONSTRAINT route_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY printing ADD CONSTRAINT printing_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY printing_line_group_gis ADD CONSTRAINT printing_line_group_gis_line_group_gis_id_fk FOREIGN KEY (line_group_gis_id) REFERENCES line_group_gis(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY poi_datasource ADD CONSTRAINT poi_datasource_datasource_id_fk FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY poi_datasource ADD CONSTRAINT poi_datasource_poi_id_fk FOREIGN KEY (poi_id) REFERENCES poi(id) ON UPDATE RESTRICT ON DELETE CASCADE;
 ALTER TABLE ONLY poi_address_datasource ADD CONSTRAINT poi_address_datasource_datasource_id_fk FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
@@ -741,14 +746,14 @@ ALTER TABLE ONLY trip_calendar ADD CONSTRAINT grid_calendar_grid_mask_type_id_fk
 ALTER TABLE ONLY trip ADD CONSTRAINT trip_comment_id_fk FOREIGN KEY (comment_id) REFERENCES comment(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY trip ADD CONSTRAINT trip_route_id_fk FOREIGN KEY (route_id) REFERENCES route(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY trip ADD CONSTRAINT trip_trip_calendar_id_fk FOREIGN KEY (trip_calendar_id) REFERENCES trip_calendar(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY transfer_not_exported ADD CONSTRAINT transfer_not_exported_exporte_destination_id_fk FOREIGN KEY (export_destination_id) REFERENCES export_destination(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY transfer_not_exported ADD CONSTRAINT transfer_not_exported_transfer_id_fk FOREIGN KEY (transfer_id) REFERENCES transfer(id) ON UPDATE RESTRICT ON DELETE CASCADE;
+ALTER TABLE ONLY transfer_export_destination ADD CONSTRAINT transfer_export_destination_exporte_destination_id_fk FOREIGN KEY (export_destination_id) REFERENCES export_destination(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY transfer_export_destination ADD CONSTRAINT transfer_export_destination_transfer_id_fk FOREIGN KEY (transfer_id) REFERENCES transfer(id) ON UPDATE RESTRICT ON DELETE CASCADE;
 ALTER TABLE ONLY transfer_datasource ADD CONSTRAINT transfer_datasource_datasource_id_fk FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY transfer_datasource ADD CONSTRAINT transfer_datasource_transfer_id_fk FOREIGN KEY (transfer_id) REFERENCES transfer(id) ON UPDATE RESTRICT ON DELETE CASCADE;
 ALTER TABLE ONLY transfer ADD CONSTRAINT transfer_end_stop_id_fk FOREIGN KEY (end_stop_id) REFERENCES stop(id) ON UPDATE RESTRICT ON DELETE CASCADE;
 ALTER TABLE ONLY transfer ADD CONSTRAINT transfer_start_stop_id_fk FOREIGN KEY (start_stop_id) REFERENCES stop(id) ON UPDATE RESTRICT ON DELETE CASCADE;
-ALTER TABLE ONLY route_not_exported ADD CONSTRAINT route_not_exported_export_destination_id_fk FOREIGN KEY (export_destination_id) REFERENCES export_destination(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY route_not_exported ADD CONSTRAINT route_not_exported_route_id_fk FOREIGN KEY (route_id) REFERENCES route(id) ON UPDATE RESTRICT ON DELETE CASCADE;
+ALTER TABLE ONLY route_export_destination ADD CONSTRAINT route_export_destination_export_destination_id_fk FOREIGN KEY (export_destination_id) REFERENCES export_destination(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY route_export_destination ADD CONSTRAINT route_export_destination_route_id_fk FOREIGN KEY (route_id) REFERENCES route(id) ON UPDATE RESTRICT ON DELETE CASCADE;
 ALTER TABLE ONLY route_section ADD CONSTRAINT route_section_end_stop_id_fk FOREIGN KEY (end_stop_id) REFERENCES stop(id) ON UPDATE RESTRICT ON DELETE CASCADE;
 ALTER TABLE ONLY route_section ADD CONSTRAINT route_section_start_stop_id_fk FOREIGN KEY (start_stop_id) REFERENCES stop(id) ON UPDATE RESTRICT ON DELETE CASCADE;
 ALTER TABLE ONLY route_stop ADD CONSTRAINT route_stop_route_id_fk FOREIGN KEY (route_id) REFERENCES route(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
@@ -762,8 +767,8 @@ ALTER TABLE ONLY non_concurrency ADD CONSTRAINT non_concurrency_priority_line_id
 ALTER TABLE ONLY poi ADD CONSTRAINT poi_poi_type_id_fk FOREIGN KEY (poi_type_id) REFERENCES poi_type(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY poi_stop ADD CONSTRAINT poi_stop_poi_id_fk FOREIGN KEY (poi_id) REFERENCES poi(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY poi_stop ADD CONSTRAINT poi_stop_stop_id_fk FOREIGN KEY (stop_id) REFERENCES stop(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY line_version_not_exported ADD CONSTRAINT line_version_not_exported_export_destination_id_fk FOREIGN KEY (export_destination_id) REFERENCES export_destination(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY line_version_not_exported ADD CONSTRAINT line_version_not_exported_line_version_id_pk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE CASCADE;
+ALTER TABLE ONLY line_version_export_destination ADD CONSTRAINT line_version_export_destination_export_destination_id_fk FOREIGN KEY (export_destination_id) REFERENCES export_destination(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY line_version_export_destination ADD CONSTRAINT line_version_export_destination_line_version_id_pk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE CASCADE;
 ALTER TABLE ONLY line_version_datasource ADD CONSTRAINT line_version_datasource_datasource_id_fk FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY line_version_datasource ADD CONSTRAINT line_version_datasource_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE CASCADE;
 ALTER TABLE ONLY line_version ADD CONSTRAINT line_version_line_id_fk FOREIGN KEY (line_id) REFERENCES line(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
