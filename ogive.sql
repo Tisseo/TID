@@ -69,14 +69,6 @@ CREATE TABLE ogive.datasource
 
 COMMENT ON COLUMN ogive.datasource.is_editable IS 'Certaines datasources sont figées si elles proviennent d''ailleurs (TR). Le booléen est à false dans ce cas là, à true sinon.';
 
-CREATE TABLE ogive.depot
-(
-    id serial NOT NULL,
-    short_name character varying(5) NOT NULL,
-    long_name character varying(40) NOT NULL,
-    CONSTRAINT depot_pkey PRIMARY KEY (id)
-);
-
 CREATE TABLE ogive.emergency_status
 (
     id serial NOT NULL,
@@ -400,16 +392,6 @@ INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is
 INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('LVA','La Vache',1,'définitivement fermé',false,true);
 INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('GAS','Garossos',1,'ouvert',false,true);
 INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('GRT','Gare routière',3,'ouvert',false,false);
-
-INSERT INTO ogive.depot (short_name, long_name) VALUES ('LGL','Langlade');
-INSERT INTO ogive.depot (short_name, long_name) VALUES ('COL','Colomiers');
-INSERT INTO ogive.depot (short_name, long_name) VALUES ('ATL','Atlanta');
-INSERT INTO ogive.depot (short_name, long_name) VALUES ('ST','Sous-traité');
-INSERT INTO ogive.depot (short_name, long_name) VALUES ('DIV','Autres');
-INSERT INTO ogive.depot (short_name, long_name) VALUES ('AUT','Autonomia');
-INSERT INTO ogive.depot (short_name, long_name) VALUES ('ALC','Alcis');
-INSERT INTO ogive.depot (short_name, long_name) VALUES ('NEG','Negoti');
-INSERT INTO ogive.depot (short_name, long_name) VALUES ('TDV','Transdev');
 
 INSERT INTO ogive.datasource (name, is_editable) VALUES ('Agent métro',false);
 INSERT INTO ogive.datasource (name, is_editable) VALUES ('Main courante',false);
