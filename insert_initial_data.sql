@@ -1704,3 +1704,13 @@ SELECT insertcalendarelement (153,'2015-01-01','2015-12-31',1,'&',NULL) ;
 SELECT insertcalendarelement (153,NULL,NULL,1,'-',152) ;
 SELECT insertcalendarelement (153,'2015-05-02','2015-05-02',1,'-',NULL) ;
 SELECT insertcalendarelement (154,'2015-02-18','2015-02-18',1,'+',NULL) ;
+
+INSERT INTO depot (short_name, long_name) VALUES ('LGL','Langlade');
+INSERT INTO depot (short_name, long_name) VALUES ('COL','Colomiers');
+INSERT INTO depot (short_name, long_name) VALUES ('ATL','Atlanta');
+INSERT INTO depot (short_name, long_name) VALUES ('ST','Sous-traité');
+INSERT INTO depot (short_name, long_name) VALUES ('DIV','Autres');
+INSERT INTO depot (short_name, long_name) VALUES ('AUT','Autonomia');
+INSERT INTO depot (short_name, long_name) VALUES ('ALC','Alcis');
+INSERT INTO depot (short_name, long_name) VALUES ('NEG','Negoti');
+INSERT INTO depot (short_name, long_name) VALUES ('TDV','Transdev');
