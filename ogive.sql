@@ -108,13 +108,13 @@ CREATE TABLE ogive.event_datasource
     CONSTRAINT event_datasource_pkey PRIMARY KEY (id)
 );
 
-CREATE TABLE ogive.event_objects
+CREATE TABLE ogive.event_object
 (
     id serial NOT NULL,
     event_id integer NOT NULL,
-    objects_id integer NOT NULL,
+    object_id integer NOT NULL,
     emergency_status integer NULL,
-    CONSTRAINT event_objects_pkey PRIMARY KEY (id)
+    CONSTRAINT event_object_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE ogive.event_status
@@ -159,23 +159,23 @@ CREATE TABLE ogive.event_step_text
     CONSTRAINT event_step_text_pkey PRIMARY KEY (id)
 );
 
-CREATE TABLE ogive.group_objects
+CREATE TABLE ogive.group_object
 (
     id serial NOT NULL,
     name character varying(40) unique NOT NULL,
     group_type character varying(40) NOT NULL,
     is_private boolean NOT NULL,
-    CONSTRAINT group_objects_pkey PRIMARY KEY (id)
+    CONSTRAINT group_object_pkey PRIMARY KEY (id)
 );
 
-COMMENT ON COLUMN ogive.group_objects.is_private IS 'Est à true si le groupe est interne à Tisséo (pas d''affichage à l''extérieur dans de futures listes de choix)' ;
-COMMENT ON COLUMN ogive.group_objects.group_type IS 'Correspond au type du groupe d''objets, par exemple pole d''échange, batiment public, groupe d''exploitation, secteur géographique... ' ;
+COMMENT ON COLUMN ogive.group_object.is_private IS 'Est à true si le groupe est interne à Tisséo (pas d''affichage à l''extérieur dans de futures listes de choix)' ;
+COMMENT ON COLUMN ogive.group_object.group_type IS 'Correspond au type du groupe d''objets, par exemple pole d''échange, batiment public, groupe d''exploitation, secteur géographique... ' ;
 
-CREATE TABLE ogive.group_objects_content
+CREATE TABLE ogive.group_object_content
 (
-    objects_id integer NOT NULL,
-    group_objects_id integer NOT NULL,
-    CONSTRAINT group_objects_content_pkey PRIMARY KEY (objects_id,group_objects_id)
+    object_id integer NOT NULL,
+    group_object_id integer NOT NULL,
+    CONSTRAINT group_object_content_pkey PRIMARY KEY (object_id,group_object_id)
 );
 
 CREATE TABLE ogive.included_connector_param_list
@@ -235,15 +235,15 @@ COMMENT ON TABLE ogive.mailbox IS 'Informations mises à disposition pour des ap
 COMMENT ON COLUMN ogive.mailbox.is_for_website is 'Est à true si l''enregistrement est à mettre à disposition des info réseau' ;
 COMMENT ON COLUMN ogive.mailbox.is_for_pti is 'Est à true si l''enregistrement est à mettre à disposition de l''IV personnalisée' ;
 
-CREATE TABLE ogive.objects
+CREATE TABLE ogive.object
 (
     id serial NOT NULL,
     object_type ogive.event_object_type NOT NULL,
     object_ref character varying(255) NOT NULL,
-    CONSTRAINT objects_pkey PRIMARY KEY (id)
+    CONSTRAINT object_pkey PRIMARY KEY (id)
 );
 
-COMMENT ON COLUMN ogive.objects.object_ref IS 'Référence de l''objet dans le référentiel lié au type (si ligne, alors TID, si mécanisme, alors PIVERT...)' ;
+COMMENT ON COLUMN ogive.object.object_ref IS 'Référence de l''objet dans le référentiel lié au type (si ligne, alors TID, si mécanisme, alors PIVERT...)' ;
 
 CREATE TABLE ogive.period
 (
@@ -349,15 +349,15 @@ ALTER TABLE ONLY ogive.event_datasource ADD CONSTRAINT event_datasource_datasour
 ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY ogive.event ADD CONSTRAINT event_event_parent_id_fk FOREIGN KEY (event_parent_id) REFERENCES ogive.event(id)
 ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY ogive.event_objects ADD CONSTRAINT event_objects_event_id_fk FOREIGN KEY (event_id) REFERENCES ogive.event(id)
+ALTER TABLE ONLY ogive.event_object ADD CONSTRAINT event_object_event_id_fk FOREIGN KEY (event_id) REFERENCES ogive.event(id)
 ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY ogive.event_objects ADD CONSTRAINT event_objects_emergency_status_fk FOREIGN KEY (emergency_status) REFERENCES ogive.emergency_status(id)
+ALTER TABLE ONLY ogive.event_object ADD CONSTRAINT event_object_emergency_status_fk FOREIGN KEY (emergency_status) REFERENCES ogive.emergency_status(id)
 ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY ogive.event_objects ADD CONSTRAINT event_objects_objects_id_fk FOREIGN KEY (objects_id) REFERENCES ogive.objects(id)
+ALTER TABLE ONLY ogive.event_object ADD CONSTRAINT event_object_object_id_fk FOREIGN KEY (object_id) REFERENCES ogive.object(id)
 ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY ogive.group_objects_content ADD CONSTRAINT group_objects_content_objects_id_fk FOREIGN KEY (objects_id) REFERENCES ogive.objects(id)
+ALTER TABLE ONLY ogive.group_object_content ADD CONSTRAINT group_object_content_object_id_fk FOREIGN KEY (object_id) REFERENCES ogive.object(id)
 ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY ogive.group_objects_content ADD CONSTRAINT group_objects_content_group_objects_id_fk FOREIGN KEY (group_objects_id) REFERENCES ogive.group_objects(id)
+ALTER TABLE ONLY ogive.group_object_content ADD CONSTRAINT group_object_content_group_object_id_fk FOREIGN KEY (group_object_id) REFERENCES ogive.group_object(id)
 ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY ogive.line_board ADD CONSTRAINT line_board_board_id_fk FOREIGN KEY (board_id) REFERENCES ogive.board(id)
 ON UPDATE RESTRICT ON DELETE RESTRICT;
