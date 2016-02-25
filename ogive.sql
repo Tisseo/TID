@@ -128,14 +128,6 @@ CREATE TABLE ogive.event_step
 COMMENT ON COLUMN ogive.event_step.step_rank IS 'Rang de l''étape. Les rangs sont simplement ordonnés ; ils ne se suivent pas forcément.' ;
 COMMENT ON COLUMN ogive.event_step.event_step_parent_id IS 'Référence éventuelle à une étape parente, si celle-ci en dépend.' ;
 
-CREATE TABLE ogive.event_step_status
-(
-    id serial NOT NULL,
-    name character varying(40) unique NOT NULL,
-    color character varying(20) NOT NULL,
-    CONSTRAINT event_step_status_pkey PRIMARY KEY (id)
-);
-
 CREATE TABLE ogive.event_step_text
 (
     id serial NOT NULL,
@@ -194,11 +186,11 @@ COMMENT ON TABLE ogive.line_stop IS 'On utilise cette table pour créer des trio
 CREATE TABLE ogive.link_event_step_status
 (
     event_step_id integer NOT NULL,
-    status_id integer NOT NULL,
+    status integer NOT NULL,
     date_time timestamp without time zone NOT NULL,
     user_comment character varying(255) NOT NULL,
     login character varying(40) NOT NULL,
-    CONSTRAINT link_event_step_status_pkey PRIMARY KEY (event_step_id, status_id)
+    CONSTRAINT link_event_step_status_pkey PRIMARY KEY (event_step_id)
 );
 
 COMMENT ON TABLE ogive.link_event_step_status IS 'Dans cette table on stocke de manière exhaustive tous les changements de status d''une étape d''événement.' ;
@@ -320,8 +312,6 @@ ALTER TABLE ONLY ogive.event_step ADD CONSTRAINT event_step_event_id_fk FOREIGN 
 ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY ogive.link_event_step_status ADD CONSTRAINT link_event_step_status_event_step_id_fk FOREIGN KEY (event_step_id) REFERENCES ogive.event_step(id)
 ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY ogive.link_event_step_status ADD CONSTRAINT link_event_step_status_status_id_fk FOREIGN KEY (status_id) REFERENCES ogive.event_step_status(id)
-ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY ogive.event_step_text ADD CONSTRAINT event_step_text_event_step_id_fk FOREIGN KEY (event_step_id) REFERENCES ogive.event_step(id)
 ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY ogive.connector_param ADD CONSTRAINT connector_param_connector_param_list_id_fk FOREIGN KEY (connector_param_list_id) REFERENCES ogive.connector_param_list(id)
@@ -352,11 +342,6 @@ ALTER TABLE ONLY ogive.included_connector_param_list ADD CONSTRAINT included_con
 ON UPDATE RESTRICT ON DELETE RESTRICT;
 
 -- Insertion des données initiales
-INSERT INTO ogive.event_step_status (name, color) VALUES ('A effectuer', 'blanc');
-INSERT INTO ogive.event_step_status (name, color) VALUES ('Validé', 'vert');
-INSERT INTO ogive.event_step_status (name, color) VALUES ('Effectué automatiquement', 'vert');
-INSERT INTO ogive.event_step_status (name, color) VALUES ('Refusé', 'rouge');
-
 INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('ARE','Arènes',3,'ouvert',true,true);
 INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('JAU','Jean Jaurès',2,'ouvert',true,false);
 INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('ATB','Aéroport',2,'ouvert',true,false);
