@@ -78,7 +78,7 @@ COMMENT ON TABLE ogive.emergency_status IS 'Table des statuts liés au mode urge
 CREATE TABLE ogive.event
 (
     id serial NOT NULL,
-    chaos_type uuid NOT NULL,
+    chaos_severity uuid NOT NULL,
     chaos_cause uuid NOT NULL,
     is_published boolean NOT NULL,
     status integer NOT NULL,
@@ -243,7 +243,7 @@ CREATE TABLE ogive.scenario
 (
     id serial NOT NULL,
     name character varying(255) NOT NULL,
-    chaos_type uuid NOT NULL,
+    chaos_severity uuid NOT NULL,
     chaos_cause uuid NOT NULL,
     CONSTRAINT scenario_pkey PRIMARY KEY (id)
 );
