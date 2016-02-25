@@ -6,13 +6,6 @@ SET standard_conforming_strings = on;
 SET check_function_bodies = false;
 SET client_min_messages = warning;
 
--- creation des types
-CREATE TYPE ogive.board_status AS ENUM ('ouvert', 'provisoirement fermé', 'définitivement fermé');
-CREATE TYPE ogive.step_moment AS ENUM ('avant', 'pendant', 'après');
-CREATE TYPE ogive.event_status_status AS ENUM ('published', 'archived');
-CREATE TYPE ogive.event_object_type AS ENUM ('ligne', 'point d''arrêt', 'zone d''arrêt', 'agence', 'mécanisme', 'arrêt selon direction') ;
-CREATE TYPE ogive.connector_type AS ENUM ('text-to-mp3', 'email', 'info_reseau', 'ivp', 'pre_homepage', 'push', 'mail_pdf_A4', 'affichage_A4') ;
-
 -- creation des tables
 CREATE TABLE ogive.board
 (
@@ -20,7 +13,7 @@ CREATE TABLE ogive.board
     short_name character varying(8) NOT NULL,
     long_name character varying(40) NOT NULL,
     nb_boards integer NOT NULL default 0,
-    status ogive.board_status NOT NULL,
+    status character varying(50) NOT NULL,
     is_office boolean NOT NULL default false,
     is_waiting_room boolean NOT NULL default false,
     CONSTRAINT board_pkey PRIMARY KEY (id)
@@ -34,7 +27,7 @@ CREATE TABLE ogive.connector
 (
     id serial NOT NULL,
     name character varying(255) UNIQUE NOT NULL,
-    connector_type ogive.connector_type NOT NULL,
+    connector_type text NOT NULL,
     details character varying(255) NOT NULL,
     CONSTRAINT connector_pkey PRIMARY KEY (id)
 );
@@ -87,7 +80,8 @@ CREATE TABLE ogive.event
     id serial NOT NULL,
     chaos_type uuid NOT NULL,
     chaos_cause uuid NOT NULL,
-    event_status_id integer NOT NULL,
+    is_published boolean NOT NULL,
+    status integer NOT NULL,
     traffic_report_id uuid NOT NULL,
     reference text NULL,
     is_emergency boolean NOT NULL default false,
@@ -117,20 +111,12 @@ CREATE TABLE ogive.event_object
     CONSTRAINT event_object_pkey PRIMARY KEY (id)
 );
 
-CREATE TABLE ogive.event_status
-(
-    id serial NOT NULL,
-    name character varying(40) unique NOT NULL,
-    status ogive.event_status_status NOT NULL,
-    CONSTRAINT event_status_pkey PRIMARY KEY (id)
-);
-
 CREATE TABLE ogive.event_step
 (
     id serial NOT NULL,
     step_rank integer NOT NULL,
     name character varying(255) NOT NULL,
-    moment ogive.step_moment NOT NULL,
+    moment integer NOT NULL,
     mandatory boolean NOT NULL,
     event_id integer NOT NULL,
     connector_id integer NULL,
@@ -238,7 +224,7 @@ COMMENT ON COLUMN ogive.mailbox.is_for_pti is 'Est à true si l''enregistrement 
 CREATE TABLE ogive.object
 (
     id serial NOT NULL,
-    object_type ogive.event_object_type NOT NULL,
+    object_type text NOT NULL,
     object_ref character varying(255) NOT NULL,
     CONSTRAINT object_pkey PRIMARY KEY (id)
 );
@@ -275,10 +261,9 @@ CREATE TABLE ogive.scenario_step
     id serial NOT NULL,
     step_rank integer NULL,
     name character varying(255) NOT NULL,
-    moment ogive.step_moment NOT NULL,
+    moment integer NOT NULL,
     mandatory boolean NOT NULL,
-    is_sample boolean NOT NULL,
-    scenario_id integer NOT NULL,
+    scenario_id integer NULL,
     connector_id integer NULL,
     connector_param_list_id integer NULL,
     scenario_step_parent_id integer NULL,
@@ -367,16 +352,10 @@ ALTER TABLE ONLY ogive.included_connector_param_list ADD CONSTRAINT included_con
 ON UPDATE RESTRICT ON DELETE RESTRICT;
 
 -- Insertion des données initiales
-
 INSERT INTO ogive.event_step_status (name, color) VALUES ('A effectuer', 'blanc');
 INSERT INTO ogive.event_step_status (name, color) VALUES ('Validé', 'vert');
 INSERT INTO ogive.event_step_status (name, color) VALUES ('Effectué automatiquement', 'vert');
 INSERT INTO ogive.event_step_status (name, color) VALUES ('Refusé', 'rouge');
-
-INSERT INTO ogive.event_status (name, status) VALUES ('Ouvert', 'published');
-INSERT INTO ogive.event_status (name, status) VALUES ('Fermé', 'archived');
-INSERT INTO ogive.event_status (name, status) VALUES ('Archivé', 'archived');
-INSERT INTO ogive.event_status (name, status) VALUES ('Terminé', 'archived');
 
 INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('ARE','Arènes',3,'ouvert',true,true);
 INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('JAU','Jean Jaurès',2,'ouvert',true,false);
