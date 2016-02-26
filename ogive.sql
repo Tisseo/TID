@@ -114,7 +114,7 @@ CREATE TABLE ogive.event_object
 CREATE TABLE ogive.event_step
 (
     id serial NOT NULL,
-    step_rank integer NOT NULL,
+    rank integer NOT NULL,
     name character varying(255) NOT NULL,
     moment integer NOT NULL,
     mandatory boolean NOT NULL,
@@ -125,7 +125,7 @@ CREATE TABLE ogive.event_step
     CONSTRAINT event_step_pkey PRIMARY KEY (id)
 );
 
-COMMENT ON COLUMN ogive.event_step.step_rank IS 'Rang de l''étape. Les rangs sont simplement ordonnés ; ils ne se suivent pas forcément.' ;
+COMMENT ON COLUMN ogive.event_step.rank IS 'Rang de l''étape. Les rangs sont simplement ordonnés ; ils ne se suivent pas forcément.' ;
 COMMENT ON COLUMN ogive.event_step.event_step_parent_id IS 'Référence éventuelle à une étape parente, si celle-ci en dépend.' ;
 
 CREATE TABLE ogive.event_step_text
@@ -251,7 +251,7 @@ CREATE TABLE ogive.scenario
 CREATE TABLE ogive.scenario_step
 (
     id serial NOT NULL,
-    step_rank integer NULL,
+    rank integer NULL,
     name character varying(255) NOT NULL,
     moment integer NOT NULL,
     mandatory boolean NOT NULL,
@@ -262,7 +262,7 @@ CREATE TABLE ogive.scenario_step
     CONSTRAINT scenario_step_pkey PRIMARY KEY (id)
 );
 
-COMMENT ON COLUMN ogive.scenario_step.step_rank IS 'Rang de l''étape. Les rangs sont simplement ordonnés ; ils ne se suivent pas forcément.' ;
+COMMENT ON COLUMN ogive.scenario_step.rank IS 'Rang de l''étape. Les rangs sont simplement ordonnés ; ils ne se suivent pas forcément.' ;
 COMMENT ON COLUMN ogive.scenario_step.scenario_step_parent_id IS 'Référence éventuelle à une étape parente, si celle-ci en dépend.' ;
 
 CREATE TABLE ogive.scenario_step_text
