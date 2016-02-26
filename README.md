@@ -52,6 +52,12 @@ psql -U endiv_owner -d endiv -f TID/insert_initial_data.sql
 psql -d endiv -f TID/grants.sql -v owner=endiv_owner -v reader=endiv_reader
 ```
 
+## Ogive installation
+su postgres
+psql -d endiv -f ogive_schema_creation.sql -v owner=endiv_owner -v reader=endiv_reader
+psql -d endiv -f ogive.sql -U endiv_owner
+psql -d endiv -f ogive_grants.sql -v owner=endiv_owner -v reader=endiv_reader
+
 ## TODO
 
 - Create an installer in order to simplify the installation process.
