@@ -244,7 +244,7 @@ CREATE TABLE ogive.scenario
     id serial NOT NULL,
     name character varying(255) NOT NULL,
     chaos_severity uuid NOT NULL,
-    chaos_cause uuid NOT NULL,
+    chaos_internal_cause character varying(255) NOT NULL,
     CONSTRAINT scenario_pkey PRIMARY KEY (id)
 );
 
