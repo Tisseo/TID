@@ -27,7 +27,7 @@ CREATE TABLE ogive.connector
 (
     id serial NOT NULL,
     name character varying(255) UNIQUE NOT NULL,
-    connector_type text NOT NULL,
+    type text NOT NULL,
     details character varying(255) NOT NULL,
     CONSTRAINT connector_pkey PRIMARY KEY (id)
 );
