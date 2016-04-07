@@ -701,13 +701,13 @@ CREATE TABLE depot (
 COMMENT ON TABLE depot IS 'Depot de stockage des vehicules, lie a la line_version.';
 CREATE TABLE odt_geometry (
     id serial PRIMARY KEY,
-    line_version_id integer,
+    line_id integer,
     the_geom geometry(Polygon,3943)
 );
 COMMENT ON TABLE odt_geometry IS 'Geometrie du TAD zonal';
 
 -- Creation des cles etrangeres
-ALTER TABLE ONLY odt_geometry ADD CONSTRAINT odt_geometry_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY odt_geometry ADD CONSTRAINT odt_geometry_line_id_fk FOREIGN KEY (line_id) REFERENCES line(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY line_group_content ADD CONSTRAINT line_group_content_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY line_group_content ADD CONSTRAINT line_group_content_line_group_id_fk FOREIGN KEY (line_group_id) REFERENCES line_group(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY line_group_gis_content ADD CONSTRAINT line_group_gis_content_line_id_fk FOREIGN KEY (line_id) REFERENCES line(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
