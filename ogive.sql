@@ -82,7 +82,7 @@ CREATE TABLE ogive.event
     chaos_cause uuid NOT NULL,
     is_published boolean NOT NULL,
     status integer NOT NULL,
-    traffic_report_id uuid NOT NULL,
+    chaos_disruption_id uuid NOT NULL,
     reference text NULL,
     is_emergency boolean NOT NULL default false,
     event_parent_id integer NULL,
