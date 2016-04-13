@@ -79,8 +79,8 @@ CREATE TABLE ogive.event
 (
     id serial NOT NULL,
     chaos_severity uuid NOT NULL,
-    chaos_cause uuid NOT NULL,
-    is_published boolean NOT NULL,
+    chaos_internal_cause character varying(255) NOT NULL,
+    is_published boolean,
     status integer NOT NULL,
     chaos_disruption_id uuid NOT NULL,
     reference text NULL,
