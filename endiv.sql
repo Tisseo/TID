@@ -95,6 +95,7 @@ CREATE INDEX calendar_element_calendar_id_idx ON calendar_element USING btree (c
 CREATE TABLE city (
     id serial PRIMARY KEY,
     insee character varying(5) NOT NULL,
+    postal_code character varying(5),
     name character varying(255) NOT NULL,
     main_stop_area_id integer,
     the_geom geometry(Polygon,3943)
