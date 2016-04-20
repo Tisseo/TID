@@ -95,13 +95,14 @@ CREATE INDEX calendar_element_calendar_id_idx ON calendar_element USING btree (c
 CREATE TABLE city (
     id serial PRIMARY KEY,
     insee character varying(5) NOT NULL,
+    postal_code character varying(5),
     name character varying(255) NOT NULL,
     main_stop_area_id integer,
     the_geom geometry(Polygon,3943)
  );
 COMMENT ON TABLE city IS 'Commune.';
 COMMENT ON COLUMN city.insee IS 'Code Insee de la commune.';
-COMMENT ON COLUMN city.main_stop_area_id IS 'Arret principal de la commune, sert de point de départ lors d''un itineraire depsui ou vers la commune.';
+COMMENT ON COLUMN city.main_stop_area_id IS 'Arret principal de la commune, sert de point de départ lors d''un itineraire depuis ou vers la commune.';
 CREATE INDEX city_geom_idx ON city USING GIST (the_geom); 
 CREATE INDEX city_main_stop_area_id_idx ON city USING btree (main_stop_area_id);
 
