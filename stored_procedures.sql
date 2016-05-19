@@ -1269,6 +1269,7 @@ CREATE OR REPLACE FUNCTION purge_fh_data(_line_version_id integer) RETURNS VOID
         DELETE FROM trip_calendar WHERE id NOT IN (SELECT DISTINCT(trip_calendar_id) FROM trip);
         DELETE FROM grid_link_calendar_mask_type WHERE grid_mask_type_id NOT IN (SELECT DISTINCT(grid_mask_type_id) FROM trip_calendar);
         DELETE FROM grid_mask_type WHERE id NOT IN (SELECT DISTINCT(grid_mask_type_id) FROM trip_calendar);
+        DELETE FROM route WHERE line_version_id = _line_version_id AND 0 = (SELECT count(*) FROM trip WHERE route_id = route.id);
     END;
     $$ LANGUAGE 'plpgsql';
 COMMENT ON FUNCTION purge_fh_data(integer) IS 'Efface toutes les données de type fiche horaire relatives à une line_version.';
