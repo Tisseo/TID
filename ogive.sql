@@ -85,6 +85,7 @@ CREATE TABLE ogive.event
     chaos_disruption_id uuid NOT NULL,
     reference text NULL,
     is_emergency boolean NOT NULL default false,
+    login character varying(40) NOT NULL,
     event_parent_id integer NULL,
     CONSTRAINT event_pkey PRIMARY KEY (id)
 );
@@ -185,12 +186,16 @@ COMMENT ON TABLE ogive.line_stop IS 'On utilise cette table pour créer des trio
 
 CREATE TABLE ogive.link_event_step_status
 (
+    id serial NOT NULL,
     event_step_id integer NOT NULL,
     status integer NOT NULL,
     date_time timestamp without time zone NOT NULL,
     user_comment character varying(255) NOT NULL,
     login character varying(40) NOT NULL,
-    CONSTRAINT link_event_step_status_pkey PRIMARY KEY (event_step_id)
+    CONSTRAINT link_event_step_status_pkey PRIMARY KEY (id),
+    CONSTRAINT link_event_step_status_event_step_id_fk FOREIGN KEY (event_step_id)
+          REFERENCES ogive.event_step (id) MATCH SIMPLE
+              ON UPDATE RESTRICT ON DELETE RESTRICT
 );
 
 COMMENT ON TABLE ogive.link_event_step_status IS 'Dans cette table on stocke de manière exhaustive tous les changements de status d''une étape d''événement.' ;
