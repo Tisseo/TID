@@ -13,7 +13,7 @@ CREATE TABLE ogive.board
     short_name character varying(8) NOT NULL,
     long_name character varying(40) NOT NULL,
     nb_boards integer NOT NULL default 0,
-    status character varying(50) NOT NULL,
+    status integer NOT NULL,
     is_office boolean NOT NULL default false,
     is_waiting_room boolean NOT NULL default false,
     CONSTRAINT board_pkey PRIMARY KEY (id)
@@ -343,20 +343,20 @@ ALTER TABLE ONLY ogive.included_connector_param_list ADD CONSTRAINT included_con
 ON UPDATE RESTRICT ON DELETE RESTRICT;
 
 -- Insertion des données initiales
-INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('ARE','Arènes',3,'ouvert',true,true);
-INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('JAU','Jean Jaurès',2,'ouvert',true,false);
-INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('ATB','Aéroport',2,'ouvert',true,false);
-INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('MBC','Basso Cambo',2,'ouvert',true,false);
-INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('MAR','Marengo SNCF',2,'ouvert',true,false);
-INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('BGR','Balma Gramont',2,'ouvert',true,true);
-INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('RAM/UPS','Paul Sabatier',2,'ouvert',false,true);
-INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('JOL','Jolimont',1,'ouvert',false,true);
-INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('EMP','Empalot',1,'ouvert',false,true);
-INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('ARG','Argoulets',1,'ouvert',false,true);
-INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('BOR','Borderouge',1,'définitivement fermé',false,true);
-INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('LVA','La Vache',1,'définitivement fermé',false,true);
-INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('GAS','Garossos',1,'ouvert',false,true);
-INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('GRT','Gare routière',3,'ouvert',false,false);
+INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('ARE','Arènes',3,1,true,true);
+INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('JAU','Jean Jaurès',2,1,true,false);
+INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('ATB','Aéroport',2,1,true,false);
+INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('MBC','Basso Cambo',2,1,true,false);
+INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('MAR','Marengo SNCF',2,1,true,false);
+INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('BGR','Balma Gramont',2,1,true,true);
+INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('RAM/UPS','Paul Sabatier',2,1,false,true);
+INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('JOL','Jolimont',1,1,false,true);
+INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('EMP','Empalot',1,1,false,true);
+INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('ARG','Argoulets',1,1,false,true);
+INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('BOR','Borderouge',1,3,false,true);
+INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('LVA','La Vache',1,3,false,true);
+INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('GAS','Garossos',1,1,false,true);
+INSERT INTO ogive.board (short_name, long_name, nb_boards, status, is_office, is_waiting_room) VALUES ('GRT','Gare routière',3,1,false,false);
 
 INSERT INTO ogive.datasource (name, is_editable) VALUES ('Agent métro',false);
 INSERT INTO ogive.datasource (name, is_editable) VALUES ('Main courante',false);
