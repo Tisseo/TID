@@ -231,12 +231,8 @@ COMMENT ON COLUMN ogive.object.object_ref IS 'Référence de l''objet dans le r�
 CREATE TABLE ogive.period
 (
     id serial NOT NULL,
-    start_date date NOT NULL,
-    end_date date NOT NULL,
-    start_time time NULL,
-    end_time time NULL,
-    is_recursive boolean NOT NULL default false,
-    day_pattern character varying(7) NOT NULL,
+    start_date timestamp without time zone NOT NULL,
+    end_date timestamp without time zone NOT NULL,
     event_id integer NOT NULL,
     CONSTRAINT period_pkey PRIMARY KEY (id)
 );
