@@ -960,33 +960,59 @@ CREATE OR REPLACE FUNCTION insertroute(_lvid integer, _way character varying, _n
 COMMENT ON FUNCTION insertroute (integer, character varying, character varying, character varying, character varying, integer) IS 'Insert record in tables route and route_datasource.';
 
 
-CREATE OR REPLACE FUNCTION insertroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _start_date date) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-    DECLARE
-        _real_geom pgis.geometry(Linestring, 3943);
-    BEGIN
-        _real_geom := pgis.ST_GeomFromText(_the_geom, 3943);
-        INSERT INTO route_section(start_stop_id, end_stop_id, start_date, the_geom) VALUES (_start_stop_id, _end_stop_id, _start_date, _real_geom);
-    END;
-    $$;
-COMMENT ON FUNCTION insertroutesection (integer, integer, character varying, date) IS 'Insert record in table route_section.';
-
-
-CREATE OR REPLACE FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _route_section_id integer, _start_date date, _end_date date) RETURNS void
+CREATE OR REPLACE FUNCTION insert_or_update_route_section(
+    _start_stop_id integer,
+    _end_stop_id integer,
+    _the_geom character varying,
+    _start_date date,
+    _end_date date DEFAULT NULL,
+    _old_route_section_id integer DEFAULT NULL
+) RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
         _real_geom pgis.geometry(Linestring, 3943);
         _new_route_section_id integer;
     BEGIN
+        IF _old_route_section_id IS NOT NULL AND _end_date IS NULL THEN
+            RAISE EXCEPTION 'The end date have to be sent to the function in order to update the closed line_section';
+        END IF;
+
         _real_geom := pgis.ST_GeomFromText(_the_geom, 3943);
-        UPDATE route_section SET end_date = _end_date WHERE id = _route_section_id;
-        INSERT INTO route_section(start_stop_id, end_stop_id, start_date, the_geom) VALUES (_start_stop_id, _end_stop_id, _start_date, _real_geom) RETURNING id INTO _new_route_section_id;
-        UPDATE route_stop SET route_section_id = _new_route_section_id WHERE route_section_id = _route_section_id AND route_id IN (SELECT R.id FROM route R JOIN line_version LV ON LV.id = R.line_version_id WHERE ((LV.end_date IS NULL AND LV.planned_end_date >= _start_date) OR LV.end_date >= _start_date));
+
+        INSERT INTO route_section(start_stop_id, end_stop_id, start_date, the_geom)
+        VALUES (_start_stop_id, _end_stop_id, _start_date, _real_geom)
+        RETURNING id INTO _new_route_section_id;
+
+        IF _old_route_section_id IS NULL THEN
+            UPDATE route_stop SET route_section_id = _new_route_section_id
+            WHERE id IN (
+                SELECT rs.id
+                FROM route_stop rs
+                JOIN route_stop rs2 ON rs.route_id = rs2.route_id AND rs2.rank = rs.rank + 1
+                WHERE rs.route_section_id IS NULL AND rs.waypoint_id = _start_stop_id AND rs2.waypoint_id = _end_stop_id
+            )
+            AND route_id IN (
+                SELECT R.id
+                FROM route R
+                JOIN line_version LV ON LV.id = R.line_version_id
+                WHERE (LV.end_date IS NULL AND LV.planned_end_date >= _start_date)
+                OR LV.end_date >= _start_date
+            );
+        ELSE
+            UPDATE route_section SET end_date = _end_date WHERE id = _old_route_section_id;
+            UPDATE route_stop SET route_section_id = _new_route_section_id
+            WHERE route_section_id = _old_route_section_id AND route_id IN (
+                SELECT R.id
+                FROM route R
+                JOIN line_version LV ON LV.id = R.line_version_id
+                WHERE (LV.end_date IS NULL AND LV.planned_end_date >= _start_date)
+                OR LV.end_date >= _start_date
+            );
+        END IF;
     END;
     $$;
-COMMENT ON FUNCTION updateroutesection(_start_stop_id integer, _end_stop_id integer, _the_geom character varying, _route_section_id integer, _start_date date, _end_date date) IS 'La mise à jour dune route_section est historisée. Cela implique la fermeture dune route_section (champ end_date prend une valeur) et la création de sa successeur avec un champ end_date vide.';
+COMMENT ON FUNCTION insert_or_update_route_section (integer, integer, character varying, date, date, integer) IS 'Insert record in table route_section.';
 
 
 CREATE OR REPLACE FUNCTION insertroutestopandstoptime(_rcode character varying, _tcode character varying, _scode character varying, _related_scode character varying, _lvid integer, _rank integer, _scheduled boolean, _hour integer, _is_first boolean, _is_last boolean) RETURNS void
@@ -1269,6 +1295,7 @@ CREATE OR REPLACE FUNCTION purge_fh_data(_line_version_id integer) RETURNS VOID
         DELETE FROM trip_calendar WHERE id NOT IN (SELECT DISTINCT(trip_calendar_id) FROM trip);
         DELETE FROM grid_link_calendar_mask_type WHERE grid_mask_type_id NOT IN (SELECT DISTINCT(grid_mask_type_id) FROM trip_calendar);
         DELETE FROM grid_mask_type WHERE id NOT IN (SELECT DISTINCT(grid_mask_type_id) FROM trip_calendar);
+        DELETE FROM route WHERE line_version_id = _line_version_id AND 0 = (SELECT count(*) FROM trip WHERE route_id = route.id);
     END;
     $$ LANGUAGE 'plpgsql';
 COMMENT ON FUNCTION purge_fh_data(integer) IS 'Efface toutes les données de type fiche horaire relatives à une line_version.';
