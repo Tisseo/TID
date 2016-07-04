@@ -530,7 +530,8 @@ COMMENT ON TABLE stop_area_datasource IS 'Reference de l''objet dans le referent
 CREATE TABLE stop (
     id integer PRIMARY KEY,
     stop_area_id integer,
-    master_stop_id integer
+    master_stop_id integer,
+    lock boolean default false
 );
 COMMENT ON TABLE stop IS 'Arret de bus ou de TAD, quai de tram ou de metro.';
 COMMENT ON COLUMN stop.master_stop_id IS 'Indique s''il s''agit d''un arret fictif. Reference l''id du stop reel auxquel le stop fictif est rattache.';
