@@ -37,11 +37,8 @@ CREATE OR REPLACE FUNCTION cleanpoi() RETURNS void
     LANGUAGE plpgsql
     AS $$
     BEGIN
-        DELETE FROM poi_datasource;
         DELETE FROM poi_address;
         DELETE FROM poi_stop;
-        DELETE FROM poi;
-        DELETE FROM poi_type;
     END;
     $$;
 COMMENT ON FUNCTION cleanpoi() IS 'Fonction de suppression des données POI, appelée à chaque nouvel import provenant de la base SIG.';
@@ -905,7 +902,59 @@ COMMENT ON FUNCTION insertcalendar(_tcode character varying, _rcode character va
 
 CREATE TYPE address AS (address character varying, the_geom character varying, is_entrance boolean);
 
-CREATE OR REPLACE FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _on_schema boolean, _datasource integer, _is_velo boolean, _addresses address[], _stop_codes varchar[]) RETURNS void
+CREATE OR REPLACE FUNCTION insert_or_update_bike(
+    _name character varying,
+    _city_id integer,
+    _type_id integer,
+    _priority integer,
+    _on_schema boolean,
+    _datasource integer,
+    _code character varying,
+    _address character varying,
+    _the_geom character varying
+) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        _poi_id integer;
+        _real_geom pgis.geometry(Point, 3943);
+    BEGIN
+        SELECT poi_id FROM poi_datasource WHERE code = _code INTO _poi_id;
+
+        IF _poi_id IS NOT NULL THEN
+            UPDATE poi SET name = _name, city_id = _city_id, poi_type_id = _type_id, priority = _priority, on_schema = _on_schema WHERE id = _poi_id;
+        ELSE
+            INSERT INTO poi(name, city_id, poi_type_id, priority, on_schema) VALUES (_name, _city_id, _type_id, _priority, _on_schema) RETURNING id INTO _poi_id;
+            INSERT INTO poi_datasource(poi_id, code, datasource_id) VALUES (_poi_id, _code, _datasource);
+        END IF;
+
+        _real_geom := pgis.ST_GeomFromText(_the_geom, 3943);
+        INSERT INTO poi_address(poi_id, address, is_entrance, the_geom) VALUES (_poi_id, _address, FALSE, _real_geom);
+    END;
+    $$;
+COMMENT ON FUNCTION insert_or_update_bike(
+    _name character varying,
+    _city_id integer,
+    _type_id integer,
+    _priority integer,
+    _on_schema boolean,
+    _datasource integer,
+    _code character varying,
+    _address character varying,
+    _the_geom character varying
+) IS 'Insertion / mise à jour des POI de type vélo.';
+
+CREATE OR REPLACE FUNCTION insert_or_update_poi(
+    _name character varying,
+    _city_id integer,
+    _type character varying,
+    _priority integer,
+    _on_schema boolean,
+    _datasource integer,
+    _code character varying,
+    _addresses address[],
+    _stop_codes varchar[]
+) RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -916,20 +965,20 @@ CREATE OR REPLACE FUNCTION insertpoi(_name character varying, _city_id integer, 
         _stop_id integer;
         _stop_code character varying;
     BEGIN
-        IF _is_velo THEN
-		-- When boolean _is_velo is True, the _type parameter (for poi_type)
-        -- which usually references a poi_type.name is in fact directly the
-        -- poi_type.id. Bicycles poi are persisted from a different
-        -- loop in the import script and their poi_type is always the same.
-            _type_id := _type::integer;
-        ELSE
-            SELECT id INTO _type_id FROM poi_type WHERE name = _type;
-            IF _type_id IS NULL THEN
-                INSERT INTO poi_type(name) VALUES(_type) RETURNING id INTO _type_id;
-            END IF;
+        SELECT id INTO _type_id FROM poi_type WHERE name = _type;
+        IF _type_id IS NULL THEN
+            INSERT INTO poi_type(name) VALUES(_type) RETURNING id INTO _type_id;
         END IF;
-        INSERT INTO poi(name, city_id, poi_type_id, priority, on_schema) VALUES (_name, _city_id, _type_id, _priority, _on_schema) RETURNING id INTO _poi_id;
-        INSERT INTO poi_datasource(poi_id, code, datasource_id) VALUES (_poi_id, '', _datasource);
+
+        SELECT poi_id FROM poi_datasource WHERE code = _code INTO _poi_id;
+
+        IF _poi_id IS NOT NULL THEN
+            UPDATE poi SET name = _name, city_id = _city_id, poi_type_id = _type_id, priority = _priority, on_schema = _on_schema WHERE id = _poi_id;
+        ELSE
+            INSERT INTO poi(name, city_id, poi_type_id, priority, on_schema) VALUES (_name, _city_id, _type_id, _priority, _on_schema) RETURNING id INTO _poi_id;
+            INSERT INTO poi_datasource(poi_id, code, datasource_id) VALUES (_poi_id, _code, _datasource);
+        END IF;
+
         FOREACH _address IN ARRAY _addresses
         LOOP
             _real_geom := pgis.ST_GeomFromText(_address.the_geom, 3943);
@@ -946,8 +995,17 @@ CREATE OR REPLACE FUNCTION insertpoi(_name character varying, _city_id integer, 
         END IF;
     END;
     $$;
-COMMENT ON FUNCTION insertpoi(_name character varying, _city_id integer, _type character varying, _priority integer, _on_schema boolean, _datasource integer, _is_velo boolean, addresses address[], _stop_codes varchar[]) IS 'Insertion de nouvelles entrées poi, poi_datasource et si passées en paramètre, poi_adress. Les poi_adress sont passées dans le tableau addresses qui contient des types address (le type address est un type technique contenant les champs nécessaires à linsertion dune entrée poi_address). Ainsi toutes les entrées poi_address seront associées à la donnée poi nouvellement créée.';
-
+COMMENT ON FUNCTION insert_or_update_poi(
+    _name character varying,
+    _city_id integer,
+    _type character varying,
+    _priority integer,
+    _on_schema boolean,
+    _datasource integer,
+    _code character varying,
+    addresses address[],
+    _stop_codes varchar[]
+) IS 'Insertion de nouvelles entrées poi, poi_datasource et si passées en paramètre, poi_adress. Les poi_adress sont passées dans le tableau addresses qui contient des types address (le type address est un type technique contenant les champs nécessaires à linsertion dune entrée poi_address). Ainsi toutes les entrées poi_address seront associées à la donnée poi nouvellement créée.';
 
 CREATE OR REPLACE FUNCTION insertroute(_lvid integer, _way character varying, _name character varying, _direction character varying, _code character varying, _datasource integer) RETURNS void
     LANGUAGE plpgsql
