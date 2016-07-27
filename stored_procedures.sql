@@ -628,7 +628,13 @@ CREATE OR REPLACE FUNCTION computecalendarsstartend (_calendar_id integer, _star
 				-- It is working only because we always duplicate computed_start_date/ computed_end_date of a calendar in all calendar element witch include it !
 				-- First we need to remember the first date bounds
 				IF _cal_elt_number = 0 THEN -- Must be true for _cal.rank = 1
-					IF _cal_start_date IS NULL THEN
+                    IF _cal.rank = _rank THEN
+						_computed_date_pair.mask_length := LENGTH(_bit_mask);
+						_computed_date_pair.start_date := _start_date;
+						_computed_date_pair.end_date := _end_date;
+						_computed_date_pair.bit_mask := _bit_mask;
+                        _cal_elt_rank_found := TRUE;
+                    ELSIF _cal_start_date IS NULL THEN
 						_computed_date_pair.mask_length := 0;
 						_computed_date_pair.start_date := NULL;
 						_computed_date_pair.end_date := NULL;
