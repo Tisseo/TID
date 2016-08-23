@@ -133,7 +133,8 @@ CREATE TABLE ogive.event_step_text
 (
     id serial NOT NULL,
     event_step_id integer NOT NULL,
-    label_type character varying(40) NOT NULL,
+    label character varying(40) NOT NULL,
+    text_type character varying(40) NOT NULL,
     text character varying(255) NOT NULL,
     CONSTRAINT event_step_text_pkey PRIMARY KEY (id)
 );
@@ -273,7 +274,7 @@ CREATE TABLE ogive.scenario_step_text
 (
     scenario_step_id integer NOT NULL,
     text_id integer NOT NULL,
-    label character varying(40) NOT NULL,
+    text_type character varying(40) NOT NULL,
     rank integer NOT NULL,
     CONSTRAINT scenario_step_text_pkey PRIMARY KEY (scenario_step_id, text_id)
 );
