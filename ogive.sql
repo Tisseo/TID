@@ -36,7 +36,7 @@ CREATE TABLE ogive.connector_param
 (
     id serial NOT NULL,
     connector_param_list_id integer NOT NULL,
-    param_type character varying(40) NOT NULL,
+    param_type integer NOT NULL,
     param character varying(255) NOT NULL,
     CONSTRAINT connector_param_pkey PRIMARY KEY (id)
 );
@@ -134,7 +134,7 @@ CREATE TABLE ogive.event_step_text
     id serial NOT NULL,
     event_step_id integer NOT NULL,
     label character varying(40) NOT NULL,
-    text_type character varying(40) NOT NULL,
+    text_type integer NOT NULL,
     text character varying(255) NOT NULL,
     CONSTRAINT event_step_text_pkey PRIMARY KEY (id)
 );
@@ -274,7 +274,7 @@ CREATE TABLE ogive.scenario_step_text
 (
     scenario_step_id integer NOT NULL,
     text_id integer NOT NULL,
-    text_type character varying(40) NOT NULL,
+    text_type integer NOT NULL,
     rank integer NOT NULL,
     CONSTRAINT scenario_step_text_pkey PRIMARY KEY (scenario_step_id, text_id)
 );
