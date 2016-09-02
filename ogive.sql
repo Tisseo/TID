@@ -201,7 +201,7 @@ CREATE TABLE ogive.link_event_step_status
 
 COMMENT ON TABLE ogive.link_event_step_status IS 'Dans cette table on stocke de manière exhaustive tous les changements de status d''une étape d''événement.' ;
 
-CREATE TABLE ogive.mailbox
+CREATE TABLE ogive.message
 (
     id serial NOT NULL,
     title character varying(60) NOT NULL,
@@ -215,12 +215,12 @@ CREATE TABLE ogive.mailbox
     event_id integer NULL,
     start_datetime timestamp without time zone NULL,
     end_datetime timestamp without time zone NULL,
-    CONSTRAINT mailbox_pkey PRIMARY KEY (id)
+    CONSTRAINT message_pkey PRIMARY KEY (id)
 );
 
-COMMENT ON TABLE ogive.mailbox IS 'Informations mises à disposition pour des appels venus d''ailleurs.' ;
-COMMENT ON COLUMN ogive.mailbox.is_for_website is 'Est à true si l''enregistrement est à mettre à disposition des info réseau' ;
-COMMENT ON COLUMN ogive.mailbox.is_for_pti is 'Est à true si l''enregistrement est à mettre à disposition de l''IV personnalisée' ;
+COMMENT ON TABLE ogive.message IS 'Informations mises à disposition pour des appels venus d''ailleurs.' ;
+COMMENT ON COLUMN ogive.message.is_for_website is 'Est à true si l''enregistrement est à mettre à disposition des info réseau' ;
+COMMENT ON COLUMN ogive.message.is_for_pti is 'Est à true si l''enregistrement est à mettre à disposition de l''IV personnalisée' ;
 
 CREATE TABLE ogive.object
 (
