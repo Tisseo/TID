@@ -254,6 +254,8 @@ CREATE TABLE line_version (
     comment text,
     depot_id integer,
     status line_version_status,
+    num_audio integer,
+    text2speech character varying(255),
     schematic_id integer DEFAULT NULL
 );
 COMMENT ON TABLE line_version IS 'Offre d''une ligne.';
