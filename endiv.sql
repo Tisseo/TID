@@ -204,6 +204,16 @@ COMMENT ON TABLE line IS 'Ligne commerciale de TC.';
 COMMENT ON COLUMN line.number IS 'Numero de la ligne. Alphanumerique. Par exple : T1, A ou L16 sont des numeros.';
 COMMENT ON COLUMN line.priority IS 'Priorité de la ligne. Sert notamment a trier les lignes dans les listes de lignes.';
 
+CREATE TABLE line_status (
+    id serial PRIMARY KEY,
+    line_id integer NOT NULL,
+    date_time timestamp without time zone NOT NULL,
+    login character varying(255) NOT NULL,
+    status integer NOT NULL,
+    comment text
+);
+COMMENT ON TABLE line_status IS 'Table pour l''exploitation, servant à indiquer le statut de la ligne: nouvelles données, en cours de modif, ...';
+
 CREATE TABLE line_datasource (
     id serial PRIMARY KEY,
     line_id integer NOT NULL,
@@ -786,6 +796,7 @@ ALTER TABLE ONLY line_version ADD CONSTRAINT line_version_line_id_fk FOREIGN KEY
 ALTER TABLE ONLY line_version ADD CONSTRAINT line_version_schematic_id_fk FOREIGN KEY (schematic_id) REFERENCES schematic(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY line_datasource ADD CONSTRAINT line_datasource_datasource_id_fk FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY line_datasource ADD CONSTRAINT line_datasource_line_id_fk FOREIGN KEY (line_id) REFERENCES line(id) ON UPDATE RESTRICT ON DELETE CASCADE;
+ALTER TABLE ONLY line_status ADD CONSTRAINT line_status_line_id_fk FOREIGN KEY (line_id) REFERENCES line(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY line ADD CONSTRAINT line_physical_mode_fk FOREIGN KEY (physical_mode_id) REFERENCES physical_mode(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY grid_link_calendar_mask_type ADD CONSTRAINT grid_link_calendar_mask_type_grid_calendar_id_fk FOREIGN KEY (grid_calendar_id) REFERENCES grid_calendar(id) ON UPDATE RESTRICT ON DELETE CASCADE;
 ALTER TABLE ONLY grid_link_calendar_mask_type ADD CONSTRAINT grid_link_calendar_mask_type_grid_mask_type_id_fk FOREIGN KEY (grid_mask_type_id) REFERENCES grid_mask_type(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
