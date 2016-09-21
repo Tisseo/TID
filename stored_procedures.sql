@@ -538,7 +538,7 @@ CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date da
 					-- Substract something to a NULL object left him NULL
 					_computed_date_pair := previous_bounds;
 				ELSE
-					IF _start_date <= previous_bounds.start_date THEN
+					IF _start_date < previous_bounds.start_date THEN
 						_effective_start_bitmask_date := _end_date + interval '1' day;
 						_start_bitmask_date := _start_date;
 						_tmp_bitmask := (lpad('',previous_bounds.start_date - _start_bitmask_date,'0'))::bit varying;
@@ -551,7 +551,7 @@ CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date da
 						_new_bit_mask_trimed := _tmp_bitmask || _bit_mask;
 						_previous_bit_mask_trimed := previous_bounds.bit_mask;
 					END IF;
-					IF _end_date >= previous_bounds.end_date THEN
+					IF _end_date > previous_bounds.end_date THEN
 						_effective_end_bitmask_date := _start_date - interval '1' day;
 						_end_bitmask_date := _end_date;
 						_tmp_bitmask := (lpad('',_end_bitmask_date - previous_bounds.end_date,'0'))::bit varying;
