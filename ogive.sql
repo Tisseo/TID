@@ -135,7 +135,7 @@ CREATE TABLE ogive.event_step_text
     event_step_id integer NOT NULL,
     label character varying(40) NOT NULL,
     text_type integer NOT NULL,
-    text character varying(255) NOT NULL,
+    text text NOT NULL,
     CONSTRAINT event_step_text_pkey PRIMARY KEY (id)
 );
 
