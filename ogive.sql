@@ -397,3 +397,7 @@ INSERT INTO ogive.emergency_status (rank, chaos_severity, color, label, descript
 INSERT INTO ogive.emergency_status (rank, chaos_severity, color, label, description) VALUES (3, '77c27c52-9903-11e5-9b8e-005056bc74dd', '#FF7F00', 'Trafic perturbé','Entre 36% et 65% de service');
 INSERT INTO ogive.emergency_status (rank, chaos_severity, color, label, description) VALUES (4, '77c27c52-9903-11e5-9b8e-005056bc74dd', '#DB1702', 'Trafic fortement perturbé', 'Entre 6% et 35% de service');
 INSERT INTO ogive.emergency_status (rank, chaos_severity, color, label, description) VALUES (5, '77c27c52-9903-11e5-9b8e-005056bc74dd', '#000000', 'Trafic interrompu', 'Entre 0% et 5% de service');
+
+INSERT INTO ogive.channel (id, name, max_size) VALUES (1, 'info_web', null);
+INSERT INTO ogive.channel (id, name, max_size) VALUES (2, 'push_apps', null);
+INSERT INTO ogive.channel (id, name, max_size) VALUES (3, 'pre_home', null);
