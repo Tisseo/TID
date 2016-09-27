@@ -8,7 +8,7 @@ SET standard_conforming_strings = on;
 SET check_function_bodies = false;
 SET client_min_messages = warning;
 
---creation des types 
+--creation des types
 CREATE TYPE calendar_type AS ENUM ('jour', 'periode', 'mixte', 'accessibilite', 'brique');
 CREATE TYPE line_version_status AS ENUM ('new', 'wip', 'published', 'test');
 CREATE TYPE calendar_operator AS ENUM ('+', '-', '&');
@@ -103,7 +103,7 @@ CREATE TABLE city (
 COMMENT ON TABLE city IS 'Commune.';
 COMMENT ON COLUMN city.insee IS 'Code Insee de la commune.';
 COMMENT ON COLUMN city.main_stop_area_id IS 'Arret principal de la commune, sert de point de départ lors d''un itineraire depuis ou vers la commune.';
-CREATE INDEX city_geom_idx ON city USING GIST (the_geom); 
+CREATE INDEX city_geom_idx ON city USING GIST (the_geom);
 CREATE INDEX city_main_stop_area_id_idx ON city USING btree (main_stop_area_id);
 
 CREATE TABLE comment (
@@ -822,4 +822,3 @@ ALTER TABLE ONLY line_version_property ADD CONSTRAINT line_version_property_line
 ALTER TABLE ONLY line_version_property ADD CONSTRAINT line_version_property_property_id_fk FOREIGN KEY (property_id) REFERENCES property(id) ON UPDATE CASCADE ON DELETE CASCADE;
 ALTER TABLE ONLY stop_history_datasource ADD CONSTRAINT stop_history_datasource_datasource_id_fk FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY stop_history_datasource ADD CONSTRAINT stop_history_datasource_stop_history_id_fk FOREIGN KEY (stop_history_id) REFERENCES stop_history(id) ON UPDATE RESTRICT ON DELETE CASCADE;
-
