@@ -8,7 +8,7 @@ SET standard_conforming_strings = on;
 SET check_function_bodies = false;
 SET client_min_messages = warning;
 
---creation des types 
+--creation des types
 CREATE TYPE calendar_type AS ENUM ('jour', 'periode', 'mixte', 'accessibilite', 'brique');
 CREATE TYPE line_version_status AS ENUM ('new', 'wip', 'published', 'test');
 CREATE TYPE calendar_operator AS ENUM ('+', '-', '&');
@@ -103,7 +103,7 @@ CREATE TABLE city (
 COMMENT ON TABLE city IS 'Commune.';
 COMMENT ON COLUMN city.insee IS 'Code Insee de la commune.';
 COMMENT ON COLUMN city.main_stop_area_id IS 'Arret principal de la commune, sert de point de départ lors d''un itineraire depuis ou vers la commune.';
-CREATE INDEX city_geom_idx ON city USING GIST (the_geom); 
+CREATE INDEX city_geom_idx ON city USING GIST (the_geom);
 CREATE INDEX city_main_stop_area_id_idx ON city USING btree (main_stop_area_id);
 
 CREATE TABLE comment (
@@ -764,6 +764,7 @@ ALTER TABLE ONLY poi_address ADD CONSTRAINT poi_address_poi_id_fk FOREIGN KEY (p
 ALTER TABLE ONLY trip_datasource ADD CONSTRAINT trip_datasource_datasource_id_fk FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY trip_datasource ADD CONSTRAINT trip_datasource_trip_id_fk FOREIGN KEY (trip_id) REFERENCES trip(id) ON UPDATE RESTRICT ON DELETE CASCADE;
 ALTER TABLE ONLY trip_calendar ADD CONSTRAINT grid_calendar_grid_mask_type_id_fk FOREIGN KEY (grid_mask_type_id) REFERENCES grid_mask_type(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY trip_calendar ADD UNIQUE (grid_mask_type_id, monday, tuesday, wednesday, thursday, friday, saturday, sunday);
 ALTER TABLE ONLY trip ADD CONSTRAINT trip_comment_id_fk FOREIGN KEY (comment_id) REFERENCES comment(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY trip ADD CONSTRAINT trip_route_id_fk FOREIGN KEY (route_id) REFERENCES route(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY trip ADD CONSTRAINT trip_trip_calendar_id_fk FOREIGN KEY (trip_calendar_id) REFERENCES trip_calendar(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
@@ -801,6 +802,7 @@ ALTER TABLE ONLY line ADD CONSTRAINT line_physical_mode_fk FOREIGN KEY (physical
 ALTER TABLE ONLY grid_link_calendar_mask_type ADD CONSTRAINT grid_link_calendar_mask_type_grid_calendar_id_fk FOREIGN KEY (grid_calendar_id) REFERENCES grid_calendar(id) ON UPDATE RESTRICT ON DELETE CASCADE;
 ALTER TABLE ONLY grid_link_calendar_mask_type ADD CONSTRAINT grid_link_calendar_mask_type_grid_mask_type_id_fk FOREIGN KEY (grid_mask_type_id) REFERENCES grid_mask_type(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY grid_calendar ADD CONSTRAINT grid_calendar_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+ALTER TABLE ONLY grid_mask_type ADD UNIQUE (calendar_type, calendar_period);
 ALTER TABLE ONLY datasource ADD CONSTRAINT datasource_id_agency_fk FOREIGN KEY (agency_id) REFERENCES agency(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY city ADD CONSTRAINT city_main_stop_area_id_fk FOREIGN KEY (main_stop_area_id) REFERENCES stop_area(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY modification ADD CONSTRAINT modification_resolved_in_fk FOREIGN KEY (resolved_in) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
@@ -820,4 +822,3 @@ ALTER TABLE ONLY line_version_property ADD CONSTRAINT line_version_property_line
 ALTER TABLE ONLY line_version_property ADD CONSTRAINT line_version_property_property_id_fk FOREIGN KEY (property_id) REFERENCES property(id) ON UPDATE CASCADE ON DELETE CASCADE;
 ALTER TABLE ONLY stop_history_datasource ADD CONSTRAINT stop_history_datasource_datasource_id_fk FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY stop_history_datasource ADD CONSTRAINT stop_history_datasource_stop_history_id_fk FOREIGN KEY (stop_history_id) REFERENCES stop_history(id) ON UPDATE RESTRICT ON DELETE CASCADE;
-
