@@ -23,7 +23,7 @@ TID covers:
 
 ## Installation (linux)
 
-1. Set up [TID]:
+1. Set up TID:
 
 ```
 git clone https://github.com/Tisseo/TID
@@ -53,10 +53,13 @@ psql -d endiv -f TID/grants.sql -v owner=endiv_owner -v reader=endiv_reader
 ```
 
 ## Ogive installation
+
+```Shell
 su postgres
 psql -d endiv -f ogive_schema_creation.sql -v owner=endiv_owner -v reader=endiv_reader
 psql -d endiv -f ogive.sql -U endiv_owner
 psql -d endiv -f ogive_grants.sql -v owner=endiv_owner -v reader=endiv_reader
+```
 
 ## TODO
 
