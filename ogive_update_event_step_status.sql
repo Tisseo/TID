@@ -16,3 +16,5 @@ FOREIGN KEY (event_step_id) REFERENCES event_step (id);
 DROP INDEX ogive.link_event_step_status_pkey RESTRICT;
 CREATE UNIQUE INDEX event_step_status_pkey
   ON ogive.event_step_status (id);
+--Update Sequence
+ALTER SEQUENCE link_event_step_status_id_seq RENAME TO event_step_status_id_seq;
