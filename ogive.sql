@@ -185,7 +185,7 @@ CREATE TABLE ogive.line_stop
 
 COMMENT ON TABLE ogive.line_stop IS 'On utilise cette table pour créer des trios (arrêt, ligne, direction), utilisés comme des objets uniques. ' ;
 
-CREATE TABLE ogive.link_event_step_status
+CREATE TABLE ogive.event_step_status
 (
     id serial NOT NULL,
     event_step_id integer NOT NULL,
@@ -193,13 +193,13 @@ CREATE TABLE ogive.link_event_step_status
     date_time timestamp without time zone NOT NULL,
     user_comment character varying(255) NOT NULL,
     login character varying(40) NOT NULL,
-    CONSTRAINT link_event_step_status_pkey PRIMARY KEY (id),
-    CONSTRAINT link_event_step_status_event_step_id_fk FOREIGN KEY (event_step_id)
+    CONSTRAINT event_step_status_pkey PRIMARY KEY (id),
+    CONSTRAINT event_step_status_event_step_id_fk FOREIGN KEY (event_step_id)
           REFERENCES ogive.event_step (id) MATCH SIMPLE
               ON UPDATE RESTRICT ON DELETE RESTRICT
 );
 
-COMMENT ON TABLE ogive.link_event_step_status IS 'Dans cette table on stocke de manière exhaustive tous les changements de status d''une étape d''événement.' ;
+COMMENT ON TABLE ogive.event_step_status IS 'Dans cette table on stocke de manière exhaustive tous les changements de status d''une étape d''événement.' ;
 
 CREATE TABLE ogive.message
 (
@@ -334,7 +334,7 @@ ALTER TABLE ONLY ogive.event_step ADD CONSTRAINT event_step_connector_param_list
 ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY ogive.event_step ADD CONSTRAINT event_step_event_id_fk FOREIGN KEY (event_id) REFERENCES ogive.event(id)
 ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY ogive.link_event_step_status ADD CONSTRAINT link_event_step_status_event_step_id_fk FOREIGN KEY (event_step_id) REFERENCES ogive.event_step(id)
+ALTER TABLE ONLY ogive.event_step_status ADD CONSTRAINT event_step_status_event_step_id_fk FOREIGN KEY (event_step_id) REFERENCES ogive.event_step(id)
 ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY ogive.event_step_text ADD CONSTRAINT event_step_text_event_step_id_fk FOREIGN KEY (event_step_id) REFERENCES ogive.event_step(id)
 ON UPDATE RESTRICT ON DELETE RESTRICT;
