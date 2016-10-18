@@ -1364,7 +1364,7 @@ CREATE OR REPLACE FUNCTION purge_fh_data(_line_version_id integer) RETURNS VOID
     $$ LANGUAGE 'plpgsql';
 COMMENT ON FUNCTION purge_fh_data(integer) IS 'Efface toutes les données de type fiche horaire relatives à une line_version.';
 
-CREATE OR REPLACE FUNCTION insertortransformtophantom(_stop_id integer, _master_stop_id integer, datasource_id integer, code varchar) RETURNS integer
+CREATE OR REPLACE FUNCTION insertortransformtophantom(_stop_id integer, _master_stop_id integer, _datasource integer, _code varchar) RETURNS integer
     AS $$
     DECLARE
         _calendar_id integer;
@@ -1382,7 +1382,7 @@ CREATE OR REPLACE FUNCTION insertortransformtophantom(_stop_id integer, _master_
                 INSERT INTO stop_datasource(stop_id, datasource_id, code) VALUES (_stop_id, _datasource, _code);
             -- Update it otherwise and clean accessibility and history
             ELSE
-                UPDATE stop set master_stop_id = _master_stop_id, stop_area_id = NULL WHERE id = _stop_id;
+                UPDATE stop SET master_stop_id = _master_stop_id, stop_area_id = NULL WHERE id = _stop_id;
 
                 -- remove transfers
                 DELETE FROM transfer_accessibility WHERE id IN (SELECT id FROM transfer WHERE start_stop_id = _stop_id OR end_stop_id = _stop_id);
@@ -1393,17 +1393,17 @@ CREATE OR REPLACE FUNCTION insertortransformtophantom(_stop_id integer, _master_
                     SELECT id, accessibility_type_id FROM stop_accessibility WHERE stop_id = _stop_id
                 LOOP
                     SELECT name INTO _accessibility_mode FROM accessibility_type at JOIN accessibility_mode am ON at.accessibility_mode_id = am.id WHERE at.id = _stop_accessibility.accessibility_type_id;
-                    IF name LIKE 'UFR' THEN
+                    IF _accessibility_mode LIKE 'UFR' THEN
                         SELECT calendar_id INTO _calendar_id FROM accessibility_type WHERE id = _stop_accessibility.accessibility_type_id;
-                        SELECT calendar_id INTO _hastus_calendar_id FROM calendar WHERE name = CONCAT('SP_', _datasource, ':', _code, '_1_HASTUS');
+                        SELECT id INTO _hastus_calendar_id FROM calendar WHERE name = CONCAT('SP_', _datasource, ':', _code, '_1_HASTUS');
                         DELETE FROM calendar_element WHERE calendar_id IN (_calendar_id, _hastus_calendar_id);
                         DELETE FROM calendar_datasource WHERE calendar_id IN (_calendar_id, _hastus_calendar_id);
-                        DELETE FROM calendar WHERE id IN (_hastus_calendar_id, _calendar_id);
                         DELETE FROM stop_accessibility WHERE id = _stop_accessibility.id;
                         DELETE FROM accessibility_type WHERE id = _stop_accessibility.accessibility_type_id;
+                        DELETE FROM calendar WHERE id IN (_hastus_calendar_id, _calendar_id);
                     ELSE
                         DELETE FROM stop_accessibility WHERE id = _stop_accessibility.id;
-                SELECT
+                        SELECT
                             COUNT(*) INTO _type_references
                         FROM (
                             SELECT id FROM poi_address_accessibility WHERE accessibility_type_id = _stop_accessibility.accessibility_type_id
