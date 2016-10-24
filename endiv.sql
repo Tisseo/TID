@@ -407,7 +407,8 @@ COMMENT ON TABLE poi_datasource IS 'Reference de l''objet dans le referentiel de
 
 CREATE TABLE poi_type (
     id serial PRIMARY KEY,
-    name character varying(50) NOT NULL
+    name character varying(50) NOT NULL,
+    long_name character varying(255)
 );
 
 CREATE TABLE poi_stop (
