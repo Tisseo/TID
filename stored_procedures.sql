@@ -1364,6 +1364,29 @@ CREATE OR REPLACE FUNCTION purge_fh_data(_line_version_id integer) RETURNS VOID
     $$ LANGUAGE 'plpgsql';
 COMMENT ON FUNCTION purge_fh_data(integer) IS 'Efface toutes les données de type fiche horaire relatives à une line_version.';
 
+CREATE OR REPLACE FUNCTION updatetononphantom(_stop_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer, _code character varying, _datasource integer, _srid integer default 27572) RETURNS void
+    AS $$
+    DECLARE
+        _stop_area_id integer;
+        _the_geom pgis.geometry(Point, 3943);
+        _temp_geom character varying;
+    BEGIN
+        SELECT stop_area_id INTO _stop_area_id FROM stop WHERE id = (SELECT master_stop_id FROM stop WHERE id = _stop_id);
+        _temp_geom := 'POINT(' || _x || ' ' || _y || ')';
+        _the_geom := pgis.ST_Transform(pgis.ST_GeomFromText(_temp_geom, _srid), 3943);
+
+        IF _stop_area_id IS NULL THEN
+            RAISE EXCEPTION 'stop area not found with this short_name % and city %', _name, _insee;
+        ELSE
+            INSERT INTO stop_history(stop_id, start_date, short_name, the_geom) VALUES (_stop_id, _date, _name, _the_geom);
+            PERFORM setstopaccessibility(_stop_id, _access, _accessibility_mode_id, _code, _datasource);
+            UPDATE stop SET master_stop_id = NULL, stop_area_id = _stop_area_id WHERE id = _stop_id;
+        END IF;
+    END;
+    $$ LANGUAGE 'plpgsql';
+COMMENT ON FUNCTION updatetononphantom(integer, date, character varying, character varying, character varying, boolean, integer, character varying, integer, integer) IS 'Transforme un arrêt fantôme en arrêt standard.';
+
+
 CREATE OR REPLACE FUNCTION insertortransformtophantom(_stop_id integer, _master_stop_id integer, _datasource integer, _code varchar) RETURNS integer
     AS $$
     DECLARE
