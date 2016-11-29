@@ -348,7 +348,8 @@ COMMENT ON TABLE odt_stop IS 'Lien entre un arret et une zone d''arret pour un i
 CREATE TABLE physical_mode (
     id serial PRIMARY KEY,
     name character varying(30) NOT NULL,
-    type character varying(30) NOT NULL
+    type character varying(30) NOT NULL,
+    co2_emission numeric DEFAULT 0.0
 );
 COMMENT ON TABLE physical_mode IS 'Mode de transport.';
 COMMENT ON COLUMN physical_mode.type IS 'A etablir dans la liste des modes autorises : Aérien, Maritime/Fluvial, Ferré, Métro, Tram, Funiculaire/Câble, Bus/Car/Trolley';
