@@ -562,16 +562,8 @@ CREATE OR REPLACE FUNCTION atomicdatecomputation (_start_date date, _end_date da
                         _tmp_bitmask := (lpad('',_end_bitmask_date - _end_date,'0'))::bit varying;
                         _new_bit_mask_trimed := _new_bit_mask_trimed || _tmp_bitmask;
                     END IF;
-                    -- If operation result is negative set it to NULL
-                    IF _effective_start_bitmask_date > _effective_end_bitmask_date THEN
-                        _computed_date_pair.start_date := NULL;
-                        _computed_date_pair.end_date := NULL;
-                        _computed_date_pair.bit_mask := NULL;
-                        _computed_date_pair.mask_length := 0;
-                    ELSE
-                        select applybitmask(_previous_bit_mask_trimed, _new_bit_mask_trimed, _start_bitmask_date, _end_bitmask_date, _operator) INTO _tmp_bitmask;
-                        select * FROM detectmaskbounds(_tmp_bitmask, _start_bitmask_date, ((_end_bitmask_date - _start_bitmask_date) + 1)::smallint) into _computed_date_pair;
-                    END IF;
+                    select applybitmask(_previous_bit_mask_trimed, _new_bit_mask_trimed, _start_bitmask_date, _end_bitmask_date, _operator) INTO _tmp_bitmask;
+                    select * FROM detectmaskbounds(_tmp_bitmask, _start_bitmask_date, ((_end_bitmask_date - _start_bitmask_date) + 1)::smallint) into _computed_date_pair;
                 END IF;
         END CASE;
         -- RAISE DEBUG 'Result (%,%)',_computed_date_pair.start_date,_computed_date_pair.end_date;
