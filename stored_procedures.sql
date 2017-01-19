@@ -1090,7 +1090,7 @@ CREATE OR REPLACE FUNCTION insert_or_update_route_section(
                 SELECT R.id
                 FROM route R
                 JOIN line_version LV ON LV.id = R.line_version_id
-                WHERE (LV.end_date IS NULL AND LV.planned_end_date >= _start_date)
+                WHERE LV.end_date IS NULL
                 OR LV.end_date >= _start_date
             );
         ELSE
@@ -1100,7 +1100,7 @@ CREATE OR REPLACE FUNCTION insert_or_update_route_section(
                 SELECT R.id
                 FROM route R
                 JOIN line_version LV ON LV.id = R.line_version_id
-                WHERE (LV.end_date IS NULL AND LV.planned_end_date >= _start_date)
+                WHERE LV.end_date IS NULL
                 OR LV.end_date >= _start_date
             );
         END IF;
