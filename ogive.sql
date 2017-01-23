@@ -109,7 +109,8 @@ CREATE TABLE ogive.event_object
     event_id integer NOT NULL,
     object_id integer NOT NULL,
     emergency_status integer NULL,
-    CONSTRAINT event_object_pkey PRIMARY KEY (id)
+    CONSTRAINT event_object_pkey PRIMARY KEY (id),
+    CONSTRAINT object_event_unique UNIQUE(event_id, object_id)
 );
 
 CREATE TABLE ogive.event_step
@@ -180,7 +181,8 @@ CREATE TABLE ogive.line_stop
     stop_id integer NOT NULL,
     line_id integer NOT NULL,
     direction_name character varying(80) NOT NULL,
-    CONSTRAINT line_stop_pkey PRIMARY KEY (id)
+    CONSTRAINT line_stop_pkey PRIMARY KEY (id),
+    CONSTRAINT line_stop_unique UNIQUE(line_id, stop_id, direction_name)
 );
 
 COMMENT ON TABLE ogive.line_stop IS 'On utilise cette table pour créer des trios (arrêt, ligne, direction), utilisés comme des objets uniques. ' ;
@@ -212,6 +214,7 @@ CREATE TABLE ogive.message
     object_id integer NULL,
     start_datetime timestamp without time zone NULL,
     end_datetime timestamp without time zone NULL,
+    modification_datetime timestamp without time zone NOT NULL,
     CONSTRAINT message_pkey PRIMARY KEY (id)
 );
 
@@ -238,7 +241,8 @@ CREATE TABLE ogive.object
     id serial NOT NULL,
     object_type text NOT NULL,
     object_ref character varying(255) NOT NULL,
-    CONSTRAINT object_pkey PRIMARY KEY (id)
+    CONSTRAINT object_pkey PRIMARY KEY (id),
+    CONSTRAINT object_type_ref_unique UNIQUE(object_type, object_ref)
 );
 
 COMMENT ON COLUMN ogive.object.object_ref IS 'Référence de l''objet dans le référentiel lié au type (si ligne, alors TID, si mécanisme, alors PIVERT...)' ;

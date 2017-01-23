@@ -239,7 +239,8 @@ CREATE TABLE line_group_gis (
     id serial PRIMARY KEY,
     name character varying(20),
     nb_bus integer not null default 0,
-    comment text
+    comment text,
+    deprecated boolean not null default false
 );
 COMMENT ON TABLE line_group_gis IS 'Groupe de ligne SIG. Permet de gerer des regroupements commerciaux de schemas de ligne.';
 
