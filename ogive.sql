@@ -209,7 +209,6 @@ CREATE TABLE ogive.message
     title character varying(60) NOT NULL,
     subtitle character varying(255) NOT NULL,
     content text NOT NULL,
-    url_pj text,
     event_id integer NULL,
     object_id integer NULL,
     start_datetime timestamp without time zone NULL,
@@ -219,6 +218,20 @@ CREATE TABLE ogive.message
 );
 
 COMMENT ON TABLE ogive.message IS 'Informations mises à disposition pour des appels venus d''ailleurs.' ;
+
+CREATE TABLE ogive.message_file
+(
+    id serial NOT NULL,
+    filename varchar(255) NOT NULL,
+    link varchar(255) NOT NULL,
+    message_id integer NOT NULL,
+    CONSTRAINT message_file_message_id_fk FOREIGN KEY (message_id)
+          REFERENCES ogive.message (id) MATCH SIMPLE
+              ON UPDATE RESTRICT ON DELETE RESTRICT,
+    CONSTRAINT message_file_pkey PRIMARY KEY (id)
+);
+
+COMMENT ON TABLE ogive.message_file IS 'Fichiers attachés aux messages publiés.';
 
 CREATE TABLE ogive.channel
 (
