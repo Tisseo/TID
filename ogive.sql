@@ -209,7 +209,8 @@ CREATE TABLE ogive.message
     subtitle character varying(255) NOT NULL,
     content text NOT NULL,
     event_id integer NULL,
-    object_id integer NULL,
+    is_prehome boolean NOT NULL,
+    is_push boolean NOT NULL,
     start_datetime timestamp without time zone NULL,
     end_datetime timestamp without time zone NULL,
     modification_datetime timestamp without time zone NOT NULL,
@@ -231,22 +232,6 @@ CREATE TABLE ogive.message_file
 );
 
 COMMENT ON TABLE ogive.message_file IS 'Fichiers attachés aux messages publiés.';
-
-CREATE TABLE ogive.channel
-(
-    id serial NOT NULL,
-    name character varying(255) NOT NULL,
-    max_size integer NULL,
-    CONSTRAINT channel_pkey PRIMARY KEY (id)
-);
-
-COMMENT ON TABLE ogive.channel IS 'Canal de diffusion des messages d''information';
-
-CREATE TABLE ogive.channel_message
-(
-    message_id integer NULL,
-    channel_id integer NULL
-);
 
 CREATE TABLE ogive.object
 (
@@ -322,12 +307,6 @@ COMMENT ON COLUMN ogive.text.text IS 'Texte non interprété, peut contenir des 
 
 -- Creation des cles etrangeres
 ALTER TABLE ONLY ogive.message ADD CONSTRAINT message_event_id_fk FOREIGN KEY (event_id) REFERENCES ogive.event(id)
-ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY ogive.message ADD CONSTRAINT message_object_id_fk FOREIGN KEY (object_id) REFERENCES ogive.object(id)
-ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY ogive.channel_message ADD CONSTRAINT channel_message_message_id_fk FOREIGN KEY (message_id) REFERENCES ogive.message(id)
-ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY ogive.channel_message ADD CONSTRAINT channel_message_channel_id_fk FOREIGN KEY (channel_id) REFERENCES ogive.channel(id)
 ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY ogive.scenario_step_text ADD CONSTRAINT scenario_step_text_scenario_step_id_fk FOREIGN KEY (scenario_step_id) REFERENCES ogive.scenario_step(id)
 ON UPDATE RESTRICT ON DELETE RESTRICT;
@@ -412,7 +391,3 @@ INSERT INTO ogive.emergency_status (rank, chaos_severity, color, label, descript
 INSERT INTO ogive.emergency_status (rank, chaos_severity, color, label, description) VALUES (3, '77c27c52-9903-11e5-9b8e-005056bc74dd', '#FF7F00', 'Trafic perturbé','Entre 36% et 65% de service');
 INSERT INTO ogive.emergency_status (rank, chaos_severity, color, label, description) VALUES (4, '77c27c52-9903-11e5-9b8e-005056bc74dd', '#DB1702', 'Trafic fortement perturbé', 'Entre 6% et 35% de service');
 INSERT INTO ogive.emergency_status (rank, chaos_severity, color, label, description) VALUES (5, '77c27c52-9903-11e5-9b8e-005056bc74dd', '#000000', 'Trafic interrompu', 'Entre 0% et 5% de service');
-
-INSERT INTO ogive.channel (id, name, max_size) VALUES (1, 'info_web', null);
-INSERT INTO ogive.channel (id, name, max_size) VALUES (2, 'push_apps', null);
-INSERT INTO ogive.channel (id, name, max_size) VALUES (3, 'pre_home', null);
