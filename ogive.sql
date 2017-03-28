@@ -87,6 +87,8 @@ CREATE TABLE ogive.event
     is_emergency boolean NOT NULL default false,
     login character varying(40) NOT NULL,
     event_parent_id integer NULL,
+    chaos_cause character varying(255) NOT NULL,
+    comment text,
     CONSTRAINT event_pkey PRIMARY KEY (id)
 );
 
