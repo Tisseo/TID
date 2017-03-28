@@ -336,7 +336,7 @@ ALTER TABLE ONLY ogive.event_step_text ADD CONSTRAINT event_step_text_event_step
 ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY ogive.connector_param ADD CONSTRAINT connector_param_connector_param_list_id_fk FOREIGN KEY (connector_param_list_id) REFERENCES ogive.connector_param_list(id)
 ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY ogive.period ADD CONSTRAINT period_event_id_fk FOREIGN KEY (event_id) REFERENCES ogive.event(id)
+ALTER TABLE ONLY ogive.period ADD CONSTRAINT event_period_id_fk FOREIGN KEY (event_id) REFERENCES ogive.event(id)
 ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY ogive.event_datasource ADD CONSTRAINT event_datasource_event_id_fk FOREIGN KEY (event_id) REFERENCES ogive.event(id)
 ON UPDATE RESTRICT ON DELETE RESTRICT;
