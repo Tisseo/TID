@@ -1119,10 +1119,13 @@ CREATE OR REPLACE FUNCTION insertroutestopandstoptime(_rcode character varying, 
         _trip_id integer;
         _stop_id integer;
         _related_stop_id integer;
+        _start_date date;
+        _end_date date;
     BEGIN
         SELECT W.id INTO _stop_id FROM waypoint W JOIN stop S ON S.id = W.id JOIN stop_datasource SD ON SD.stop_id = S.id WHERE SD.code = _scode;
         SELECT R.id INTO _route_id FROM route R JOIN route_datasource RD ON RD.route_id = R.id WHERE RD.code = _rcode AND R.line_version_id = _lvid;
         SELECT RS.id INTO _route_stop_id FROM route_stop RS WHERE RS.route_id = _route_id AND RS.waypoint_id = _stop_id AND RS.rank = _rank;
+        SELECT lv.start_date, coalesce(lv.end_date, lv.planned_end_date) INTO _start_date, _end_date FROM line_version lv WHERE lv.id = _lvid;
         IF _route_stop_id IS NULL THEN
             SELECT W.id INTO _related_stop_id FROM waypoint W JOIN stop S ON S.id = W.id JOIN stop_datasource SD ON SD.stop_id = S.id WHERE SD.code = _related_scode;
             -- _is_last and _is_first booleans :
@@ -1132,7 +1135,7 @@ CREATE OR REPLACE FUNCTION insertroutestopandstoptime(_rcode character varying, 
             IF _is_last THEN
                 INSERT INTO route_stop(route_id, waypoint_id, rank, scheduled_stop, pickup, drop_off, reservation_required) VALUES (_route_id, _stop_id, _rank, _scheduled, False, True, False) RETURNING id INTO _route_stop_id;
             ELSE
-                SELECT RE.id INTO _route_section_id FROM route_section RE WHERE start_stop_id = _stop_id AND end_stop_id = _related_stop_id;
+                SELECT RE.id INTO _route_section_id FROM route_section RE WHERE start_stop_id = _stop_id AND end_stop_id = _related_stop_id AND ((start_date >= _start_date AND end_date <= _end_date) OR (end_date IS NULL AND start_date <= _end_date)) ORDER BY RE.start_date DESC LIMIT 1;
                 IF _is_first IS TRUE THEN
                     INSERT INTO route_stop(route_id, waypoint_id, rank, scheduled_stop, route_section_id, pickup, drop_off, reservation_required) VALUES (_route_id, _stop_id, _rank, _scheduled, _route_section_id, True, False, False) RETURNING id INTO _route_stop_id;
                 ELSE
