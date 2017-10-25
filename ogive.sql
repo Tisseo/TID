@@ -176,18 +176,6 @@ CREATE TABLE ogive.line_board
 
 COMMENT ON TABLE ogive.line_board IS 'Le lien entre line et board est indépendant d''un système d''IV personnalisée. Il s''agit là de lier des endroits d''affichage physique à des lignes uniquement pour les affichages papier (rien à voir, en théorie, avec l''affichage numérique).' ;
 
-CREATE TABLE ogive.line_stop
-(
-    id serial NOT NULL,
-    stop_id integer NOT NULL,
-    line_id integer NOT NULL,
-    direction_name character varying(80) NOT NULL,
-    CONSTRAINT line_stop_pkey PRIMARY KEY (id),
-    CONSTRAINT line_stop_unique UNIQUE(line_id, stop_id, direction_name)
-);
-
-COMMENT ON TABLE ogive.line_stop IS 'On utilise cette table pour créer des trios (arrêt, ligne, direction), utilisés comme des objets uniques. ' ;
-
 CREATE TABLE ogive.event_step_status
 (
     id serial NOT NULL,
