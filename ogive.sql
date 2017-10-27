@@ -131,6 +131,27 @@ CREATE TABLE ogive.event_step
 COMMENT ON COLUMN ogive.event_step.rank IS 'Rang de l''étape. Les rangs sont simplement ordonnés ; ils ne se suivent pas forcément.' ;
 COMMENT ON COLUMN ogive.event_step.event_step_parent_id IS 'Référence éventuelle à une étape parente, si celle-ci en dépend.' ;
 
+CREATE table ogive.event_step_file
+(
+  id serial not NULL constraint event_step_file_pkey primary key,
+  filename VARCHAR(255) NOT NULL,
+  label varchar(255) NOT NULL
+);
+
+CREATE table ogive.event_step_event_step_file
+(
+  event_step_id integer not null
+    CONSTRAINT event_step_event_step_file_event_step_id_fk
+      references ogive.event_step
+      on update restrict on delete restrict,
+  event_step_file_id integer not NULL
+    CONSTRAINT event_step_event_step_file_event_step_file_id_fk
+      references ogive.event_step_file
+      on update restrict on delete restrict,
+    CONSTRAINT event_step_event_step_file_pkey
+      primary key (event_step_id, event_step_file_id)
+);
+
 CREATE TABLE ogive.event_step_text
 (
     id serial NOT NULL,
