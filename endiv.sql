@@ -198,7 +198,8 @@ CREATE TABLE line (
     number character varying(10) NOT NULL,
     physical_mode_id integer NOT NULL,
     priority integer NOT NULL,
-    picto_file character varying(80)
+    picto_file character varying(80),
+    ticketing_code character varying(255)
 );
 COMMENT ON TABLE line IS 'Ligne commerciale de TC.';
 COMMENT ON COLUMN line.number IS 'Numero de la ligne. Alphanumerique. Par exple : T1, A ou L16 sont des numeros.';
