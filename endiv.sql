@@ -187,7 +187,12 @@ CREATE INDEX grid_link_calendar_mask_type_grid_mask_type_id_idx ON grid_link_cal
 CREATE TABLE grid_mask_type (
     id serial PRIMARY KEY,
     calendar_type character varying(50),
-    calendar_period character varying(100)
+    calendar_period character varying(100),
+    calendar_code character varying(10),
+    included character varying(10),
+    scenario character varying(50),
+    start_date date,
+    end_date date
 );
 COMMENT ON TABLE grid_mask_type IS 'Type des calendriers envoyes par le referentiel d''exploitation pour les fiches horaires. Table remplie par l''import de donnees du referentiel d''exploitation.';
 COMMENT ON COLUMN grid_mask_type.calendar_type IS 'Type du calendrier. Semaine correspond à LaV si un type Samedi existe sur l''offre et à LaS sinon. Dimanche regroupe egalement les jours feries.';
@@ -806,7 +811,7 @@ ALTER TABLE ONLY line ADD CONSTRAINT line_physical_mode_fk FOREIGN KEY (physical
 ALTER TABLE ONLY grid_link_calendar_mask_type ADD CONSTRAINT grid_link_calendar_mask_type_grid_calendar_id_fk FOREIGN KEY (grid_calendar_id) REFERENCES grid_calendar(id) ON UPDATE RESTRICT ON DELETE CASCADE;
 ALTER TABLE ONLY grid_link_calendar_mask_type ADD CONSTRAINT grid_link_calendar_mask_type_grid_mask_type_id_fk FOREIGN KEY (grid_mask_type_id) REFERENCES grid_mask_type(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY grid_calendar ADD CONSTRAINT grid_calendar_line_version_id_fk FOREIGN KEY (line_version_id) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
-ALTER TABLE ONLY grid_mask_type ADD UNIQUE (calendar_type, calendar_period);
+ALTER TABLE ONLY grid_mask_type ADD UNIQUE (calendar_type, calendar_period, calendar_code, scenario, included);
 ALTER TABLE ONLY datasource ADD CONSTRAINT datasource_id_agency_fk FOREIGN KEY (agency_id) REFERENCES agency(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY city ADD CONSTRAINT city_main_stop_area_id_fk FOREIGN KEY (main_stop_area_id) REFERENCES stop_area(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY modification ADD CONSTRAINT modification_resolved_in_fk FOREIGN KEY (resolved_in) REFERENCES line_version(id) ON UPDATE RESTRICT ON DELETE RESTRICT;

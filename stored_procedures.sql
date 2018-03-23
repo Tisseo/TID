@@ -1374,18 +1374,36 @@ CREATE OR REPLACE FUNCTION stopisaccessible(_stop_id integer, _accessibility_mod
     $$ LANGUAGE 'plpgsql';
 COMMENT ON FUNCTION stopisaccessible(_stop_id integer, _accessibility_mode_id integer, _date date) IS 'Return true if _stop_id is accessible at the date';
 
-CREATE OR REPLACE FUNCTION purge_fh_data(_line_version_id integer) RETURNS VOID
+CREATE OR REPLACE FUNCTION purge_fh_data(_line_version_id integer default NULL) RETURNS VOID
     AS $$
     DECLARE
         _route_stop_id integer;
         _trip_id integer;
+        _is_pattern boolean;
     BEGIN
-        FOR _trip_id IN SELECT DISTINCT t.id FROM trip t JOIN route r ON r.id = t.route_id JOIN line_version lv ON lv.id = r.line_version_id WHERE lv.id = _line_version_id AND t.period_calendar_id IS NULL AND t.day_calendar_id IS NULL AND t.id NOT IN (SELECT DISTINCT(trip_parent_id) FROM trip WHERE trip_parent_id IS NOT NULL AND (period_calendar_id IS NOT NULL OR day_calendar_id IS NOT NULL)) ORDER BY t.id
-        LOOP
-            DELETE FROM stop_time WHERE trip_id = _trip_id;
-            DELETE FROM trip_datasource WHERE trip_id = _trip_id;
-            DELETE FROM trip WHERE id = _trip_id;
-        END LOOP;
+        IF _line_version_id IS NOT NULL THEN
+            FOR _trip_id, _is_pattern IN SELECT DISTINCT t.id, t.is_pattern FROM trip t JOIN route r ON r.id = t.route_id JOIN line_version lv ON lv.id = r.line_version_id WHERE lv.id = _line_version_id AND t.period_calendar_id IS NULL AND t.day_calendar_id IS NULL AND t.id NOT IN (SELECT DISTINCT(trip_parent_id) FROM trip WHERE trip_parent_id IS NOT NULL AND (period_calendar_id IS NOT NULL OR day_calendar_id IS NOT NULL)) ORDER BY t.is_pattern, t.id
+            LOOP
+                IF _is_pattern IS TRUE AND EXISTS (SELECT 1 FROM trip WHERE pattern_id = _trip_id) THEN
+                    CONTINUE;
+                END IF;
+
+                DELETE FROM stop_time WHERE trip_id = _trip_id;
+                DELETE FROM trip_datasource WHERE trip_id = _trip_id;
+                DELETE FROM trip WHERE id = _trip_id;
+            END LOOP;
+        ELSE
+            FOR _trip_id, _is_pattern IN SELECT DISTINCT t.id, t.is_pattern FROM trip t JOIN route r ON r.id = t.route_id JOIN line_version lv ON lv.id = r.line_version_id WHERE t.period_calendar_id IS NULL AND t.day_calendar_id IS NULL AND (lv.start_date < CURRENT_DATE AND ((lv.end_date is NULL AND lv.planned_end_date > CURRENT_DATE) OR lv.end_date > CURRENT_DATE)) AND t.id NOT IN (SELECT DISTINCT(trip_parent_id) FROM trip WHERE trip_parent_id IS NOT NULL AND (period_calendar_id IS NOT NULL OR day_calendar_id IS NOT NULL)) ORDER BY t.is_pattern, t.id
+            LOOP
+                IF _is_pattern IS TRUE AND EXISTS (SELECT 1 FROM trip WHERE pattern_id = _trip_id) THEN
+                    CONTINUE;
+                END IF;
+
+                DELETE FROM stop_time WHERE trip_id = _trip_id;
+                DELETE FROM trip_datasource WHERE trip_id = _trip_id;
+                DELETE FROM trip WHERE id = _trip_id;
+            END LOOP;
+        END IF;
         DELETE FROM comment WHERE id NOT IN (SELECT distinct(comment_id) FROM trip) AND id NOT IN (SELECT DISTINCT(comment_id) FROM route);
         DELETE FROM grid_link_calendar_mask_type WHERE grid_calendar_id IN (SELECT id FROM grid_calendar WHERE line_version_id = _line_version_id);
         DELETE FROM trip_calendar WHERE id NOT IN (SELECT DISTINCT(trip_calendar_id) FROM trip);
