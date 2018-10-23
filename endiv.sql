@@ -427,13 +427,22 @@ CREATE TABLE poi_stop (
 COMMENT ON TABLE poi_stop IS 'Relation entre un poi et un arrêt';
 CREATE INDEX poi_stop_idx ON poi_stop USING btree (poi_id, stop_id);
 
+CREATE TABLE printing_type
+(
+  id serial NOT NULL
+  constraint printing_type_pkey
+  primary key,
+  label VARCHAR(255) DEFAULT NULL::character varying
+);
+
 CREATE TABLE printing (
     id serial PRIMARY KEY,
     quantity integer,
     "date" date,
     line_version_id integer,
     "comment" text,
-    rfp_date date
+    rfp_date date,
+    printing_type_id integer
 );
 COMMENT ON TABLE printing IS 'Quatite de fiche horaire d''une offre imprimees. Aide a la gestion des document IV.';
 COMMENT ON COLUMN printing.comment IS 'Raison du tirage : initial, reassort ou correction.';
@@ -832,3 +841,4 @@ ALTER TABLE ONLY line_version_property ADD CONSTRAINT line_version_property_line
 ALTER TABLE ONLY line_version_property ADD CONSTRAINT line_version_property_property_id_fk FOREIGN KEY (property_id) REFERENCES property(id) ON UPDATE CASCADE ON DELETE CASCADE;
 ALTER TABLE ONLY stop_history_datasource ADD CONSTRAINT stop_history_datasource_datasource_id_fk FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE ONLY stop_history_datasource ADD CONSTRAINT stop_history_datasource_stop_history_id_fk FOREIGN KEY (stop_history_id) REFERENCES stop_history(id) ON UPDATE RESTRICT ON DELETE CASCADE;
+ALTER TABLE ONLY printing ADD CONSTRAINT printing_type_id_fk FOREIGN KEY (printing_type_id) REFERENCES printing_type (id);
