@@ -1228,8 +1228,8 @@ CREATE OR REPLACE FUNCTION mergetrips(_trips integer[], _trip_calendar_id intege
 COMMENT ON FUNCTION mergetrips (_trips integer[], _trip_calendar_id integer, _datasource_id integer) IS 'Merging duplicated trips by creating a new one attached to a specific _trip_calendar_id. The trip_calendar days pattern is the sum of all patterns of each trip which will be merged.';
 
 
-CREATE OR REPLACE FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer, _master_stop_id integer,  _datasource integer) RETURNS void
-    AS $$
+CREATE OR REPLACE FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer, _master_stop_id integer,  _datasource integer)
+    RETURNS integer AS $$
     DECLARE
         _stop_id integer;
         _temp_geom character varying;
@@ -1243,7 +1243,11 @@ CREATE OR REPLACE FUNCTION updatestop(_stop_history_id integer, _date date, _nam
             UPDATE stop_history SET end_date = _date - interval '1 day' WHERE id = _stop_history_id RETURNING stop_id INTO _stop_id;
             SELECT MIN(start_date) INTO _next_start_date FROM stop_history WHERE stop_id = _stop_id AND start_date > _date;
             INSERT INTO stop_history(stop_id, start_date, end_date, short_name, the_geom) VALUES (_stop_id, _date, _next_start_date - interval '1 day',_name, _the_geom);
+
+            RETURN _stop_id;
         END IF;
+
+        RETURN NULL;
     END;
     $$ LANGUAGE 'plpgsql';
 COMMENT ON FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer, _master_stop_id integer,  _datasource integer) IS 'La mise à jour dun stop est historisée. Cela implique la fermeture de la version courante dun stop_history en appliquant une date au champ end_date puis en la création de son successeur avec un champ end_date vide.';
