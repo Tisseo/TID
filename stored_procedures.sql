@@ -1043,12 +1043,16 @@ COMMENT ON FUNCTION insert_or_update_poi(
     _stop_codes varchar[]
 ) IS 'Insertion de nouvelles entrées poi, poi_datasource et si passées en paramètre, poi_adress. Les poi_adress sont passées dans le tableau addresses qui contient des types address (le type address est un type technique contenant les champs nécessaires à linsertion dune entrée poi_address). Ainsi toutes les entrées poi_address seront associées à la donnée poi nouvellement créée.';
 
-CREATE OR REPLACE FUNCTION insertroute(_lvid integer, _way character varying, _name character varying, _direction character varying, _code character varying, _datasource integer) RETURNS void
+CREATE OR REPLACE FUNCTION insertroute(_lvid integer, _way character varying, _name character varying, _direction character varying, _code character varying, _datasource integer)
+    RETURNS integer
     LANGUAGE plpgsql
     AS $$
+    DECLARE
+        _route_id integer;
     BEGIN
-        INSERT INTO route(line_version_id, way, name, direction) VALUES (_lvid, _way, _name, _direction);
+        INSERT INTO route(line_version_id, way, name, direction) VALUES (_lvid, _way, _name, _direction) RETURNING id INTO _route_id;
         INSERT INTO route_datasource(route_id, datasource_id, code) VALUES (currval('route_id_seq'), _datasource, _code);
+        RETURN _route_id;
     END;
     $$;
 COMMENT ON FUNCTION insertroute (integer, character varying, character varying, character varying, character varying, integer) IS 'Insert record in tables route and route_datasource.';
