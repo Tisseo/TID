@@ -1570,3 +1570,39 @@ CREATE OR REPLACE FUNCTION formatrowtolog(_table_name varchar, _id integer, _pk_
     END;
     $$ LANGUAGE 'plpgsql';
 COMMENT ON FUNCTION formatrowtolog(varchar, integer, varchar, integer) IS 'Format a row define by its id in a table defined by its name for logging purpose. Result string is columnName:{value} columnOtherName:{null}... Return the first result only, take that into account if the id you provide isn''t unique, you can provide an offset for the default ordering.';
+
+
+CREATE OR REPLACE FUNCTION pivert.delete_calendars(_stop_ids integer[]) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        _calendar_id integer[];
+        _id integer;
+    BEGIN
+        IF array_length(_stop_ids, 1) > 0 THEN
+            _calendar_id = ARRAY(
+                SELECT DISTINCT c.id
+                FROM calendar c
+                JOIN accessibility_type at ON at.calendar_id = c.id
+                JOIN stop_accessibility sa
+                    ON sa.accessibility_type_id = at.id
+                    AND sa.stop_id = ANY (_stop_ids)
+                WHERE c.name LIKE '%PIVERT%'
+            );
+        ELSE
+            _calendar_id = ARRAY(SELECT id FROM calendar WHERE name LIKE '%PIVERT%');
+        END IF;
+
+        DELETE FROM calendar_element WHERE calendar_id = ANY(_calendar_id);
+        DELETE FROM calendar_element WHERE included_calendar_id = ANY(_calendar_id);
+        DELETE FROM stop_accessibility WHERE accessibility_type_id = ANY(
+            SELECT DISTINCT id FROM accessibility_type WHERE calendar_id = ANY(_calendar_id)
+        );
+        DELETE FROM accessibility_type WHERE calendar_id = ANY(_calendar_id);
+        FOREACH _id IN ARRAY _calendar_id
+        LOOP
+            PERFORM updateordeletecalendar(_id, CURRENT_DATE, CURRENT_DATE);
+        END LOOP;
+    END;
+    $$;
+COMMENT ON FUNCTION pivert.delete_calendars(integer[]) IS 'Suppression de tous les calendriers d''accessibilité PIVERT.';
