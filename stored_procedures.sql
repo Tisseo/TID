@@ -1577,31 +1577,36 @@ CREATE OR REPLACE FUNCTION pivert.delete_calendars(_stop_ids integer[]) RETURNS 
     AS $$
     DECLARE
         _calendar_id integer[];
+        _parent_cal_elt_id integer;
+        _cal_elt_id integer;
         _id integer;
     BEGIN
+        -- retrieve PIVERT included calendar id(s)
         IF array_length(_stop_ids, 1) > 0 THEN
             _calendar_id = ARRAY(
-                SELECT DISTINCT c.id
+                SELECT DISTINCT ci.id
                 FROM calendar c
                 JOIN accessibility_type at ON at.calendar_id = c.id
-                JOIN stop_accessibility sa
-                    ON sa.accessibility_type_id = at.id
-                    AND sa.stop_id = ANY (_stop_ids)
-                WHERE c.name LIKE '%PIVERT%'
+                JOIN stop_accessibility sa ON sa.accessibility_type_id = at.id AND sa.stop_id = ANY(_stop_ids)
+                LEFT JOIN calendar ci ON ci.id IN (
+                    SELECT ce.included_calendar_id FROM calendar_element ce WHERE calendar_id = c.id
+                ) AND ci.name LIKE '%_PIVERT' AND ci.calendar_type = 'accessibilite'
             );
         ELSE
-            _calendar_id = ARRAY(SELECT id FROM calendar WHERE name LIKE '%PIVERT%');
+            _calendar_id = ARRAY(SELECT id FROM calendar WHERE name LIKE '%_PIVERT' and calendar_type = 'accessibilite');
         END IF;
 
-        DELETE FROM calendar_element WHERE calendar_id = ANY(_calendar_id);
-        DELETE FROM calendar_element WHERE included_calendar_id = ANY(_calendar_id);
-        DELETE FROM stop_accessibility WHERE accessibility_type_id = ANY(
-            SELECT DISTINCT id FROM accessibility_type WHERE calendar_id = ANY(_calendar_id)
-        );
-        DELETE FROM accessibility_type WHERE calendar_id = ANY(_calendar_id);
+        -- delete PIVERT calendar(s) and calendar_element(s)
         FOREACH _id IN ARRAY _calendar_id
         LOOP
-            PERFORM updateordeletecalendar(_id, CURRENT_DATE, CURRENT_DATE);
+            SELECT id FROM calendar_element WHERE included_calendar_id = _id INTO _parent_cal_elt_id;
+            PERFORM deletecalendarelement(_parent_cal_elt_id);
+            FOR _cal_elt_id IN
+                SELECT id FROM calendar_element WHERE calendar_id = _id ORDER BY rank DESC
+            LOOP
+                PERFORM deletecalendarelement(_cal_elt_id);
+            END LOOP;
+            DELETE FROM calendar WHERE id = _id;
         END LOOP;
     END;
     $$;
