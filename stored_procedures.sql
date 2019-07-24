@@ -1511,3 +1511,67 @@ CREATE OR REPLACE FUNCTION formatrowtolog(_table_name varchar, _id integer, _pk_
     END;
     $$ LANGUAGE 'plpgsql';
 COMMENT ON FUNCTION formatrowtolog(varchar, integer, varchar, integer) IS 'Format a row define by its id in a table defined by its name for logging purpose. Result string is columnName:{value} columnOtherName:{null}... Return the first result only, take that into account if the id you provide isn''t unique, you can provide an offset for the default ordering.';
+
+
+CREATE OR REPLACE FUNCTION pivert.delete_calendars(_stop_ids integer[]) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        _calendar_id integer[];
+        _parent_cal_elt_id integer;
+        _cal_elt_id integer;
+        _id integer;
+    BEGIN
+        -- retrieve PIVERT included calendar id(s)
+        IF array_length(_stop_ids, 1) > 0 THEN
+            _calendar_id = ARRAY(
+                SELECT DISTINCT ci.id
+                FROM calendar c
+                JOIN accessibility_type at ON at.calendar_id = c.id
+                JOIN stop_accessibility sa ON sa.accessibility_type_id = at.id AND sa.stop_id = ANY(_stop_ids)
+                LEFT JOIN calendar ci ON ci.id IN (
+                    SELECT ce.included_calendar_id FROM calendar_element ce WHERE calendar_id = c.id
+                ) AND ci.name LIKE '%_PIVERT' AND ci.calendar_type = 'accessibilite'
+            );
+        ELSE
+            _calendar_id = ARRAY(SELECT id FROM calendar WHERE name LIKE '%_PIVERT' and calendar_type = 'accessibilite');
+        END IF;
+
+        -- delete PIVERT calendar(s) and calendar_element(s)
+        FOREACH _id IN ARRAY _calendar_id
+        LOOP
+            SELECT id FROM calendar_element WHERE included_calendar_id = _id INTO _parent_cal_elt_id;
+            PERFORM deletecalendarelement(_parent_cal_elt_id);
+            FOR _cal_elt_id IN
+                SELECT id FROM calendar_element WHERE calendar_id = _id ORDER BY rank DESC
+            LOOP
+                PERFORM deletecalendarelement(_cal_elt_id);
+            END LOOP;
+            DELETE FROM calendar WHERE id = _id;
+        END LOOP;
+    END;
+    $$;
+COMMENT ON FUNCTION pivert.delete_calendars(integer[]) IS 'Suppression de tous les calendriers d''accessibilité PIVERT.';
+
+
+CREATE OR REPLACE FUNCTION reopen_stop(_code character varying, _date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer, _master_stop_id integer, _datasource integer) RETURNS void
+    AS $$
+    DECLARE
+        _stop_id integer;
+        _stop_history_id integer;
+        _stop_history_start_date date;
+        _temp_geom character varying;
+        _the_geom pgis.geometry(Point, 3943);
+        _next_start_date date;
+    BEGIN
+        _temp_geom := 'POINT(' || _x || ' ' || _y || ')';
+        _the_geom := pgis.ST_Transform(pgis.ST_GeomFromText(_temp_geom, 27572), 3943);
+
+        IF _master_stop_id IS NULL THEN
+            SELECT s.id, sh.id, min(sh.start_date) FROM stop_history sh JOIN stop s ON s.id = sh.stop_id JOIN stop_datasource sd ON sd.stop_id = sh.stop_id AND sd.datasource_id = _datasource WHERE sh.start_date > CURRENT_DATE AND sd.code = _code INTO INTO _stop_id, _stop_history_id, _stop_history_start_date;
+            UPDATE stop_history SET end_date = _date - interval '1 day' WHERE id = _stop_history_id RETURNING stop_id INTO _stop_id;
+            SELECT MIN(start_date) INTO _next_start_date FROM stop_history WHERE stop_id = _stop_id AND start_date > _date;
+            INSERT INTO stop_history(stop_id, start_date, end_date, short_name, the_geom) VALUES (_stop_id, _date, _next_start_date - interval '1 day',_name, _the_geom);
+        END IF;
+    END;
+    $$ LANGUAGE 'plpgsql';

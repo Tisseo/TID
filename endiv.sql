@@ -590,6 +590,7 @@ COMMENT ON COLUMN stop_time.arrival_time IS 'Temps en seconde apres minuit de la
 COMMENT ON COLUMN stop_time.departure_time IS 'Temps en seconde apres minuit de la date. Peut depasser 23h59.';
 CREATE INDEX stop_time_trip_id_idx ON stop_time USING btree (trip_id);
 CREATE INDEX stop_time_route_stop_id_idx ON stop_time USING btree (route_stop_id);
+CREATE INDEX stop_time_route_stop_trip_idx ON stop_time (route_stop_id, trip_id);
 
 CREATE TABLE transfer (
     id serial PRIMARY KEY,
