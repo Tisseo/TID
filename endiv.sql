@@ -556,7 +556,8 @@ CREATE TABLE stop_history (
     end_date date,
     short_name character varying(50) NOT NULL,
     long_name character varying(255),
-    the_geom geometry(Point,3943) NOT NULL
+    the_geom geometry(Point,3943) NOT NULL,
+    tts_name character varying(255) DEFAULT NULL
 );
 COMMENT ON TABLE stop_history IS 'Proprietes d''un arret. Un arret n''a qu''un historique dans le temps. Si une caracteristique change, l''historique precedent est cloture et un nouveau est cree.';
 COMMENT ON COLUMN stop_history.short_name IS 'Nom de l''arret dans le referentiel exploitation.';
