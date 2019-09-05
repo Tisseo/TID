@@ -442,10 +442,11 @@ CREATE TABLE printing (
     line_version_id integer,
     "comment" text,
     rfp_date date,
-    printing_type_id integer
+    printing_type_id integer,
+    format integer NOT NULL DEFAULT 1
 );
-COMMENT ON TABLE printing IS 'Quatite de fiche horaire d''une offre imprimees. Aide a la gestion des document IV.';
-COMMENT ON COLUMN printing.comment IS 'Raison du tirage : initial, reassort ou correction.';
+COMMENT ON TABLE printing IS 'Quantite de fiche horaire d''une offre imprimees. Aide a la gestion des document IV.';
+COMMENT ON COLUMN printing.printing_type_id IS 'Raison du tirage : initial, reassort ou correction.';
 
 CREATE TABLE printing_line_group_gis(
 	id serial PRIMARY KEY,
@@ -608,6 +609,7 @@ COMMENT ON COLUMN stop_time.arrival_time IS 'Temps en seconde apres minuit de la
 COMMENT ON COLUMN stop_time.departure_time IS 'Temps en seconde apres minuit de la date. Peut depasser 23h59.';
 CREATE INDEX stop_time_trip_id_idx ON stop_time USING btree (trip_id);
 CREATE INDEX stop_time_route_stop_id_idx ON stop_time USING btree (route_stop_id);
+CREATE INDEX stop_time_route_stop_trip_idx ON stop_time (route_stop_id, trip_id);
 
 CREATE TABLE transfer (
     id serial PRIMARY KEY,

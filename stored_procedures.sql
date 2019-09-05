@@ -1043,12 +1043,16 @@ COMMENT ON FUNCTION insert_or_update_poi(
     _stop_codes varchar[]
 ) IS 'Insertion de nouvelles entrées poi, poi_datasource et si passées en paramètre, poi_adress. Les poi_adress sont passées dans le tableau addresses qui contient des types address (le type address est un type technique contenant les champs nécessaires à linsertion dune entrée poi_address). Ainsi toutes les entrées poi_address seront associées à la donnée poi nouvellement créée.';
 
-CREATE OR REPLACE FUNCTION insertroute(_lvid integer, _way character varying, _name character varying, _direction character varying, _code character varying, _datasource integer) RETURNS void
+CREATE OR REPLACE FUNCTION insertroute(_lvid integer, _way character varying, _name character varying, _direction character varying, _code character varying, _datasource integer)
+    RETURNS integer
     LANGUAGE plpgsql
     AS $$
+    DECLARE
+        _route_id integer;
     BEGIN
-        INSERT INTO route(line_version_id, way, name, direction) VALUES (_lvid, _way, _name, _direction);
+        INSERT INTO route(line_version_id, way, name, direction) VALUES (_lvid, _way, _name, _direction) RETURNING id INTO _route_id;
         INSERT INTO route_datasource(route_id, datasource_id, code) VALUES (currval('route_id_seq'), _datasource, _code);
+        RETURN _route_id;
     END;
     $$;
 COMMENT ON FUNCTION insertroute (integer, character varying, character varying, character varying, character varying, integer) IS 'Insert record in tables route and route_datasource.';
@@ -1228,8 +1232,8 @@ CREATE OR REPLACE FUNCTION mergetrips(_trips integer[], _trip_calendar_id intege
 COMMENT ON FUNCTION mergetrips (_trips integer[], _trip_calendar_id integer, _datasource_id integer) IS 'Merging duplicated trips by creating a new one attached to a specific _trip_calendar_id. The trip_calendar days pattern is the sum of all patterns of each trip which will be merged.';
 
 
-CREATE OR REPLACE FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer, _master_stop_id integer,  _datasource integer) RETURNS void
-    AS $$
+CREATE OR REPLACE FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer, _master_stop_id integer,  _datasource integer)
+    RETURNS integer AS $$
     DECLARE
         _stop_id integer;
         _temp_geom character varying;
@@ -1243,7 +1247,11 @@ CREATE OR REPLACE FUNCTION updatestop(_stop_history_id integer, _date date, _nam
             UPDATE stop_history SET end_date = _date - interval '1 day' WHERE id = _stop_history_id RETURNING stop_id INTO _stop_id;
             SELECT MIN(start_date) INTO _next_start_date FROM stop_history WHERE stop_id = _stop_id AND start_date > _date;
             INSERT INTO stop_history(stop_id, start_date, end_date, short_name, the_geom) VALUES (_stop_id, _date, _next_start_date - interval '1 day',_name, _the_geom);
+
+            RETURN _stop_id;
         END IF;
+
+        RETURN NULL;
     END;
     $$ LANGUAGE 'plpgsql';
 COMMENT ON FUNCTION updatestop(_stop_history_id integer, _date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer, _master_stop_id integer,  _datasource integer) IS 'La mise à jour dun stop est historisée. Cela implique la fermeture de la version courante dun stop_history en appliquant une date au champ end_date puis en la création de son successeur avec un champ end_date vide.';
@@ -1562,3 +1570,67 @@ CREATE OR REPLACE FUNCTION formatrowtolog(_table_name varchar, _id integer, _pk_
     END;
     $$ LANGUAGE 'plpgsql';
 COMMENT ON FUNCTION formatrowtolog(varchar, integer, varchar, integer) IS 'Format a row define by its id in a table defined by its name for logging purpose. Result string is columnName:{value} columnOtherName:{null}... Return the first result only, take that into account if the id you provide isn''t unique, you can provide an offset for the default ordering.';
+
+
+CREATE OR REPLACE FUNCTION pivert.delete_calendars(_stop_ids integer[]) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        _calendar_id integer[];
+        _parent_cal_elt_id integer;
+        _cal_elt_id integer;
+        _id integer;
+    BEGIN
+        -- retrieve PIVERT included calendar id(s)
+        IF array_length(_stop_ids, 1) > 0 THEN
+            _calendar_id = ARRAY(
+                SELECT DISTINCT ci.id
+                FROM calendar c
+                JOIN accessibility_type at ON at.calendar_id = c.id
+                JOIN stop_accessibility sa ON sa.accessibility_type_id = at.id AND sa.stop_id = ANY(_stop_ids)
+                LEFT JOIN calendar ci ON ci.id IN (
+                    SELECT ce.included_calendar_id FROM calendar_element ce WHERE calendar_id = c.id
+                ) AND ci.name LIKE '%_PIVERT' AND ci.calendar_type = 'accessibilite'
+            );
+        ELSE
+            _calendar_id = ARRAY(SELECT id FROM calendar WHERE name LIKE '%_PIVERT' and calendar_type = 'accessibilite');
+        END IF;
+
+        -- delete PIVERT calendar(s) and calendar_element(s)
+        FOREACH _id IN ARRAY _calendar_id
+        LOOP
+            SELECT id FROM calendar_element WHERE included_calendar_id = _id INTO _parent_cal_elt_id;
+            PERFORM deletecalendarelement(_parent_cal_elt_id);
+            FOR _cal_elt_id IN
+                SELECT id FROM calendar_element WHERE calendar_id = _id ORDER BY rank DESC
+            LOOP
+                PERFORM deletecalendarelement(_cal_elt_id);
+            END LOOP;
+            DELETE FROM calendar WHERE id = _id;
+        END LOOP;
+    END;
+    $$;
+COMMENT ON FUNCTION pivert.delete_calendars(integer[]) IS 'Suppression de tous les calendriers d''accessibilité PIVERT.';
+
+
+CREATE OR REPLACE FUNCTION reopen_stop(_code character varying, _date date, _name character varying, _x character varying, _y character varying, _access boolean, _accessibility_mode_id integer, _master_stop_id integer, _datasource integer) RETURNS void
+    AS $$
+    DECLARE
+        _stop_id integer;
+        _stop_history_id integer;
+        _stop_history_start_date date;
+        _temp_geom character varying;
+        _the_geom pgis.geometry(Point, 3943);
+        _next_start_date date;
+    BEGIN
+        _temp_geom := 'POINT(' || _x || ' ' || _y || ')';
+        _the_geom := pgis.ST_Transform(pgis.ST_GeomFromText(_temp_geom, 27572), 3943);
+
+        IF _master_stop_id IS NULL THEN
+            SELECT s.id, sh.id, min(sh.start_date) FROM stop_history sh JOIN stop s ON s.id = sh.stop_id JOIN stop_datasource sd ON sd.stop_id = sh.stop_id AND sd.datasource_id = _datasource WHERE sh.start_date > CURRENT_DATE AND sd.code = _code INTO INTO _stop_id, _stop_history_id, _stop_history_start_date;
+            UPDATE stop_history SET end_date = _date - interval '1 day' WHERE id = _stop_history_id RETURNING stop_id INTO _stop_id;
+            SELECT MIN(start_date) INTO _next_start_date FROM stop_history WHERE stop_id = _stop_id AND start_date > _date;
+            INSERT INTO stop_history(stop_id, start_date, end_date, short_name, the_geom) VALUES (_stop_id, _date, _next_start_date - interval '1 day',_name, _the_geom);
+        END IF;
+    END;
+    $$ LANGUAGE 'plpgsql';
