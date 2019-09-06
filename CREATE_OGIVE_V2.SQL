@@ -319,17 +319,7 @@ ALTER TABLE ogive.event_step_file RENAME TO mail_file;
 ALTER TABLE ogive.mail_file ADD COLUMN event_step_mail_id INTEGER REFERENCES ogive.event_step_mail(id);
 ALTER TABLE ogive.mail_file RENAME COLUMN event_step_id TO event_step_id_old;
 
-CREATE TABLE ogive.mail_file_copy AS (select * from ogive.mail_file);
-COMMENT ON TABLE ogive.mail_file_copy IS 'Copy of mail_file before the change of the relation between mail_file and event_step to mail_file and event_step_mail, if all is ok, this table will can be removed';
-
-UPDATE ogive.mail_file
-    SET event_step_mail_id = (
-        SELECT esm.id
-        FROM ogive.event_step_mail as esm
-            JOIN ogive.event_step as es ON esm.event_step_id = es.id
-            JOIN ogive.mail_file as mf ON es.id = mf.event_step_id_old
-        WHERE es.id = ogive.mail_file.event_step_id_old
-    );
+UPDATE ogive.mail_file mf SET event_step_mail_id = (SELECT id FROM ogive.event_step_mail WHERE event_step_id = mf.event_step_id_old);
 
 ALTER TABLE ogive.mail_file DROP COLUMN event_step_id_old;
 
