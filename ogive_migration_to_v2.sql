@@ -48,7 +48,8 @@ CREATE TABLE ogive.scenario_step_screen
 (
   id SERIAL PRIMARY KEY,
   scenario_step_id INTEGER REFERENCES ogive.scenario_step (id),
-  chaos_channel_id uuid
+  chaos_channel_id uuid,
+  active BOOLEAN
 );
 
 CREATE TABLE ogive.screen_template_section
