@@ -203,85 +203,76 @@ SELECT setval ('ogive.template_id_seq', (SELECT MAX(id) FROM ogive.template));
 
 INSERT INTO ogive.scenario_step_mail (scenario_step_id, recipient_list_id, object_template_id, content_template_id)
 (
-  SELECT
-    scenario_step.id,
-    scenario_step.connector_param_list_id,
-    o.text_id,
-    c.text_id
-  FROM
-    ogive.scenario_step JOIN
-    ogive.step_type ON step_type_id = step_type.id JOIN
-    ogive.scenario_step_text o ON (o.scenario_step_id = scenario_step.id AND o.text_type = 1) JOIN
-    ogive.scenario_step_text c ON (c.scenario_step_id = scenario_step.id AND c.text_type = 2)
-  WHERE
-    step_type.type = 1
+    SELECT
+        scenario_step.id,
+        scenario_step.connector_param_list_id,
+        o.text_id,
+        c.text_id
+    FROM ogive.scenario_step
+    JOIN ogive.step_type ON step_type_id = step_type.id
+    LEFT JOIN ogive.scenario_step_text o ON (o.scenario_step_id = scenario_step.id AND o.text_type = 1)
+    LEFT JOIN ogive.scenario_step_text c ON (c.scenario_step_id = scenario_step.id AND c.text_type = 2)
+    WHERE step_type.type = 1
 );
 
 INSERT INTO ogive.scenario_step_info (scenario_step_id, push, prehome, subtitle_template_id, content_template_id)
 (
-  SELECT
-    scenario_step.id,
-    false,
-    false,
-    s.text_id,
-    c.text_id
-  FROM
-    ogive.scenario_step JOIN
-    ogive.step_type ON step_type_id = step_type.id JOIN
-    ogive.scenario_step_text s ON (s.scenario_step_id = scenario_step.id AND s.text_type = 1) JOIN
-    ogive.scenario_step_text c ON (c.scenario_step_id = scenario_step.id AND c.text_type = 2)
-  WHERE
-    step_type.type = 2
+    SELECT
+        scenario_step.id,
+        false,
+        false,
+        s.text_id,
+        c.text_id
+    FROM ogive.scenario_step
+    JOIN ogive.step_type ON step_type_id = step_type.id
+    LEFT JOIN ogive.scenario_step_text s ON (s.scenario_step_id = scenario_step.id AND s.text_type = 1)
+    LEFT JOIN ogive.scenario_step_text c ON (c.scenario_step_id = scenario_step.id AND c.text_type = 2)
+    WHERE step_type.type = 2
 );
 
 -- event_text
 INSERT INTO ogive.event_step_mail (event_step_id, recipient_list_id, object, content)
 (
-  SELECT
-    event_step.id,
-    connector_param_list_id,
-    o.text,
-    c.text
-  FROM
-    ogive.event_step JOIN
-    ogive.step_type ON step_type_id = step_type.id JOIN
-    ogive.event_step_text o ON (event_step.id = o.event_step_id AND o.text_type = 1) JOIN
-    ogive.event_step_text c ON (event_step.id = c.event_step_id AND c.text_type = 2)
-  WHERE
-    step_type.type = 1
+    SELECT
+        event_step.id,
+        connector_param_list_id,
+        o.text,
+        c.text
+    FROM ogive.event_step
+    JOIN ogive.step_type ON step_type_id = step_type.id
+    LEFT JOIN ogive.event_step_text o ON (event_step.id = o.event_step_id AND o.text_type = 1)
+    LEFT JOIN ogive.event_step_text c ON (event_step.id = c.event_step_id AND c.text_type = 2)
+    WHERE step_type.type = 1
 );
 
 INSERT INTO ogive.event_step_info (event_step_id, subtitle, content, title, modification_date, priority)
 (
-  SELECT
-    event_step.id,
-    s.text,
-    c.text,
-    message.title,
-    message.modification_datetime,
-    message.priority
-  FROM
-    ogive.event_step JOIN
-    ogive.step_type ON step_type_id = step_type.id JOIN
-    ogive.event_step_text s ON (event_step.id = s.event_step_id AND s.text_type = 1) JOIN
-    ogive.event_step_text c ON (event_step.id = c.event_step_id AND c.text_type = 2) JOIN
-    ogive.event ON event_step.event_id = event.id LEFT JOIN
-    ogive.message ON message.id = event.message_id
-  WHERE
-    step_type.type = 2
+    SELECT
+        event_step.id,
+        s.text,
+        c.text,
+        message.title,
+        message.modification_datetime,
+        message.priority
+    FROM ogive.event_step
+    JOIN ogive.step_type ON step_type_id = step_type.id
+    LEFT JOIN ogive.event_step_text s ON (event_step.id = s.event_step_id AND s.text_type = 1)
+    LEFT JOIN ogive.event_step_text c ON (event_step.id = c.event_step_id AND c.text_type = 2)
+    JOIN ogive.event ON event_step.event_id = event.id
+    LEFT JOIN ogive.message ON message.id = event.message_id
+    WHERE step_type.type = 2
 );
 
 INSERT INTO ogive.info_file (filename, link, event_step_info_id)
 (
-  SELECT
-    filename,
-    link,
-    event_step_info.id
-  FROM
-    ogive.event_step_info JOIN
-    ogive.event_step ON event_step_info.event_step_id = event_step.id JOIN
-    ogive.event ON event_step.event_id = event.id JOIN
-    ogive.message_file ON message_file.message_id = event.message_id
+    SELECT
+        filename,
+        link,
+        event_step_info.id
+    FROM ogive.event_step_info
+    JOIN ogive.event_step ON event_step_info.event_step_id = event_step.id
+    JOIN ogive.event ON event_step.event_id = event.id
+    JOIN ogive.message_file ON message_file.message_id = event.message_id
 );
 
 UPDATE ogive.event SET start_publication_date = (SELECT start_datetime FROM ogive.message WHERE id = message_id);
