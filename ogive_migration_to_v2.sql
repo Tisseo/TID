@@ -1,5 +1,13 @@
 BEGIN;
 
+CREATE TABLE ogive.channel
+(
+    id serial NOT NULL,
+    chaos_channel_id uuid,
+    name text,
+    CONSTRAINT channel_pkey PRIMARY KEY (id)
+);
+
 CREATE TABLE ogive.emergency
 (
     id serial NOT NULL,
@@ -156,14 +164,8 @@ CREATE TABLE ogive.draft
   name character varying (255),
   chaos_severity_id uuid,
   chaos_internal_cause_id uuid,
+  line_id INTEGER REFERENCES line (id),
   priority INTEGER
-);
-
-CREATE TABLE ogive.draft_object
-(
-  id SERIAL PRIMARY KEY,
-  draft_id INTEGER REFERENCES ogive.draft (id),
-  object_id INTEGER REFERENCES ogive.object (id)
 );
 
 ALTER TABLE ogive.event ADD COLUMN start_publication_date timestamp without time zone;
